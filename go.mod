@@ -1,3 +1,3 @@
 module github.com/fredsaggio/bondrota-api
 
-go 1.25.0
+go 1.25.7
