@@ -71,10 +71,7 @@ func Run(ctx context.Context, getEnv func(string) string) error {
 	srv := server.New(pool)
 	srv.RegisterRoutes(r)
 
-	httpSrv := &http.Server{
-		Addr:    ":" + port,
-		Handler: r,
-	}
+	httpSrv := &http.Server{Addr: ":" + port, Handler: r}
 
 	g, ctx := errgroup.WithContext(ctx)
 
