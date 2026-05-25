@@ -5,8 +5,8 @@ type AdminHandler struct {
 }
 
 type CreateAdminRequest struct {
-	Email string `json:"email"`
-	Senha string `json:"senha"`
+	Email  string `json:"email"`
+	Senha  string `json:"senha"`
 	Cidade string `json:"cidade"`
 }
 
@@ -15,8 +15,8 @@ type CreateAdminResponse struct {
 }
 
 type AdminResponse struct {
-	ID int `json:"id"`
-	Email string `json:"email"`
+	ID     int    `json:"id"`
+	Email  string `json:"email"`
 	Cidade string `json:"cidade"`
 }
 

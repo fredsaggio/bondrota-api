@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -14,32 +15,37 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/server"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	"github.com/joho/godotenv"
 	"golang.org/x/sync/errgroup"
 )
 
 func main() {
-	fmt.Println("Hello, World!")
+	_ = godotenv.Load()
+	if err := Run(context.Background(), os.Getenv); err != nil {
+		slog.Error("server error", "error", err)
+		os.Exit(1)
+	}
 }
 
-func run(ctx context.Context) error {
-	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
-
+func Run(ctx context.Context, getEnv func(string) string) error {
 	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGTERM, syscall.SIGINT)
 	defer cancel()
 
-	if err := godotenv.Load(); err != nil {
-		slog.Warn("no .env file found")
-	}
-
-	dbURL := os.Getenv("DATABASE_URL")
+	dbURL := getEnv("DATABASE_URL")
 	if dbURL == "" {
 		return fmt.Errorf("DATABASE_URL is required")
 	}
 
-	port := os.Getenv("PORT")
+	port := getEnv("PORT")
 	if port == "" {
 		port = "8080"
+	}
+
+	allowedOrigins := getEnv("ALLOWED_ORIGINS")
+
+	if allowedOrigins == "" {
+		allowedOrigins = "http://localhost:3000"
 	}
 
 	pool, err := db.Connect(ctx, dbURL)
@@ -53,6 +59,14 @@ func run(ctx context.Context) error {
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Logger)
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   strings.Split(allowedOrigins, ","),
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization"},
+		ExposedHeaders:   []string{"Content-Length"},
+		AllowCredentials: false,
+		MaxAge:           300,
+	}))
 
 	srv := server.New(pool)
 	srv.RegisterRoutes(r)
