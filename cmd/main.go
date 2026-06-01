@@ -11,6 +11,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/fredsaggio/bondrota-api/internal/admin"
+	"github.com/fredsaggio/bondrota-api/internal/auth"
+	"github.com/fredsaggio/bondrota-api/internal/crypto"
 	"github.com/fredsaggio/bondrota-api/internal/db"
 	"github.com/fredsaggio/bondrota-api/internal/server"
 	"github.com/go-chi/chi/v5"
@@ -37,6 +40,15 @@ func Run(ctx context.Context, getEnv func(string) string) error {
 		return fmt.Errorf("DATABASE_URL is required")
 	}
 
+	jwtSecret := getEnv("JWT_SECRET")
+	if jwtSecret == "" {
+		return fmt.Errorf("JWT_SECRET is required")
+	}
+
+	hasher := crypto.NewBcryptHasher(crypto.DefaultCost)
+
+	authSvc := auth.NewAuthService(hasher, jwtSecret)
+
 	port := getEnv("PORT")
 	if port == "" {
 		port = "8080"
@@ -47,14 +59,6 @@ func Run(ctx context.Context, getEnv func(string) string) error {
 	if allowedOrigins == "" {
 		allowedOrigins = "http://localhost:3000"
 	}
-
-	pool, err := db.Connect(ctx, dbURL)
-	if err != nil {
-		return fmt.Errorf("failed to connect to database")
-	}
-	defer pool.Close()
-
-	slog.Info("database connected")
 
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
@@ -68,7 +72,17 @@ func Run(ctx context.Context, getEnv func(string) string) error {
 		MaxAge:           300,
 	}))
 
-	srv := server.New(pool)
+	pool, err := db.Connect(ctx, dbURL)
+	if err != nil {
+		return fmt.Errorf("failed to connect to database")
+	}
+	defer pool.Close()
+
+	slog.Info("database connected")
+
+	adminStore := admin.NewAdminStore(pool)
+
+	srv := server.NewServer(server.Stores{AdminStore: adminStore}, authSvc)
 	apiRouter := chi.NewRouter()
 	srv.RegisterRoutes(apiRouter)
 	r.Mount("/api/v1", apiRouter)
