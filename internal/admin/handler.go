@@ -19,6 +19,10 @@ type CreateAdminRequest struct {
 	Cidade string `json:"cidade"`
 }
 
+type CreateAdminResponse struct {
+	ID	 int64  `json:"id"`
+}
+
 type AdminResponse struct {
 	ID     int64  `json:"id"`
 	Email  string `json:"email"`
@@ -74,6 +78,34 @@ func (h *AdminHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respond(w, http.StatusOK, LoginResponse{Token: token})
+}
+
+func (h *AdminHandler) Create(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var req CreateAdminRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	hashed, err := h.authSvc.HashPassword(req.Senha)
+	if err != nil {
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	admin, err := h.s.Create(ctx, AdminInput{
+		Email:  req.Email,
+		Senha:  hashed,
+		Cidade: req.Cidade,
+	})
+
+	if err != nil {
+		http.Error(w, "internal server errror", http.StatusInternalServerError)
+		return
+	}
+	
+	respond(w, http.StatusCreated, 	CreateAdminResponse{ID: admin.ID})
 }
 
 func respond(w http.ResponseWriter, status int, body any) {
