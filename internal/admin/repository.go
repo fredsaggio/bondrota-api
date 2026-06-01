@@ -180,3 +180,24 @@ func getAdminByEmail(ctx context.Context, querier interface {
 
 	return &admin, nil
 }
+
+func (s *adminStore) Delete(ctx context.Context, adminID int64) (error) {
+	const op = "db/adminStore.Delete"
+	
+	const q = `
+		DELETE FROM administrador
+		WHERE id = @id
+	`
+	args := pgx.StrictNamedArgs{"id": adminID}
+
+	cmdTag, err := s.db.Exec(ctx, q, args)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	if cmdTag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
