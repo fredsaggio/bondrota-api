@@ -10,8 +10,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
-
-	"github.com/fredsaggio/bondrota-api/internal/admin"
+	
 	"github.com/fredsaggio/bondrota-api/internal/auth"
 	"github.com/fredsaggio/bondrota-api/internal/crypto"
 	"github.com/fredsaggio/bondrota-api/internal/db"
@@ -80,9 +79,7 @@ func Run(ctx context.Context, getEnv func(string) string) error {
 
 	slog.Info("database connected")
 
-	adminStore := admin.NewAdminStore(pool)
-
-	srv := server.NewServer(server.Stores{AdminStore: adminStore}, authSvc)
+	srv := server.NewServer(buildHandlers(pool, authSvc))
 	apiRouter := chi.NewRouter()
 	srv.RegisterRoutes(apiRouter)
 	r.Mount("/api/v1", apiRouter)
