@@ -1,6 +1,11 @@
 package admin
 
-import "context"
+import (
+	"context"
+	"errors"
+)
+
+var ErrNotFound = errors.New("admin not found")
 
 type Admin struct {
 	ID     int64  `json:"id"`
@@ -19,6 +24,7 @@ type AdminStore interface {
 	Create(ctx context.Context, input AdminInput) (*Admin, error)
 	Update(ctx context.Context, adminID int, updateFunc func(*Admin) (bool, error)) (*Admin, error)
 	GetByID(ctx context.Context, adminID int) (*Admin, error)
+	GetByEmail(ctx context.Context, email string) (*Admin, error)
 	Delete(ctx context.Context, adminID int) (*Admin, error)
 	List(ctx context.Context) ([]Admin, error)
 }
