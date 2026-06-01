@@ -165,3 +165,29 @@ func respond(w http.ResponseWriter, status int, body any) {
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(body)
 }
+
+func (h *AdminHandler) GetByID(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	idStr := chi.URLParam(r, "adminID")
+	adminID, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "invalid admin id", http.StatusBadRequest)
+		return
+	}
+
+	admin, err := h.s.GetByID(ctx, adminID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			http.Error(w, "admin not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	respond(w, http.StatusOK, AdminResponse{
+		ID:     admin.ID,
+		Email:  admin.Email,
+		Cidade: admin.Cidade,
+	})
+}
