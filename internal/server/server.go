@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/fredsaggio/bondrota-api/internal/admin"
+	"github.com/fredsaggio/bondrota-api/internal/auth"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -15,12 +16,14 @@ type Stores struct {
 }
 
 type Server struct {
-	stores Stores
+	stores  Stores
+	authSvc *auth.AuthService
 }
 
-func NewServer(stores Stores) *Server {
+func NewServer(stores Stores, authSvc *auth.AuthService) *Server {
 	return &Server{
-		stores: stores,
+		stores:  stores,
+		authSvc: authSvc,
 	}
 }
 

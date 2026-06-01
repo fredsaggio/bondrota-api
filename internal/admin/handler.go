@@ -4,13 +4,20 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/fredsaggio/bondrota-api/internal/auth"
+	"github.com/go-chi/chi/v5"
 )
 
 type AdminHandler struct {
 	s       AdminStore
 	authSvc *auth.AuthService
+}
+
+func NewAdminHandler(store AdminStore, authSvc *auth.AuthService) *AdminHandler {
+	return &AdminHandler{s: store,
+		authSvc: authSvc,}
 }
 
 type CreateAdminRequest struct {
@@ -20,7 +27,7 @@ type CreateAdminRequest struct {
 }
 
 type CreateAdminResponse struct {
-	ID	 int64  `json:"id"`
+	ID int64 `json:"id"`
 }
 
 type AdminResponse struct {
@@ -41,10 +48,6 @@ type LoginRequest struct {
 
 type LoginResponse struct {
 	Token string `json:"token"`
-}
-
-func NewAdminHandler(store AdminStore) *AdminHandler {
-	return &AdminHandler{s: store}
 }
 
 func (h *AdminHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -101,11 +104,60 @@ func (h *AdminHandler) Create(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		http.Error(w, "internal server errror", http.StatusInternalServerError)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-	
-	respond(w, http.StatusCreated, 	CreateAdminResponse{ID: admin.ID})
+
+	respond(w, http.StatusCreated, CreateAdminResponse{ID: admin.ID})
+}
+
+func (h *AdminHandler) Update(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	idStr := chi.URLParam(r, "adminID")
+	adminID, err := strconv.ParseInt(idStr, 10, 64)
+
+	if err != nil {
+		http.Error(w, "invalid admin id", http.StatusBadRequest)
+		return
+	}
+
+	var req = UpdateAdminRequest{}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	admin, err := h.s.Update(ctx, adminID, func(a *Admin) (bool, error) {
+		var updated bool
+
+		if req.Email != "" && req.Email != a.Email {
+			a.Email = req.Email
+			updated = true
+		}
+
+		if req.Cidade != "" && req.Cidade != a.Cidade {
+			a.Cidade = req.Cidade
+			updated = true
+		}
+
+		return updated, nil
+	})
+
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			http.Error(w, "admin not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	respond(w, http.StatusOK, AdminResponse{
+		ID:     admin.ID,
+		Email:  admin.Email,
+		Cidade: admin.Cidade,
+	})
+
 }
 
 func respond(w http.ResponseWriter, status int, body any) {

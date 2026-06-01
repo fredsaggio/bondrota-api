@@ -13,7 +13,7 @@ type adminStore struct {
 	db db.DB
 }
 
-func NewAdminStore(db db.DB) *adminStore {
+func NewAdminStore(db db.DB) AdminStore {
 	return &adminStore{
 		db: db,
 	}
@@ -108,6 +108,9 @@ func (s *adminStore) GetByID(ctx context.Context, adminID int64) (*Admin, error)
 
 	admin, err := getAdminByID(ctx, s.db, adminID)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -208,6 +211,7 @@ func (s *adminStore) List(ctx context.Context) ([]Admin, error) {
 	const q = `
 		SELECT id, email, senha, cidade
 		FROM administrador
+		ORDER BY id DESC
 	`
 	rows, err := s.db.Query(ctx, q)
 	if err != nil {
