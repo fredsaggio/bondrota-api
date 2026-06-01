@@ -140,3 +140,43 @@ func getAdminByID(ctx context.Context, querier interface {
 
 	return &admin, nil
 }
+
+func (s *adminStore) GetByEmail(ctx context.Context, email string) (*Admin, error) {
+	const op = "db/adminStore.GetByEmail"
+
+	admin, err := getAdminByEmail(ctx, s.db, email)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	return admin, nil
+}
+
+func getAdminByEmail(ctx context.Context, querier interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+}, email string) (*Admin, error) {
+	const q = `
+		SELECT id, email, senha, cidade
+		FROM administrador
+		WHERE email = @email
+	`
+	args := pgx.StrictNamedArgs{"email": email}
+
+	rows, err := querier.Query(ctx, q, args)
+	if err != nil {
+		return nil, err
+	}
+
+	admin, err := pgx.CollectExactlyOneRow(rows, func(row pgx.CollectableRow) (Admin, error) {
+		var a Admin
+		err := row.Scan(&a.ID, &a.Email, &a.Senha, &a.Cidade)
+		return a, err
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &admin, nil
+}
