@@ -11,13 +11,11 @@ import (
 )
 
 type AdminHandler struct {
-	s       AdminStore
-	authSvc *auth.AuthService
+	svc AdminService
 }
 
-func NewAdminHandler(store AdminStore, authSvc *auth.AuthService) *AdminHandler {
-	return &AdminHandler{s: store,
-		authSvc: authSvc,}
+func NewAdminHandler(svc AdminService) *AdminHandler {
+	return &AdminHandler{svc: svc}
 }
 
 type CreateAdminRequest struct {
@@ -50,6 +48,12 @@ type LoginResponse struct {
 	Token string `json:"token"`
 }
 
+func respond(w http.ResponseWriter, status int, body any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(body)
+}
+
 func (h *AdminHandler) Login(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var req LoginRequest
@@ -58,24 +62,12 @@ func (h *AdminHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	admin, err := h.s.GetByEmail(ctx, req.Email)
+	token, err := h.svc.Login(ctx, req.Email, req.Senha)
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
+		if errors.Is(err, ErrNotFound) || errors.Is(err, auth.ErrInvalidCredentials) {
 			http.Error(w, "invalid email or password", http.StatusUnauthorized)
 			return
 		}
-		http.Error(w, "internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	ok, err := h.authSvc.CheckPassword(admin.Senha, req.Senha)
-	if err != nil || !ok {
-		http.Error(w, "invalid credentials", http.StatusUnauthorized)
-		return
-	}
-
-	token, err := h.authSvc.GenerateToken(admin.ID, "admin")
-	if err != nil {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -91,18 +83,11 @@ func (h *AdminHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hashed, err := h.authSvc.HashPassword(req.Senha)
-	if err != nil {
-		http.Error(w, "internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	admin, err := h.s.Create(ctx, AdminInput{
+	admin, err := h.svc.Create(ctx, AdminInput{
 		Email:  req.Email,
-		Senha:  hashed,
+		Senha:  req.Senha,
 		Cidade: req.Cidade,
 	})
-
 	if err != nil {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
@@ -115,34 +100,18 @@ func (h *AdminHandler) Update(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	idStr := chi.URLParam(r, "adminID")
 	adminID, err := strconv.ParseInt(idStr, 10, 64)
-
 	if err != nil {
 		http.Error(w, "invalid admin id", http.StatusBadRequest)
 		return
 	}
 
-	var req = UpdateAdminRequest{}
+	var req UpdateAdminRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	admin, err := h.s.Update(ctx, adminID, func(a *Admin) (bool, error) {
-		var updated bool
-
-		if req.Email != "" && req.Email != a.Email {
-			a.Email = req.Email
-			updated = true
-		}
-
-		if req.Cidade != "" && req.Cidade != a.Cidade {
-			a.Cidade = req.Cidade
-			updated = true
-		}
-
-		return updated, nil
-	})
-
+	admin, err := h.svc.Update(ctx, adminID, req.Email, req.Cidade)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			http.Error(w, "admin not found", http.StatusNotFound)
@@ -157,13 +126,6 @@ func (h *AdminHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Email:  admin.Email,
 		Cidade: admin.Cidade,
 	})
-
-}
-
-func respond(w http.ResponseWriter, status int, body any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(body)
 }
 
 func (h *AdminHandler) GetByID(w http.ResponseWriter, r *http.Request) {
@@ -175,7 +137,7 @@ func (h *AdminHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	admin, err := h.s.GetByID(ctx, adminID)
+	admin, err := h.svc.GetByID(ctx, adminID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			http.Error(w, "admin not found", http.StatusNotFound)
@@ -201,7 +163,7 @@ func (h *AdminHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.s.Delete(ctx, adminID)
+	err = h.svc.Delete(ctx, adminID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			http.Error(w, "admin not found", http.StatusNotFound)
@@ -217,7 +179,7 @@ func (h *AdminHandler) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *AdminHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	admins, err := h.s.List(ctx)
+	admins, err := h.svc.List(ctx)
 	if err != nil {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
