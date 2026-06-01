@@ -24,14 +24,13 @@ func (s *adminStore) Create(ctx context.Context, input AdminInput) (*Admin, erro
 	var adminID int64
 
 	const q = `
-		INSERT INTO administrador (email, senha, cidade)
-		VALUES (@email, @senha, @cidade)
+		INSERT INTO administrador (email, senha)
+		VALUES (@email, @senha)
 		RETURNING id
 	`
 	args := pgx.StrictNamedArgs{
-		"email":  input.Email,
-		"senha":  input.Senha,
-		"cidade": input.Cidade,
+		"email": input.Email,
+		"senha": input.Senha,
 	}
 
 	err := s.db.QueryRow(ctx, q, args).Scan(&adminID)
@@ -40,9 +39,8 @@ func (s *adminStore) Create(ctx context.Context, input AdminInput) (*Admin, erro
 	}
 
 	return &Admin{
-		ID:     adminID,
-		Email:  input.Email,
-		Cidade: input.Cidade,
+		ID:    adminID,
+		Email: input.Email,
 	}, nil
 }
 
@@ -53,14 +51,14 @@ func (s *adminStore) Update(ctx context.Context, adminID int64, updateFunc func(
 
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		const q = `
-			SELECT id, email, senha, cidade
+			SELECT id, email, senha
 			FROM administrador
 			WHERE id = @id
 			FOR UPDATE
 		`
 		args := pgx.StrictNamedArgs{"id": adminID}
 
-		err := tx.QueryRow(ctx, q, args).Scan(&admin.ID, &admin.Email, &admin.Senha, &admin.Cidade)
+		err := tx.QueryRow(ctx, q, args).Scan(&admin.ID, &admin.Email, &admin.Senha)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return ErrNotFound
@@ -79,14 +77,13 @@ func (s *adminStore) Update(ctx context.Context, adminID int64, updateFunc func(
 
 		const updateQuery = `
 			UPDATE administrador
-			SET email = @email, senha = @senha, cidade = @cidade
+			SET email = @email, senha = @senha
 			WHERE id = @id
 		`
 		updateArgs := pgx.StrictNamedArgs{
-			"id":     admin.ID,
-			"email":  admin.Email,
-			"senha":  admin.Senha,
-			"cidade": admin.Cidade,
+			"id":    admin.ID,
+			"email": admin.Email,
+			"senha": admin.Senha,
 		}
 
 		if _, err := tx.Exec(ctx, updateQuery, updateArgs); err != nil {
@@ -121,7 +118,7 @@ func getAdminByID(ctx context.Context, querier interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 }, adminID int64) (*Admin, error) {
 	const q = `
-		SELECT id, email, senha, cidade
+		SELECT id, email, senha
 		FROM administrador
 		WHERE id = @id
 	`
@@ -134,7 +131,7 @@ func getAdminByID(ctx context.Context, querier interface {
 
 	admin, err := pgx.CollectExactlyOneRow(rows, func(row pgx.CollectableRow) (Admin, error) {
 		var admin Admin
-		err := row.Scan(&admin.ID, &admin.Email, &admin.Senha, &admin.Cidade)
+		err := row.Scan(&admin.ID, &admin.Email, &admin.Senha)
 		return admin, err
 	})
 	if err != nil {
@@ -161,7 +158,7 @@ func getAdminByEmail(ctx context.Context, querier interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 }, email string) (*Admin, error) {
 	const q = `
-		SELECT id, email, senha, cidade
+		SELECT id, email, senha
 		FROM administrador
 		WHERE email = @email
 	`
@@ -174,7 +171,7 @@ func getAdminByEmail(ctx context.Context, querier interface {
 
 	admin, err := pgx.CollectExactlyOneRow(rows, func(row pgx.CollectableRow) (Admin, error) {
 		var admin Admin
-		err := row.Scan(&admin.ID, &admin.Email, &admin.Senha, &admin.Cidade)
+		err := row.Scan(&admin.ID, &admin.Email, &admin.Senha)
 		return admin, err
 	})
 	if err != nil {
@@ -209,7 +206,7 @@ func (s *adminStore) List(ctx context.Context) ([]Admin, error) {
 	const op = "db/adminStore.List"
 
 	const q = `
-		SELECT id, email, senha, cidade
+		SELECT id, email, senha
 		FROM administrador
 		ORDER BY id DESC
 	`
@@ -220,7 +217,7 @@ func (s *adminStore) List(ctx context.Context) ([]Admin, error) {
 
 	admins, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Admin, error) {
 		var admin Admin
-		err := row.Scan(&admin.ID, &admin.Email, &admin.Senha, &admin.Cidade)
+		err := row.Scan(&admin.ID, &admin.Email, &admin.Senha)
 		return admin, err
 	})
 	if err != nil {

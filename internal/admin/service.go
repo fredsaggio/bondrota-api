@@ -9,7 +9,7 @@ import (
 type AdminService interface {
 	Login(ctx context.Context, email, password string) (string, error)
 	Create(ctx context.Context, input AdminInput) (*Admin, error)
-	Update(ctx context.Context, adminID int64, email, cidade string) (*Admin, error)
+	Update(ctx context.Context, adminID int64, email string) (*Admin, error)
 	GetByID(ctx context.Context, adminID int64) (*Admin, error)
 	Delete(ctx context.Context, adminID int64) error
 	List(ctx context.Context) ([]Admin, error)
@@ -55,16 +55,12 @@ func (s *adminService) Create(ctx context.Context, input AdminInput) (*Admin, er
 	return s.store.Create(ctx, input)
 }
 
-func (s *adminService) Update(ctx context.Context, adminID int64, email, cidade string) (*Admin, error) {
+func (s *adminService) Update(ctx context.Context, adminID int64, email string) (*Admin, error) {
 	return s.store.Update(ctx, adminID, func(a *Admin) (bool, error) {
 		var updated bool
 
 		if email != "" && email != a.Email {
 			a.Email = email
-			updated = true
-		}
-		if cidade != "" && cidade != a.Cidade {
-			a.Cidade = cidade
 			updated = true
 		}
 

@@ -27,8 +27,7 @@ Nota: a aplicação atualmente registra as rotas via `server.RegisterRoutes` em 
     ```json
     {
       "email": "string",
-      "senha": "string",
-      "cidade": "string"
+      "senha": "string"
     }
     ```
   - Response (201 Created):
@@ -40,14 +39,14 @@ Nota: a aplicação atualmente registra as rotas via `server.RegisterRoutes` em 
   - Descrição: lista administradores.
   - Response (200 OK): array de administradores:
     ```json
-    [ { "id": 1, "email": "a@b.com", "cidade": "São Paulo" } ]
+    [{ "id": 1, "email": "a@b.com" }]
     ```
 
 - **GET** `/admin/{adminID}`
   - Descrição: obtém administrador por ID.
   - Response (200 OK):
     ```json
-    { "id": 1, "email": "a@b.com", "cidade": "São Paulo" }
+    [{ "id": 1, "email": "a@b.com" }]
     ```
 
 - **PUT** `/admin/{adminID}`
@@ -55,8 +54,7 @@ Nota: a aplicação atualmente registra as rotas via `server.RegisterRoutes` em 
   - Request JSON:
     ```json
     {
-      "email": "novo@email.com",
-      "cidade": "Cidade"
+      "email": "novo@email.com"
     }
     ```
   - Response (200 OK): objeto atualizado do administrador.

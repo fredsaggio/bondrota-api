@@ -19,9 +19,8 @@ func NewAdminHandler(svc AdminService) *AdminHandler {
 }
 
 type CreateAdminRequest struct {
-	Email  string `json:"email"`
-	Senha  string `json:"senha"`
-	Cidade string `json:"cidade"`
+	Email string `json:"email"`
+	Senha string `json:"senha"`
 }
 
 type CreateAdminResponse struct {
@@ -29,14 +28,12 @@ type CreateAdminResponse struct {
 }
 
 type AdminResponse struct {
-	ID     int64  `json:"id"`
-	Email  string `json:"email"`
-	Cidade string `json:"cidade"`
+	ID    int64  `json:"id"`
+	Email string `json:"email"`
 }
 
 type UpdateAdminRequest struct {
-	Email  string `json:"email"`
-	Cidade string `json:"cidade"`
+	Email string `json:"email"`
 }
 
 type LoginRequest struct {
@@ -84,9 +81,8 @@ func (h *AdminHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	admin, err := h.svc.Create(ctx, AdminInput{
-		Email:  req.Email,
-		Senha:  req.Senha,
-		Cidade: req.Cidade,
+		Email: req.Email,
+		Senha: req.Senha,
 	})
 	if err != nil {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -111,7 +107,7 @@ func (h *AdminHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	admin, err := h.svc.Update(ctx, adminID, req.Email, req.Cidade)
+	admin, err := h.svc.Update(ctx, adminID, req.Email)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			http.Error(w, "admin not found", http.StatusNotFound)
@@ -122,9 +118,8 @@ func (h *AdminHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respond(w, http.StatusOK, AdminResponse{
-		ID:     admin.ID,
-		Email:  admin.Email,
-		Cidade: admin.Cidade,
+		ID:    admin.ID,
+		Email: admin.Email,
 	})
 }
 
@@ -148,9 +143,8 @@ func (h *AdminHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respond(w, http.StatusOK, AdminResponse{
-		ID:     admin.ID,
-		Email:  admin.Email,
-		Cidade: admin.Cidade,
+		ID:    admin.ID,
+		Email: admin.Email,
 	})
 }
 
@@ -188,9 +182,8 @@ func (h *AdminHandler) List(w http.ResponseWriter, r *http.Request) {
 	resp := make([]AdminResponse, 0, len(admins))
 	for _, a := range admins {
 		resp = append(resp, AdminResponse{
-			ID:     a.ID,
-			Email:  a.Email,
-			Cidade: a.Cidade,
+			ID:    a.ID,
+			Email: a.Email,
 		})
 	}
 

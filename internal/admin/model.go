@@ -8,16 +8,14 @@ import (
 var ErrNotFound = errors.New("admin not found")
 
 type Admin struct {
-	ID     int64  `json:"id"`
-	Email  string `json:"email"`
-	Senha  string `json:"-"`
-	Cidade string `json:"cidade"`
+	ID    int64  `json:"id"`
+	Email string `json:"email"`
+	Senha string `json:"-"`
 }
 
 type AdminInput struct {
-	Email  string `json:"email"`
-	Senha  string `json:"senha"`
-	Cidade string `json:"cidade"`
+	Email string `json:"email"`
+	Senha string `json:"senha"`
 }
 
 type AdminStore interface {
