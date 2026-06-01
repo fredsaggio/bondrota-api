@@ -69,7 +69,9 @@ func Run(ctx context.Context, getEnv func(string) string) error {
 	}))
 
 	srv := server.New(pool)
-	srv.RegisterRoutes(r)
+	apiRouter := chi.NewRouter()
+	srv.RegisterRoutes(apiRouter)
+	r.Mount("/api/v1", apiRouter)
 
 	httpSrv := &http.Server{Addr: ":" + port, Handler: r}
 
