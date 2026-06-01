@@ -191,3 +191,25 @@ func (h *AdminHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		Cidade: admin.Cidade,
 	})
 }
+
+func (h *AdminHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	idStr := chi.URLParam(r, "adminID")
+	adminID, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "invalid admin id", http.StatusBadRequest)
+		return
+	}
+
+	err = h.s.Delete(ctx, adminID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			http.Error(w, "admin not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
