@@ -130,9 +130,9 @@ func getAdminByID(ctx context.Context, querier interface {
 	}
 
 	admin, err := pgx.CollectExactlyOneRow(rows, func(row pgx.CollectableRow) (Admin, error) {
-		var a Admin
-		err := row.Scan(&a.ID, &a.Email, &a.Senha, &a.Cidade)
-		return a, err
+		var admin Admin
+		err := row.Scan(&admin.ID, &admin.Email, &admin.Senha, &admin.Cidade)
+		return admin, err
 	})
 	if err != nil {
 		return nil, err
@@ -170,9 +170,9 @@ func getAdminByEmail(ctx context.Context, querier interface {
 	}
 
 	admin, err := pgx.CollectExactlyOneRow(rows, func(row pgx.CollectableRow) (Admin, error) {
-		var a Admin
-		err := row.Scan(&a.ID, &a.Email, &a.Senha, &a.Cidade)
-		return a, err
+		var admin Admin
+		err := row.Scan(&admin.ID, &admin.Email, &admin.Senha, &admin.Cidade)
+		return admin, err
 	})
 	if err != nil {
 		return nil, err
@@ -200,4 +200,28 @@ func (s *adminStore) Delete(ctx context.Context, adminID int64) (error) {
 	}
 
 	return nil
+}
+
+func (s *adminStore) List(ctx context.Context) ([]Admin, error) {
+	const op = "db/adminStore.List"
+
+	const q = `
+		SELECT id, email, senha, cidade
+		FROM administrador
+	`
+	rows, err := s.db.Query(ctx, q)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	admins, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Admin, error) {
+		var admin Admin
+		err := row.Scan(&admin.ID, &admin.Email, &admin.Senha, &admin.Cidade)
+		return admin, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return admins, nil
 }
