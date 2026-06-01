@@ -213,3 +213,24 @@ func (h *AdminHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+func (h *AdminHandler) List(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	admins, err := h.s.List(ctx)
+	if err != nil {
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	resp := make([]AdminResponse, 0, len(admins))
+	for _, a := range admins {
+		resp = append(resp, AdminResponse{
+			ID:     a.ID,
+			Email:  a.Email,
+			Cidade: a.Cidade,
+		})
+	}
+
+	respond(w, http.StatusOK, resp)
+}
