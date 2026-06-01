@@ -3,9 +3,9 @@ package admin
 import "context"
 
 type Admin struct {
-	ID     int    `json:"id"`
+	ID     int64  `json:"id"`
 	Email  string `json:"email"`
-	Senha  string `json:"senha"`
+	Senha  string `json:"-"`
 	Cidade string `json:"cidade"`
 }
 
