@@ -99,3 +99,30 @@ func getVeiculoByID(ctx context.Context, querier interface {
 
 	return &veiculo, nil
 }
+
+func (s *veiculoStore) List(ctx context.Context) ([]Veiculo, error) {
+	const op = "db/veiculoStore.List"
+
+	const q = `
+		SELECT id, placa, modelo, capacidade, cidade_base, status, ar_condicionado, banheiro, persiana, luz_leitura, tomada
+		FROM veiculos
+		ORDER BY id DESC
+	`
+
+	rows, err := s.db.Query(ctx, q)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	veiculos, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Veiculo, error) {
+		var v Veiculo
+		err := row.Scan(&v.ID, &v.Placa, &v.Modelo, &v.Capacidade, &v.CidadeBase, &v.Status, &v.ArCondicionado, &v.Banheiro, &v.Persiana, &v.LuzLeitura, &v.Tomada)
+		return v, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return veiculos, nil
+}
+
