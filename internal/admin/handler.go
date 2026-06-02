@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/fredsaggio/bondrota-api/internal/auth"
+	"github.com/fredsaggio/bondrota-api/internal/httputils"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -45,12 +46,6 @@ type LoginResponse struct {
 	Token string `json:"token"`
 }
 
-func respond(w http.ResponseWriter, status int, body any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(body)
-}
-
 func (h *AdminHandler) Login(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var req LoginRequest
@@ -69,7 +64,7 @@ func (h *AdminHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respond(w, http.StatusOK, LoginResponse{Token: token})
+	httputils.Respond(w, http.StatusOK, LoginResponse{Token: token})
 }
 
 func (h *AdminHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -89,7 +84,7 @@ func (h *AdminHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respond(w, http.StatusCreated, CreateAdminResponse{ID: admin.ID})
+	httputils.Respond(w, http.StatusCreated, CreateAdminResponse{ID: admin.ID})
 }
 
 func (h *AdminHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -117,7 +112,7 @@ func (h *AdminHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respond(w, http.StatusOK, AdminResponse{
+	httputils.Respond(w, http.StatusOK, AdminResponse{
 		ID:    admin.ID,
 		Email: admin.Email,
 	})
@@ -142,7 +137,7 @@ func (h *AdminHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respond(w, http.StatusOK, AdminResponse{
+	httputils.Respond(w, http.StatusOK, AdminResponse{
 		ID:    admin.ID,
 		Email: admin.Email,
 	})
@@ -187,5 +182,5 @@ func (h *AdminHandler) List(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	respond(w, http.StatusOK, resp)
+	httputils.Respond(w, http.StatusOK, resp)
 }
