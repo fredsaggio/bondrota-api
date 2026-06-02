@@ -132,8 +132,9 @@ func (h *VeiculoHandler) List(w http.ResponseWriter, r *http.Request) {
 
 func (h *VeiculoHandler) Update(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	idStr := chi.URLParam(r, "veiculoID")
+	vehicleID, err := strconv.ParseInt(idStr, 10, 64)
 
-	id, err := strconv.ParseInt(chi.URLParam(r, "veiculoID"), 10, 64)
 	if err != nil {
 		http.Error(w, "invalid veiculo id", http.StatusBadRequest)
 		return
@@ -145,7 +146,7 @@ func (h *VeiculoHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	veiculo, err := h.store.Update(ctx, id, func(v *Veiculo) (bool, error) {
+	veiculo, err := h.store.Update(ctx, vehicleID, func(v *Veiculo) (bool, error) {
 		changed := false
 		if req.Placa != "" && req.Placa != v.Placa {
 			v.Placa = req.Placa
@@ -199,6 +200,29 @@ func (h *VeiculoHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httputils.Respond(w, http.StatusOK, toVeiculoResponse(veiculo))
+}
+
+func (h *VeiculoHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	idStr := chi.URLParam(r, "veiculoID")
+	vehicleID, err := strconv.ParseInt(idStr, 10, 64)
+	
+	if err != nil {
+		http.Error(w, "invalid veiculo id", http.StatusBadRequest)
+		return
+	}
+
+	err = h.store.Delete(ctx, vehicleID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			http.Error(w, "veiculo not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func toVeiculoResponse(v *Veiculo) VeiculoResponse {
