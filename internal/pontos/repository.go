@@ -214,3 +214,24 @@ func getPontoByIDForUpdate(ctx context.Context, tx pgx.Tx, id int64) (*Ponto, er
 
 	return &ponto, nil
 }
+
+func (s *pontoStore) Delete(ctx context.Context, id int64) error {
+	const op = "db/pontoStore.Delete"
+
+	const q = `
+		DELETE FROM pontos
+		WHERE id = @id
+	`
+	args := pgx.StrictNamedArgs{"id": id}
+
+	cmdTag, err := s.db.Exec(ctx, q, args)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	if cmdTag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
