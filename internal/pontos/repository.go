@@ -108,3 +108,31 @@ func (s *pontoStore) List(ctx context.Context) ([]Ponto, error) {
 
 	return pontos, nil
 }
+
+func (s *pontoStore) ListByCity(ctx context.Context, cidade string) ([]Ponto, error) {
+	const op = "db/pontoStore.ListByCity"
+
+	const q = `
+		SELECT id, nome, rua, cidade, latitude, longitude
+		FROM pontos
+		WHERE cidade = @cidade
+		ORDER BY nome ASC
+	`
+	args := pgx.StrictNamedArgs{"cidade": cidade}
+
+	rows, err := s.db.Query(ctx, q, args)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	pontos, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Ponto, error) {
+		var p Ponto
+		err := row.Scan(&p.ID, &p.Nome, &p.Rua, &p.Cidade, &p.Latitude, &p.Longitude)
+		return p, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return pontos, nil
+}
