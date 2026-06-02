@@ -82,3 +82,29 @@ func getPontoByID(ctx context.Context, querier interface {
 
 	return &ponto, nil
 }
+
+func (s *pontoStore) List(ctx context.Context) ([]Ponto, error) {
+	const op = "db/pontoStore.List"
+
+	const q = `
+		SELECT id, nome, rua, cidade, latitude, longitude
+		FROM pontos
+		ORDER BY id DESC
+	`
+
+	rows, err := s.db.Query(ctx, q)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	pontos, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Ponto, error) {
+		var p Ponto
+		err := row.Scan(&p.ID, &p.Nome, &p.Rua, &p.Cidade, &p.Latitude, &p.Longitude)
+		return p, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return pontos, nil
+}
