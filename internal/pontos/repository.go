@@ -136,3 +136,81 @@ func (s *pontoStore) ListByCity(ctx context.Context, cidade string) ([]Ponto, er
 
 	return pontos, nil
 }
+
+func (s *pontoStore) Update(ctx context.Context, id int64, updateFunc func(*Ponto) (bool, error)) (*Ponto, error) {
+	const op = "db/pontoStore.Update"
+
+	var ponto Ponto
+
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		p, err := getPontoByIDForUpdate(ctx, tx, id)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrNotFound
+			}
+			return fmt.Errorf("select: %w", err)
+		}
+		ponto = *p
+
+		changed, err := updateFunc(&ponto)
+		if err != nil {
+			return err
+		}
+		if !changed {
+			return nil
+		}
+
+		const updateQ = `
+			UPDATE pontos
+			SET nome = @nome, rua = @rua, cidade = @cidade,
+			    latitude = @latitude, longitude = @longitude
+			WHERE id = @id
+		`
+		updateArgs := pgx.StrictNamedArgs{
+			"id":        ponto.ID,
+			"nome":      ponto.Nome,
+			"rua":       ponto.Rua,
+			"cidade":    ponto.Cidade,
+			"latitude":  ponto.Latitude,
+			"longitude": ponto.Longitude,
+		}
+
+		if _, err := tx.Exec(ctx, updateQ, updateArgs); err != nil {
+			return fmt.Errorf("update: %w", err)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return &ponto, nil
+}
+
+func getPontoByIDForUpdate(ctx context.Context, tx pgx.Tx, id int64) (*Ponto, error) {
+	const q = `
+		SELECT id, nome, rua, cidade, latitude, longitude
+		FROM pontos
+		WHERE id = @id
+		FOR UPDATE
+	`
+	args := pgx.StrictNamedArgs{"id": id}
+
+	rows, err := tx.Query(ctx, q, args)
+	if err != nil {
+		return nil, err
+	}
+
+	ponto, err := pgx.CollectExactlyOneRow(rows, func(row pgx.CollectableRow) (Ponto, error) {
+		var p Ponto
+		err := row.Scan(&p.ID, &p.Nome, &p.Rua, &p.Cidade, &p.Latitude, &p.Longitude)
+		return p, err
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &ponto, nil
+}
