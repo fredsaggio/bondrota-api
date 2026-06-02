@@ -45,59 +45,76 @@ func (s *adminStore) Create(ctx context.Context, input AdminInput) (*Admin, erro
 }
 
 func (s *adminStore) Update(ctx context.Context, adminID int64, updateFunc func(*Admin) (bool, error)) (*Admin, error) {
-	const op = "db/adminStore.Update"
+    const op = "db/adminStore.Update"
+    var admin *Admin
 
-	var admin Admin
+    err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+        var err error
+        admin, err = getAdminByIDForUpdate(ctx, tx, adminID)
+        if err != nil {
+            if errors.Is(err, pgx.ErrNoRows) {
+                return ErrNotFound
+            }
+            return fmt.Errorf("select for update: %w", err)
+        }
 
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		const q = `
-			SELECT id, email, senha
-			FROM administrador
-			WHERE id = @id
-			FOR UPDATE
-		`
-		args := pgx.StrictNamedArgs{"id": adminID}
+        updated, err := updateFunc(admin)
+        if err != nil {
+            return err
+        }
+        if !updated {
+            return nil
+        }
 
-		err := tx.QueryRow(ctx, q, args).Scan(&admin.ID, &admin.Email, &admin.Senha)
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return ErrNotFound
-			}
-			return fmt.Errorf("select: %w", err)
-		}
+        const updateQ = `
+            UPDATE administrador
+            SET email = @email, senha = @senha
+            WHERE id = @id
+        `
+        updateArgs := pgx.StrictNamedArgs{
+            "id":    admin.ID,
+            "email": admin.Email,
+            "senha": admin.Senha,
+        }
 
-		updated, err := updateFunc(&admin)
-		if err != nil {
-			return err
-		}
+        if _, err := tx.Exec(ctx, updateQ, updateArgs); err != nil {
+            return fmt.Errorf("update: %w", err)
+        }
 
-		if !updated {
-			return nil
-		}
+        return nil
+    })
 
-		const updateQuery = `
-			UPDATE administrador
-			SET email = @email, senha = @senha
-			WHERE id = @id
-		`
-		updateArgs := pgx.StrictNamedArgs{
-			"id":    admin.ID,
-			"email": admin.Email,
-			"senha": admin.Senha,
-		}
+    if err != nil {
+        return nil, fmt.Errorf("%s: %w", op, err)
+    }
 
-		if _, err := tx.Exec(ctx, updateQuery, updateArgs); err != nil {
-			return fmt.Errorf("update: %w", err)
-		}
+    return admin, nil
+}
 
-		return nil
-	})
+func getAdminByIDForUpdate(ctx context.Context, tx pgx.Tx, id int64) (*Admin, error) {
+    const q = `
+        SELECT id, email, senha
+        FROM administrador
+        WHERE id = @id
+        FOR UPDATE
+    `
+    args := pgx.StrictNamedArgs{"id": id}
 
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
+    rows, err := tx.Query(ctx, q, args)
+    if err != nil {
+        return nil, err
+    }
 
-	return &admin, nil
+    admin, err := pgx.CollectExactlyOneRow(rows, func(row pgx.CollectableRow) (Admin, error) {
+        var a Admin
+        err := row.Scan(&a.ID, &a.Email, &a.Senha)
+        return a, err
+    })
+    if err != nil {
+        return nil, err
+    }
+
+    return &admin, nil
 }
 
 func (s *adminStore) GetByID(ctx context.Context, adminID int64) (*Admin, error) {
@@ -206,7 +223,7 @@ func (s *adminStore) List(ctx context.Context) ([]Admin, error) {
 	const op = "db/adminStore.List"
 
 	const q = `
-		SELECT id, email, senha
+		SELECT id, email
 		FROM administrador
 		ORDER BY id DESC
 	`
@@ -217,7 +234,7 @@ func (s *adminStore) List(ctx context.Context) ([]Admin, error) {
 
 	admins, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Admin, error) {
 		var admin Admin
-		err := row.Scan(&admin.ID, &admin.Email, &admin.Senha)
+		err := row.Scan(&admin.ID, &admin.Email)
 		return admin, err
 	})
 	if err != nil {
