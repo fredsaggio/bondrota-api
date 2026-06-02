@@ -47,5 +47,5 @@ type VeiculoStore interface {
 	GetByID(ctx context.Context, id int64) (*Veiculo, error)
 	List(ctx context.Context) ([]Veiculo, error)
 	Update(ctx context.Context, id int64, updateFunc func(*Veiculo) (bool, error)) (*Veiculo, error)
-	Delete(ctx context.Context, id int64) (*Veiculo, error)
+	Delete(ctx context.Context, id int64) (error)
 }
