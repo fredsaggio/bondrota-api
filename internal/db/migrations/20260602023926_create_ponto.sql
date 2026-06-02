@@ -5,8 +5,8 @@ CREATE TABLE pontos (
     nome TEXT NOT NULL,
     rua TEXT NOT NULL,
     cidade TEXT NOT NULL,
-    latitude NUMERIC(9,6),
-    longitude NUMERIC(9,6),
+    latitude NUMERIC(9,6) NOT NULL,
+    longitude NUMERIC(9,6) NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
