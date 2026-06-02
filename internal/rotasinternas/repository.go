@@ -2,6 +2,7 @@ package rotasinternas
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/fredsaggio/bondrota-api/internal/db"
@@ -47,6 +48,65 @@ func (s *rotaInternaStore) Create(ctx context.Context, input CreateRotaInternaIn
 	}
 
 	return &rota, nil
+}
+
+func (s *rotaInternaStore) GetByID(ctx context.Context, id int64) (*RotaInterna, error) {
+	const op = "db/rotaInternaStore.GetByID"
+
+	rota, err := getRotaInternaByID(ctx, s.db, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return rota, nil
+}
+
+func getRotaInternaByID(ctx context.Context, querier interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+}, id int64) (*RotaInterna, error) {
+	const q = `
+		SELECT
+			r.id, r.cidade,
+			p.id, p.rota_interna_id, p.nome, p.latitude, p.longitude, p.ordem
+		FROM rotas_internas r
+		LEFT JOIN rota_interna_paradas p ON p.rota_interna_id = r.id
+		WHERE r.id = @id
+		ORDER BY p.ordem ASC
+	`
+	args := pgx.StrictNamedArgs{"id": id}
+
+	rows, err := querier.Query(ctx, q, args)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var rota *RotaInterna
+	for rows.Next() {
+		var (
+			rid    int64
+			cidade string
+			p      Parada
+		)
+		if err := rows.Scan(&rid, &cidade, &p.ID, &p.RotaInternaID, &p.Nome, &p.Latitude, &p.Longitude, &p.Ordem); err != nil {
+			return nil, err
+		}
+		if rota == nil {
+			rota = &RotaInterna{ID: rid, Cidade: cidade}
+		}
+		rota.Paradas = append(rota.Paradas, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if rota == nil {
+		return nil, pgx.ErrNoRows
+	}
+
+	return rota, nil
 }
 
 func insertParadas(ctx context.Context, tx pgx.Tx, rotaID int64, paradas []ParadaInput) ([]Parada, error) {
