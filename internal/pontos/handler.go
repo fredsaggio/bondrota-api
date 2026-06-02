@@ -190,7 +190,7 @@ func (h *PontoHandler) Update(w http.ResponseWriter, r *http.Request) {
 		}
 		return updated, nil
 	})
-	
+
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			http.Error(w, "ponto not found", http.StatusNotFound)
@@ -201,6 +201,28 @@ func (h *PontoHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httputils.Respond(w, http.StatusOK, toPontoResponse(ponto))
+}
+
+func (h *PontoHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+
+	err = h.store.Delete(ctx, id)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			http.Error(w, "ponto not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func toPontoResponse(p *Ponto) PontoResponse {
