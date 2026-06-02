@@ -131,7 +131,7 @@ func (h *PontoHandler) List(w http.ResponseWriter, r *http.Request) {
 func (h *PontoHandler) ListByCity(w http.ResponseWriter, r *http.Request) {
     ctx := r.Context()
     cidade := chi.URLParam(r, "cidade")
-	
+
     if cidade == "" {
         http.Error(w, "cidade is required", http.StatusBadRequest)
         return
@@ -148,6 +148,59 @@ func (h *PontoHandler) ListByCity(w http.ResponseWriter, r *http.Request) {
         resp = append(resp, toPontoResponse(&p))
     }
     httputils.Respond(w, http.StatusOK, resp)
+}
+
+func (h *PontoHandler) Update(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	idStr := chi.URLParam(r, "id")
+	pontoID, err := strconv.ParseInt(idStr, 10, 64)
+
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+
+	var req UpdatePontoRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	ponto, err := h.store.Update(ctx, pontoID, func(p *Ponto) (bool, error) {
+		updated := false
+		if req.Nome != "" && req.Nome != p.Nome {
+			p.Nome = req.Nome
+			updated = true
+		}
+		if req.Rua != "" && req.Rua != p.Rua {
+			p.Rua = req.Rua
+			updated = true
+		}
+		if req.Cidade != "" && req.Cidade != p.Cidade {
+			p.Cidade = req.Cidade
+			updated = true
+		}
+		if req.Latitude != 0 && req.Latitude != p.Latitude {
+			p.Latitude = req.Latitude
+			updated = true
+		}
+		if req.Longitude != 0 && req.Longitude != p.Longitude {
+			p.Longitude = req.Longitude
+			updated = true
+		}
+		return updated, nil
+	})
+	
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			http.Error(w, "ponto not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	httputils.Respond(w, http.StatusOK, toPontoResponse(ponto))
 }
 
 func toPontoResponse(p *Ponto) PontoResponse {
