@@ -4,13 +4,15 @@ import (
 	"net/http"
 
 	"github.com/fredsaggio/bondrota-api/internal/admin"
+	"github.com/fredsaggio/bondrota-api/internal/veiculos"
 	"github.com/go-chi/chi/v5"
 )
 
 const reqBodyLimitBytes = 250 * 1024
 
 type Handlers struct {
-	AdminHandler *admin.AdminHandler
+	AdminHandler   *admin.AdminHandler
+	VeiculoHandler *veiculos.VeiculoHandler
 }
 
 type Server struct {
@@ -35,5 +37,13 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 		r.Put("/{adminID}", srv.handlers.AdminHandler.Update)
 		r.Delete("/{adminID}", srv.handlers.AdminHandler.Delete)
 		r.Post("/login", srv.handlers.AdminHandler.Login)
+	})
+
+	r.Route("/veiculos", func(r chi.Router) {
+		r.Post("/", srv.handlers.VeiculoHandler.Create)
+		r.Get("/", srv.handlers.VeiculoHandler.List)
+		r.Get("/{veiculoID}", srv.handlers.VeiculoHandler.GetByID)
+		r.Put("/{veiculoID}", srv.handlers.VeiculoHandler.Update)
+		r.Delete("/{veiculoID}", srv.handlers.VeiculoHandler.Delete)
 	})
 }
