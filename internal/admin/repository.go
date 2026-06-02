@@ -75,7 +75,7 @@ func (s *adminStore) Update(ctx context.Context, adminID int64, updateFunc func(
 			return nil
 		}
 
-		const updateQuery = `
+		const updateQ = `
 			UPDATE administrador
 			SET email = @email, senha = @senha
 			WHERE id = @id
@@ -86,7 +86,7 @@ func (s *adminStore) Update(ctx context.Context, adminID int64, updateFunc func(
 			"senha": admin.Senha,
 		}
 
-		if _, err := tx.Exec(ctx, updateQuery, updateArgs); err != nil {
+		if _, err := tx.Exec(ctx, updateQ, updateArgs); err != nil {
 			return fmt.Errorf("update: %w", err)
 		}
 
