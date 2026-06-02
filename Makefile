@@ -26,6 +26,9 @@ build:
 .PHONY: infra/up
 infra/up:
 	@docker compose up -d db
+	@echo "Waiting for database..."
+	@until docker exec bondrota-db pg_isready -U postgres; do sleep 1; done
+	@echo "Database ready!"
 
 ## infra/down: stop the database container
 .PHONY: infra/down
@@ -61,30 +64,30 @@ db:
 .PHONY: migration/new
 migration/new:
 	@echo "Creating migration $(name)..."
-	@goose -dir db/migrations create $(name) sql
+	@goose -dir internal/db/migrations create $(name) sql
 
 ## migration/fix: convert timestamp migrations to sequential numbering
 .PHONY: migration/fix
 migration/fix:
 	@echo "Formatting migrations..."
-	@goose -dir db/migrations fix
+	@goose -dir internal/db/migrations fix
 
 ## migration/up: apply all migrations locally
 .PHONY: migration/up
 migration/up:
-	@goose -dir db/migrations postgres "$(DATABASE_URL_LOCAL)" up
+	@goose -dir internal/db/migrations postgres "$(DATABASE_URL_LOCAL)" up
 
 ## migration/up/prod: apply all migrations in production
 .PHONY: migration/up/prod
 migration/up/prod:
-	@goose -dir db/migrations postgres "$(DATABASE_URL_PROD)" up
+	@goose -dir internal/db/migrations postgres "$(DATABASE_URL_PROD)" up
 
 ## migration/down: rollback last migration
 .PHONY: migration/down
 migration/down:
-	@goose -dir db/migrations postgres "$(DATABASE_URL_LOCAL)" down
+	@goose -dir internal/db/migrations postgres "$(DATABASE_URL_LOCAL)" down
 
 ## migration/status: show migration status
 .PHONY: migration/status
 migration/status:
-	@goose -dir db/migrations postgres "$(DATABASE_URL_LOCAL)" status
+	@goose -dir internal/db/migrations postgres "$(DATABASE_URL_LOCAL)" status

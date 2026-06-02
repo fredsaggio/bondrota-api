@@ -206,7 +206,7 @@ func (s *adminStore) List(ctx context.Context) ([]Admin, error) {
 	const op = "db/adminStore.List"
 
 	const q = `
-		SELECT id, email, senha
+		SELECT id, email
 		FROM administrador
 		ORDER BY id DESC
 	`
@@ -217,7 +217,7 @@ func (s *adminStore) List(ctx context.Context) ([]Admin, error) {
 
 	admins, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Admin, error) {
 		var admin Admin
-		err := row.Scan(&admin.ID, &admin.Email, &admin.Senha)
+		err := row.Scan(&admin.ID, &admin.Email)
 		return admin, err
 	})
 	if err != nil {
