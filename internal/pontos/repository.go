@@ -2,6 +2,7 @@ package pontos
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/fredsaggio/bondrota-api/internal/db"
@@ -39,4 +40,45 @@ func (s *pontoStore) Create(ctx context.Context, input PontoInput) (*Ponto, erro
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 	return &p, nil
+}
+
+func (s *pontoStore) GetByID(ctx context.Context, id int64) (*Ponto, error) {
+	const op = "db/pontoStore.GetByID"
+
+	ponto, err := getPontoByID(ctx, s.db, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return ponto, nil
+}
+
+func getPontoByID(ctx context.Context, querier interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+}, id int64) (*Ponto, error) {
+	const q = `
+		SELECT id, nome, rua, cidade, latitude, longitude
+		FROM pontos
+		WHERE id = @id
+	`
+	args := pgx.StrictNamedArgs{"id": id}
+
+	rows, err := querier.Query(ctx, q, args)
+	if err != nil {
+		return nil, err
+	}
+
+	ponto, err := pgx.CollectExactlyOneRow(rows, func(row pgx.CollectableRow) (Ponto, error) {
+		var p Ponto
+		err := row.Scan(&p.ID, &p.Nome, &p.Rua, &p.Cidade, &p.Latitude, &p.Longitude)
+		return p, err
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &ponto, nil
 }
