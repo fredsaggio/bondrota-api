@@ -113,6 +113,23 @@ func (h *VeiculoHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	httputils.Respond(w, http.StatusOK, toVeiculoResponse(veiculo))
 }
 
+func (h *VeiculoHandler) List(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	veiculos, err := h.store.List(ctx)
+	if err != nil {
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	resp := make([]VeiculoResponse, 0, len(veiculos))
+	for _, v := range veiculos {
+		resp = append(resp, toVeiculoResponse(&v))
+	}
+
+	httputils.Respond(w, http.StatusOK, resp)
+}
+
 func toVeiculoResponse(v *Veiculo) VeiculoResponse {
 	return VeiculoResponse{
 		ID:             v.ID,
