@@ -90,3 +90,41 @@ func (h *VeiculoHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	httputils.Respond(w, http.StatusCreated, CreateVeiculoResponse{ID: veiculo.ID})
 }
+
+func (h *VeiculoHandler) GetByID(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	idStr := chi.URLParam(r, "veiculoID")
+	vehicleID, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "invalid veiculo id", http.StatusBadRequest)
+		return
+	}
+
+	veiculo, err := h.store.GetByID(ctx, vehicleID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			http.Error(w, "veiculo not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	httputils.Respond(w, http.StatusOK, toVeiculoResponse(veiculo))
+}
+
+func toVeiculoResponse(v *Veiculo) VeiculoResponse {
+	return VeiculoResponse{
+		ID:             v.ID,
+		Placa:          v.Placa,
+		Modelo:         v.Modelo,
+		Capacidade:     v.Capacidade,
+		CidadeBase:     v.CidadeBase,
+		Status:         v.Status,
+		ArCondicionado: v.ArCondicionado,
+		Banheiro:       v.Banheiro,
+		Persiana:       v.Persiana,
+		LuzLeitura:     v.LuzLeitura,
+		Tomada:         v.Tomada,
+	}
+}
