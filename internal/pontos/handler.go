@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
 	"github.com/go-chi/chi/v5"
@@ -73,10 +74,12 @@ func (h *PontoHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	cidade := strings.TrimSpace(strings.ToLower(req.Cidade))
+
 	input := PontoInput{
 		Nome:      req.Nome,
 		Rua:       req.Rua,
-		Cidade:    req.Cidade,
+		Cidade:    cidade,
 		Latitude:  req.Latitude,
 		Longitude: req.Longitude,
 	}
@@ -114,40 +117,40 @@ func (h *PontoHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *PontoHandler) List(w http.ResponseWriter, r *http.Request) {
-    ctx := r.Context()
-    pontos, err := h.store.List(ctx)
-    if err != nil {
-        http.Error(w, "internal server error", http.StatusInternalServerError)
-        return
-    }
+	ctx := r.Context()
+	pontos, err := h.store.List(ctx)
+	if err != nil {
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
 
-    resp := make([]PontoResponse, 0, len(pontos))
-    for _, p := range pontos {
-        resp = append(resp, toPontoResponse(&p))
-    }
-    httputils.Respond(w, http.StatusOK, resp)
+	resp := make([]PontoResponse, 0, len(pontos))
+	for _, p := range pontos {
+		resp = append(resp, toPontoResponse(&p))
+	}
+	httputils.Respond(w, http.StatusOK, resp)
 }
 
 func (h *PontoHandler) ListByCity(w http.ResponseWriter, r *http.Request) {
-    ctx := r.Context()
-    cidade := chi.URLParam(r, "cidade")
+	ctx := r.Context()
+	cidade := strings.TrimSpace(strings.ToLower(chi.URLParam(r, "cidade")))
 
-    if cidade == "" {
-        http.Error(w, "cidade is required", http.StatusBadRequest)
-        return
-    }
+	if cidade == "" {
+		http.Error(w, "cidade is required", http.StatusBadRequest)
+		return
+	}
 
-    pontos, err := h.store.ListByCity(ctx, cidade)
-    if err != nil {
-        http.Error(w, "internal server error", http.StatusInternalServerError)
-        return
-    }
+	pontos, err := h.store.ListByCity(ctx, cidade)
+	if err != nil {
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
 
-    resp := make([]PontoResponse, 0, len(pontos))
-    for _, p := range pontos {
-        resp = append(resp, toPontoResponse(&p))
-    }
-    httputils.Respond(w, http.StatusOK, resp)
+	resp := make([]PontoResponse, 0, len(pontos))
+	for _, p := range pontos {
+		resp = append(resp, toPontoResponse(&p))
+	}
+	httputils.Respond(w, http.StatusOK, resp)
 }
 
 func (h *PontoHandler) Update(w http.ResponseWriter, r *http.Request) {
