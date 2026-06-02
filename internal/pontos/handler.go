@@ -113,6 +113,43 @@ func (h *PontoHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	httputils.Respond(w, http.StatusOK, toPontoResponse(ponto))
 }
 
+func (h *PontoHandler) List(w http.ResponseWriter, r *http.Request) {
+    ctx := r.Context()
+    pontos, err := h.store.List(ctx)
+    if err != nil {
+        http.Error(w, "internal server error", http.StatusInternalServerError)
+        return
+    }
+
+    resp := make([]PontoResponse, 0, len(pontos))
+    for _, p := range pontos {
+        resp = append(resp, toPontoResponse(&p))
+    }
+    httputils.Respond(w, http.StatusOK, resp)
+}
+
+func (h *PontoHandler) ListByCity(w http.ResponseWriter, r *http.Request) {
+    ctx := r.Context()
+    cidade := chi.URLParam(r, "cidade")
+	
+    if cidade == "" {
+        http.Error(w, "cidade is required", http.StatusBadRequest)
+        return
+    }
+
+    pontos, err := h.store.ListByCity(ctx, cidade)
+    if err != nil {
+        http.Error(w, "internal server error", http.StatusInternalServerError)
+        return
+    }
+
+    resp := make([]PontoResponse, 0, len(pontos))
+    for _, p := range pontos {
+        resp = append(resp, toPontoResponse(&p))
+    }
+    httputils.Respond(w, http.StatusOK, resp)
+}
+
 func toPontoResponse(p *Ponto) PontoResponse {
 	return PontoResponse{
 		ID:        p.ID,
