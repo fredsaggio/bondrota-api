@@ -2,9 +2,12 @@ package pontos
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
+	"github.com/go-chi/chi/v5"
 )
 
 type CreatePontoRequest struct {
@@ -85,4 +88,38 @@ func (h *PontoHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httputils.Respond(w, http.StatusCreated, CreatePontoResponse{ID: ponto.ID})
+}
+
+func (h *PontoHandler) GetByID(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	idStr := chi.URLParam(r, "id")
+	pontoID, err := strconv.ParseInt(idStr, 10, 64)
+
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+
+	ponto, err := h.store.GetByID(ctx, pontoID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			http.Error(w, "ponto not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	httputils.Respond(w, http.StatusOK, toPontoResponse(ponto))
+}
+
+func toPontoResponse(p *Ponto) PontoResponse {
+	return PontoResponse{
+		ID:        p.ID,
+		Nome:      p.Nome,
+		Rua:       p.Rua,
+		Cidade:    p.Cidade,
+		Latitude:  p.Latitude,
+		Longitude: p.Longitude,
+	}
 }
