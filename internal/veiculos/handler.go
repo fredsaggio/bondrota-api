@@ -130,6 +130,77 @@ func (h *VeiculoHandler) List(w http.ResponseWriter, r *http.Request) {
 	httputils.Respond(w, http.StatusOK, resp)
 }
 
+func (h *VeiculoHandler) Update(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	id, err := strconv.ParseInt(chi.URLParam(r, "veiculoID"), 10, 64)
+	if err != nil {
+		http.Error(w, "invalid veiculo id", http.StatusBadRequest)
+		return
+	}
+
+	var req UpdateVeiculoRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	veiculo, err := h.store.Update(ctx, id, func(v *Veiculo) (bool, error) {
+		changed := false
+		if req.Placa != "" && req.Placa != v.Placa {
+			v.Placa = req.Placa
+			changed = true
+		}
+		if req.Modelo != "" && req.Modelo != v.Modelo {
+			v.Modelo = req.Modelo
+			changed = true
+		}
+		if req.Capacidade > 0 && req.Capacidade != v.Capacidade {
+			v.Capacidade = req.Capacidade
+			changed = true
+		}
+		if req.CidadeBase != "" && req.CidadeBase != v.CidadeBase {
+			v.CidadeBase = req.CidadeBase
+			changed = true
+		}
+		if req.Status != "" && req.Status != v.Status {
+			v.Status = req.Status
+			changed = true
+		}
+		if req.ArCondicionado != v.ArCondicionado {
+			v.ArCondicionado = req.ArCondicionado
+			changed = true
+		}
+		if req.Banheiro != v.Banheiro {
+			v.Banheiro = req.Banheiro
+			changed = true
+		}
+		if req.Persiana != v.Persiana {
+			v.Persiana = req.Persiana
+			changed = true
+		}
+		if req.LuzLeitura != v.LuzLeitura {
+			v.LuzLeitura = req.LuzLeitura
+			changed = true
+		}
+		if req.Tomada != v.Tomada {
+			v.Tomada = req.Tomada
+			changed = true
+		}
+		return changed, nil
+	})
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			http.Error(w, "veiculo not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	httputils.Respond(w, http.StatusOK, toVeiculoResponse(veiculo))
+}
+
 func toVeiculoResponse(v *Veiculo) VeiculoResponse {
 	return VeiculoResponse{
 		ID:             v.ID,
