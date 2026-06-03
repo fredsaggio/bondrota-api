@@ -8,6 +8,7 @@ import (
 
 	"github.com/fredsaggio/bondrota-api/internal/conv"
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
+	"github.com/go-chi/chi/v5"
 )
 
 type ParadaRequest struct {
@@ -87,6 +88,46 @@ func (h *ParadaHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httputils.Respond(w, http.StatusOK, toParadaResponse(parada))
+}
+
+func (h *ParadaHandler) List(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	paradas, err := h.store.List(ctx)
+	if err != nil {
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	resp := make([]ParadaResponse, 0, len(paradas))
+	for _, p := range paradas {
+		resp = append(resp, toParadaResponse(&p))
+	}
+
+	httputils.Respond(w, http.StatusOK, resp)
+}
+
+func (h *ParadaHandler) ListByCity(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	cidade := strings.TrimSpace(strings.ToLower(chi.URLParam(r, "cidade")))
+	if cidade == "" {
+		http.Error(w, "cidade is required", http.StatusBadRequest)
+		return
+	}
+
+	paradas, err := h.store.ListByCity(ctx, cidade)
+	if err != nil {
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	resp := make([]ParadaResponse, 0, len(paradas))
+	for _, p := range paradas {
+		resp = append(resp, toParadaResponse(&p))
+	}
+
+	httputils.Respond(w, http.StatusOK, resp)
 }
 
 func toParadaResponse(p *Parada) ParadaResponse {
