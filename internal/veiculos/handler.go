@@ -4,10 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strconv"
 
+	"github.com/fredsaggio/bondrota-api/internal/conv"
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
-	"github.com/go-chi/chi/v5"
 )
 
 type VeiculoHandler struct {
@@ -93,8 +92,7 @@ func (h *VeiculoHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *VeiculoHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	idStr := chi.URLParam(r, "veiculoID")
-	vehicleID, err := strconv.ParseInt(idStr, 10, 64)
+	vehicleID, err := conv.ParseInt(r, "veiculoID")
 	if err != nil {
 		http.Error(w, "invalid veiculo id", http.StatusBadRequest)
 		return
@@ -132,9 +130,7 @@ func (h *VeiculoHandler) List(w http.ResponseWriter, r *http.Request) {
 
 func (h *VeiculoHandler) Update(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	idStr := chi.URLParam(r, "veiculoID")
-	vehicleID, err := strconv.ParseInt(idStr, 10, 64)
-
+	vehicleID, err := conv.ParseInt(r, "veiculoID")
 	if err != nil {
 		http.Error(w, "invalid veiculo id", http.StatusBadRequest)
 		return
@@ -204,9 +200,8 @@ func (h *VeiculoHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 func (h *VeiculoHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	idStr := chi.URLParam(r, "veiculoID")
-	vehicleID, err := strconv.ParseInt(idStr, 10, 64)
-	
+	vehicleID, err := conv.ParseInt(r, "veiculoID")
+
 	if err != nil {
 		http.Error(w, "invalid veiculo id", http.StatusBadRequest)
 		return

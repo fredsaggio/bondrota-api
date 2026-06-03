@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 
+	"github.com/fredsaggio/bondrota-api/internal/conv"
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
 	"github.com/go-chi/chi/v5"
 )
@@ -95,8 +95,7 @@ func (h *PontoHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *PontoHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	idStr := chi.URLParam(r, "id")
-	pontoID, err := strconv.ParseInt(idStr, 10, 64)
+	pontoID, err := conv.ParseInt(r, "id")
 
 	if err != nil {
 		http.Error(w, "invalid id", http.StatusBadRequest)
@@ -155,8 +154,7 @@ func (h *PontoHandler) ListByCity(w http.ResponseWriter, r *http.Request) {
 
 func (h *PontoHandler) Update(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	idStr := chi.URLParam(r, "id")
-	pontoID, err := strconv.ParseInt(idStr, 10, 64)
+	pontoID, err := conv.ParseInt(r, "id")
 
 	if err != nil {
 		http.Error(w, "invalid id", http.StatusBadRequest)
@@ -208,8 +206,7 @@ func (h *PontoHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 func (h *PontoHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
+	id, err := conv.ParseInt(r, "id")
 	if err != nil {
 		http.Error(w, "invalid id", http.StatusBadRequest)
 		return

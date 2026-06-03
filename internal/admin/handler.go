@@ -4,11 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strconv"
 
 	"github.com/fredsaggio/bondrota-api/internal/auth"
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
-	"github.com/go-chi/chi/v5"
+	"github.com/fredsaggio/bondrota-api/internal/conv"
 )
 
 type AdminHandler struct {
@@ -89,8 +88,7 @@ func (h *AdminHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *AdminHandler) Update(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	idStr := chi.URLParam(r, "adminID")
-	adminID, err := strconv.ParseInt(idStr, 10, 64)
+	adminID, err := conv.ParseInt(r, "adminID")
 	if err != nil {
 		http.Error(w, "invalid admin id", http.StatusBadRequest)
 		return
@@ -120,8 +118,7 @@ func (h *AdminHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 func (h *AdminHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	idStr := chi.URLParam(r, "adminID")
-	adminID, err := strconv.ParseInt(idStr, 10, 64)
+	adminID, err := conv.ParseInt(r, "adminID")
 	if err != nil {
 		http.Error(w, "invalid admin id", http.StatusBadRequest)
 		return
@@ -145,8 +142,7 @@ func (h *AdminHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 func (h *AdminHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	idStr := chi.URLParam(r, "adminID")
-	adminID, err := strconv.ParseInt(idStr, 10, 64)
+	adminID, err := conv.ParseInt(r, "adminID")
 	if err != nil {
 		http.Error(w, "invalid admin id", http.StatusBadRequest)
 		return
