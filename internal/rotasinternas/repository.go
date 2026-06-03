@@ -28,9 +28,7 @@ func (s *rotaInternaStore) Create(ctx context.Context, input CreateRotaInternaIn
 			VALUES (@cidade)
 			RETURNING id, cidade
 		`
-		args := pgx.StrictNamedArgs{"cidade": input.Cidade}
-
-		err := tx.QueryRow(ctx, q, args).Scan(&rota.ID, &rota.Cidade)
+		err := tx.QueryRow(ctx, q, pgx.StrictNamedArgs{"cidade": input.Cidade}).Scan(&rota.ID, &rota.Cidade)
 		if err != nil {
 			return fmt.Errorf("insert rota: %w", err)
 		}
@@ -50,21 +48,22 @@ func (s *rotaInternaStore) Create(ctx context.Context, input CreateRotaInternaIn
 	return &rota, nil
 }
 
-func (s *rotaInternaStore) GetByID(ctx context.Context, id int64) (*RotaInterna, error) {
+func (s *rotaInternaStore) GetByID(ctx context.Context, rotaInternaID int64) (*RotaInterna, error) {
 	const op = "db/rotaInternaStore.GetByID"
 
 	const q = `
 		SELECT
 			r.id, r.cidade,
-			p.id, p.rota_interna_id, p.nome, p.latitude, p.longitude, p.ordem
+			p.id, p.nome, p.latitude, p.longitude, p.cidade,
+			rip.ordem
 		FROM rotas_internas r
-		LEFT JOIN rota_interna_paradas p ON p.rota_interna_id = r.id
+		LEFT JOIN rota_interna_paradas rip ON rip.rota_interna_id = r.id
+		LEFT JOIN paradas p ON p.id = rip.parada_id
 		WHERE r.id = @id
-		ORDER BY p.ordem ASC
+		ORDER BY rip.ordem ASC
 	`
-	args := pgx.StrictNamedArgs{"id": id}
 
-	rows, err := s.db.Query(ctx, q, args)
+	rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{"id": rotaInternaID})
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
@@ -86,10 +85,12 @@ func (s *rotaInternaStore) List(ctx context.Context) ([]RotaInterna, error) {
 	const q = `
 		SELECT
 			r.id, r.cidade,
-			p.id, p.rota_interna_id, p.nome, p.latitude, p.longitude, p.ordem
+			p.id, p.nome, p.latitude, p.longitude, p.cidade,
+			rip.ordem
 		FROM rotas_internas r
-		LEFT JOIN rota_interna_paradas p ON p.rota_interna_id = r.id
-		ORDER BY r.id DESC, p.ordem ASC
+		LEFT JOIN rota_interna_paradas rip ON rip.rota_interna_id = r.id
+		LEFT JOIN paradas p ON p.id = rip.parada_id
+		ORDER BY r.id DESC, rip.ordem ASC
 	`
 
 	rows, err := s.db.Query(ctx, q)
@@ -111,15 +112,16 @@ func (s *rotaInternaStore) ListByCity(ctx context.Context, cidade string) ([]Rot
 	const q = `
 		SELECT
 			r.id, r.cidade,
-			p.id, p.rota_interna_id, p.nome, p.latitude, p.longitude, p.ordem
+			p.id, p.nome, p.latitude, p.longitude, p.cidade,
+			rip.ordem
 		FROM rotas_internas r
-		LEFT JOIN rota_interna_paradas p ON p.rota_interna_id = r.id
+		LEFT JOIN rota_interna_paradas rip ON rip.rota_interna_id = r.id
+		LEFT JOIN paradas p ON p.id = rip.parada_id
 		WHERE r.cidade = @cidade
-		ORDER BY r.id DESC, p.ordem ASC
+		ORDER BY r.id DESC, rip.ordem ASC
 	`
-	args := pgx.StrictNamedArgs{"cidade": cidade}
 
-	rows, err := s.db.Query(ctx, q, args)
+	rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{"cidade": cidade})
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
@@ -189,6 +191,45 @@ func (s *rotaInternaStore) Delete(ctx context.Context, rotaInternaID int64) erro
 	return nil
 }
 
+func insertParadas(ctx context.Context, tx pgx.Tx, rotaInternaID int64, paradas []ParadaInput) ([]ParadaOrdenada, error) {
+	const q = `
+		WITH inserted AS (
+			INSERT INTO rota_interna_paradas (rota_interna_id, parada_id, ordem)
+			VALUES (@rota_interna_id, @parada_id, @ordem)
+			RETURNING parada_id, ordem
+		)
+		SELECT i.ordem, p.id, p.nome, p.latitude, p.longitude, p.cidade
+		FROM inserted i
+		JOIN paradas p ON p.id = i.parada_id
+	`
+
+	batch := &pgx.Batch{}
+	for _, p := range paradas {
+		batch.Queue(q, pgx.StrictNamedArgs{
+			"rota_interna_id": rotaInternaID,
+			"parada_id":       p.ParadaID,
+			"ordem":           p.Ordem,
+		})
+	}
+
+	results := tx.SendBatch(ctx, batch)
+	defer results.Close()
+
+	inserted := make([]ParadaOrdenada, 0, len(paradas))
+	for range paradas {
+		var po ParadaOrdenada
+		err := results.QueryRow().Scan(
+			&po.Ordem, &po.ID, &po.Nome, &po.Latitude, &po.Longitude, &po.Cidade,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("insert parada: %w", err)
+		}
+		inserted = append(inserted, po)
+	}
+
+	return inserted, nil
+}
+
 func collectRotas(rows pgx.Rows) ([]RotaInterna, error) {
 	defer rows.Close()
 
@@ -197,71 +238,34 @@ func collectRotas(rows pgx.Rows) ([]RotaInterna, error) {
 
 	for rows.Next() {
 		var (
-			rid     int64
-			cidade  string
-			pID     *int64
-			pRotaID *int64
-			pNome   *string
-			pLat    *float64
-			pLng    *float64
-			pOrdem  *int
+			rid    int64
+			cidade string
+			pID    *int64
+			pNome  *string
+			pLat   *float64
+			pLng   *float64
+			pCidade *string
+			pOrdem *int
 		)
-		if err := rows.Scan(&rid, &cidade, &pID, &pRotaID, &pNome, &pLat, &pLng, &pOrdem); err != nil {
+		if err := rows.Scan(&rid, &cidade, &pID, &pNome, &pLat, &pLng, &pCidade, &pOrdem); err != nil {
 			return nil, err
 		}
 		if _, ok := index[rid]; !ok {
-			rotas = append(rotas, RotaInterna{ID: rid, Cidade: cidade, Paradas: []Parada{}})
+			rotas = append(rotas, RotaInterna{ID: rid, Cidade: cidade, Paradas: []ParadaOrdenada{}})
 			index[rid] = len(rotas) - 1
 		}
 		if pID != nil {
 			i := index[rid]
-			rotas[i].Paradas = append(rotas[i].Paradas, Parada{
-				ID:            *pID,
-				RotaInternaID: *pRotaID,
-				Nome:          *pNome,
-				Latitude:      *pLat,
-				Longitude:     *pLng,
-				Ordem:         *pOrdem,
+			rotas[i].Paradas = append(rotas[i].Paradas, ParadaOrdenada{
+				ID:        *pID,
+				Nome:      *pNome,
+				Latitude:  *pLat,
+				Longitude: *pLng,
+				Cidade:    *pCidade,
+				Ordem:     *pOrdem,
 			})
 		}
 	}
 
 	return rotas, rows.Err()
-}
-
-func insertParadas(ctx context.Context, tx pgx.Tx, rotaInternaID int64, paradas []ParadaInput) ([]Parada, error) {
-	const q = `
-		INSERT INTO rota_interna_paradas (rota_interna_id, nome, latitude, longitude, ordem)
-		VALUES (@rota_interna_id, @nome, @latitude, @longitude, @ordem)
-		RETURNING id, rota_interna_id, nome, latitude, longitude, ordem
-	`
-
-	batch := &pgx.Batch{}
-	for _, p := range paradas {
-		batch.Queue(q, pgx.StrictNamedArgs{
-			"rota_interna_id": rotaInternaID,
-			"nome":            p.Nome,
-			"latitude":        p.Latitude,
-			"longitude":       p.Longitude,
-			"ordem":           p.Ordem,
-		})
-	}
-
-	results := tx.SendBatch(ctx, batch)
-	defer results.Close()
-
-	inserted := make([]Parada, 0, len(paradas))
-	for range paradas {
-		var parada Parada
-		err := results.QueryRow().Scan(
-			&parada.ID, &parada.RotaInternaID, &parada.Nome,
-			&parada.Latitude, &parada.Longitude, &parada.Ordem,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("insert parada: %w", err)
-		}
-		inserted = append(inserted, parada)
-	}
-
-	return inserted, nil
 }
