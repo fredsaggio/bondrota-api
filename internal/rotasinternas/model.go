@@ -6,27 +6,26 @@ import (
 )
 
 var ErrNotFound = errors.New("rota interna not found")
+var ErrOrdemDuplicada = errors.New("ordens das paradas devem ser únicas")
 
 type RotaInterna struct {
-	ID       int64
-	Cidade   string
-	Paradas  []Parada
+	ID      int64
+	Cidade  string
+	Paradas []ParadaOrdenada
 }
 
-type Parada struct {
-	ID            int64
-	RotaInternaID int64
-	Nome          string
-	Latitude      float64
-	Longitude     float64
-	Ordem         int
-}
-
-type ParadaInput struct {
+type ParadaOrdenada struct {
+	ID        int64
 	Nome      string
 	Latitude  float64
 	Longitude float64
+	Cidade    string
 	Ordem     int
+}
+
+type ParadaInput struct {
+	ParadaID int64
+	Ordem    int
 }
 
 type CreateRotaInternaInput struct {
