@@ -113,6 +113,65 @@ func (s *paradaStore) ListByCity(ctx context.Context, cidade string) ([]Parada, 
 	return paradas, nil
 }
 
+func (s *paradaStore) Update(ctx context.Context, paradaID int64, updateFunc func(*Parada) (bool, error)) (*Parada, error) {
+	const op = "db/paradaStore.Update"
+
+	var parada Parada
+
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		const selectQ = `
+			SELECT id, nome, latitude, longitude, cidade
+			FROM paradas
+			WHERE id = @id
+			FOR UPDATE
+		`
+		rows, err := tx.Query(ctx, selectQ, pgx.StrictNamedArgs{"id": paradaID})
+		if err != nil {
+			return fmt.Errorf("select: %w", err)
+		}
+
+		p, err := pgx.CollectExactlyOneRow(rows, scanParada)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrNotFound
+			}
+			return fmt.Errorf("select: %w", err)
+		}
+		parada = p
+
+		changed, err := updateFunc(&parada)
+		if err != nil {
+			return err
+		}
+		if !changed {
+			return nil
+		}
+
+		const updateQ = `
+			UPDATE paradas
+			SET nome = @nome, latitude = @latitude, longitude = @longitude, cidade = @cidade
+			WHERE id = @id
+		`
+		_, err = tx.Exec(ctx, updateQ, pgx.StrictNamedArgs{
+			"id":        parada.ID,
+			"nome":      parada.Nome,
+			"latitude":  parada.Latitude,
+			"longitude": parada.Longitude,
+			"cidade":    parada.Cidade,
+		})
+		if err != nil {
+			return fmt.Errorf("update: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return &parada, nil
+}
+
 func scanParada(row pgx.CollectableRow) (Parada, error) {
 	var p Parada
 	err := row.Scan(&p.ID, &p.Nome, &p.Latitude, &p.Longitude, &p.Cidade)
