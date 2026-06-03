@@ -177,6 +177,27 @@ func (h *ParadaHandler) Update(w http.ResponseWriter, r *http.Request) {
 	httputils.Respond(w, http.StatusOK, toParadaResponse(parada))
 }
 
+func (h *ParadaHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	paradaID, err := conv.ParseInt(r, "id")
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.store.Delete(ctx, paradaID); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			http.Error(w, "parada not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "parada em uso por uma rota interna", http.StatusConflict)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func toParadaResponse(p *Parada) ParadaResponse {
 	return ParadaResponse{
 		ID:        p.ID,
