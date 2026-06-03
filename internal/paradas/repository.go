@@ -2,6 +2,7 @@ package paradas
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/fredsaggio/bondrota-api/internal/db"
@@ -38,4 +39,36 @@ func (s *paradaStore) Create(ctx context.Context, input ParadaInput) (*Parada, e
 	}
 
 	return &p, nil
+}
+
+func (s *paradaStore) GetByID(ctx context.Context, paradaID int64) (*Parada, error) {
+	const op = "db/paradaStore.GetByID"
+
+	const q = `
+		SELECT id, nome, latitude, longitude, cidade
+		FROM paradas
+		WHERE id = @id
+	`
+	args := pgx.StrictNamedArgs{"id": paradaID}
+
+	rows, err := s.db.Query(ctx, q, args)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	p, err := pgx.CollectExactlyOneRow(rows, scanParada)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return &p, nil
+}
+
+func scanParada(row pgx.CollectableRow) (Parada, error) {
+	var p Parada
+	err := row.Scan(&p.ID, &p.Nome, &p.Latitude, &p.Longitude, &p.Cidade)
+	return p, err
 }
