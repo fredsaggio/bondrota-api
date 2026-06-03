@@ -2,9 +2,11 @@ package paradas
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
+	"github.com/fredsaggio/bondrota-api/internal/conv"
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
 )
 
@@ -63,6 +65,28 @@ func (h *ParadaHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httputils.Respond(w, http.StatusCreated, toParadaResponse(parada))
+}
+
+func (h *ParadaHandler) GetByID(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	paradaID, err := conv.ParseInt(r, "id")
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+
+	parada, err := h.store.GetByID(ctx, paradaID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			http.Error(w, "parada not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	httputils.Respond(w, http.StatusOK, toParadaResponse(parada))
 }
 
 func toParadaResponse(p *Parada) ParadaResponse {
