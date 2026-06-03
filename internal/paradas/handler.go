@@ -130,6 +130,53 @@ func (h *ParadaHandler) ListByCity(w http.ResponseWriter, r *http.Request) {
 	httputils.Respond(w, http.StatusOK, resp)
 }
 
+func (h *ParadaHandler) Update(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	paradaID, err := conv.ParseInt(r, "id")
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+
+	var req ParadaRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	parada, err := h.store.Update(ctx, paradaID, func(p *Parada) (bool, error) {
+		updated := false
+		if req.Nome != "" && req.Nome != p.Nome {
+			p.Nome = strings.TrimSpace(req.Nome)
+			updated = true
+		}
+		if req.Cidade != "" && req.Cidade != p.Cidade {
+			p.Cidade = strings.TrimSpace(strings.ToLower(req.Cidade))
+			updated = true
+		}
+		if req.Latitude != 0 && req.Latitude != p.Latitude {
+			p.Latitude = req.Latitude
+			updated = true
+		}
+		if req.Longitude != 0 && req.Longitude != p.Longitude {
+			p.Longitude = req.Longitude
+			updated = true
+		}
+		return updated, nil
+	})
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			http.Error(w, "parada not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	httputils.Respond(w, http.StatusOK, toParadaResponse(parada))
+}
+
 func toParadaResponse(p *Parada) ParadaResponse {
 	return ParadaResponse{
 		ID:        p.ID,
