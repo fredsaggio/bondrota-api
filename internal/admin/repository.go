@@ -105,11 +105,7 @@ func getAdminByIDForUpdate(ctx context.Context, tx pgx.Tx, id int64) (*Admin, er
         return nil, err
     }
 
-    admin, err := pgx.CollectExactlyOneRow(rows, func(row pgx.CollectableRow) (Admin, error) {
-        var a Admin
-        err := row.Scan(&a.ID, &a.Email, &a.Senha)
-        return a, err
-    })
+    admin, err := pgx.CollectExactlyOneRow(rows, scanAdmin)
     if err != nil {
         return nil, err
     }
@@ -146,11 +142,7 @@ func getAdminByID(ctx context.Context, querier interface {
 		return nil, err
 	}
 
-	admin, err := pgx.CollectExactlyOneRow(rows, func(row pgx.CollectableRow) (Admin, error) {
-		var admin Admin
-		err := row.Scan(&admin.ID, &admin.Email, &admin.Senha)
-		return admin, err
-	})
+	admin, err := pgx.CollectExactlyOneRow(rows, scanAdmin)
 	if err != nil {
 		return nil, err
 	}
@@ -186,11 +178,7 @@ func getAdminByEmail(ctx context.Context, querier interface {
 		return nil, err
 	}
 
-	admin, err := pgx.CollectExactlyOneRow(rows, func(row pgx.CollectableRow) (Admin, error) {
-		var admin Admin
-		err := row.Scan(&admin.ID, &admin.Email, &admin.Senha)
-		return admin, err
-	})
+	admin, err := pgx.CollectExactlyOneRow(rows, scanAdmin)
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +186,7 @@ func getAdminByEmail(ctx context.Context, querier interface {
 	return &admin, nil
 }
 
-func (s *adminStore) Delete(ctx context.Context, adminID int64) (error) {
+func (s *adminStore) Delete(ctx context.Context, adminID int64) error {
 	const op = "db/adminStore.Delete"
 	
 	const q = `
@@ -232,14 +220,17 @@ func (s *adminStore) List(ctx context.Context) ([]Admin, error) {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	admins, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Admin, error) {
-		var admin Admin
-		err := row.Scan(&admin.ID, &admin.Email)
-		return admin, err
-	})
+	admins, err := pgx.CollectRows(rows, scanAdmin)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return admins, nil
+}
+
+func scanAdmin(row pgx.CollectableRow) (Admin, error) {
+    var a Admin
+    // Lê as 3 colunas exatamente na ordem do banco
+    err := row.Scan(&a.ID, &a.Email, &a.Senha)
+    return a, err
 }

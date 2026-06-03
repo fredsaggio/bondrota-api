@@ -71,11 +71,7 @@ func getPontoByID(ctx context.Context, querier interface {
 		return nil, err
 	}
 
-	ponto, err := pgx.CollectExactlyOneRow(rows, func(row pgx.CollectableRow) (Ponto, error) {
-		var p Ponto
-		err := row.Scan(&p.ID, &p.Nome, &p.Rua, &p.Cidade, &p.Latitude, &p.Longitude)
-		return p, err
-	})
+	ponto, err := pgx.CollectExactlyOneRow(rows, scanPonto)
 	if err != nil {
 		return nil, err
 	}
@@ -97,11 +93,7 @@ func (s *pontoStore) List(ctx context.Context) ([]Ponto, error) {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	pontos, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Ponto, error) {
-		var p Ponto
-		err := row.Scan(&p.ID, &p.Nome, &p.Rua, &p.Cidade, &p.Latitude, &p.Longitude)
-		return p, err
-	})
+	pontos, err := pgx.CollectRows(rows, scanPonto)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
@@ -125,11 +117,7 @@ func (s *pontoStore) ListByCity(ctx context.Context, cidade string) ([]Ponto, er
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	pontos, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Ponto, error) {
-		var p Ponto
-		err := row.Scan(&p.ID, &p.Nome, &p.Rua, &p.Cidade, &p.Latitude, &p.Longitude)
-		return p, err
-	})
+	pontos, err := pgx.CollectRows(rows, scanPonto)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
@@ -203,11 +191,7 @@ func getPontoByIDForUpdate(ctx context.Context, tx pgx.Tx, id int64) (*Ponto, er
 		return nil, err
 	}
 
-	ponto, err := pgx.CollectExactlyOneRow(rows, func(row pgx.CollectableRow) (Ponto, error) {
-		var p Ponto
-		err := row.Scan(&p.ID, &p.Nome, &p.Rua, &p.Cidade, &p.Latitude, &p.Longitude)
-		return p, err
-	})
+	ponto, err := pgx.CollectExactlyOneRow(rows, scanPonto)
 	if err != nil {
 		return nil, err
 	}
@@ -234,4 +218,11 @@ func (s *pontoStore) Delete(ctx context.Context, id int64) error {
 	}
 
 	return nil
+}
+
+
+func scanPonto(row pgx.CollectableRow) (Ponto, error) {
+	var p Ponto
+	err := row.Scan(&p.ID, &p.Nome, &p.Rua, &p.Cidade, &p.Latitude, &p.Longitude)
+	return p, err
 }
