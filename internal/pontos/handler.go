@@ -11,7 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type CreatePontoRequest struct {
+type PontoRequest struct {
 	Nome      string  `json:"nome"`
 	Rua       string  `json:"rua"`
 	Cidade    string  `json:"cidade"`
@@ -22,15 +22,6 @@ type CreatePontoRequest struct {
 type CreatePontoResponse struct {
 	ID int64 `json:"id"`
 }
-
-type UpdatePontoRequest struct {
-	Nome      string  `json:"nome"`
-	Rua       string  `json:"rua"`
-	Cidade    string  `json:"cidade"`
-	Latitude  float64 `json:"latitude"`
-	Longitude float64 `json:"longitude"`
-}
-
 type PontoResponse struct {
 	ID        int64   `json:"id"`
 	Nome      string  `json:"nome"`
@@ -51,7 +42,7 @@ func NewPontoHandler(store PontoStore) *PontoHandler {
 func (h *PontoHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	var req CreatePontoRequest
+	var req PontoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
@@ -161,7 +152,7 @@ func (h *PontoHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req UpdatePontoRequest
+	var req PontoRequest	
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
