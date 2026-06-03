@@ -67,6 +67,52 @@ func (s *paradaStore) GetByID(ctx context.Context, paradaID int64) (*Parada, err
 	return &p, nil
 }
 
+func (s *paradaStore) List(ctx context.Context) ([]Parada, error) {
+	const op = "db/paradaStore.List"
+
+	const q = `
+		SELECT id, nome, latitude, longitude, cidade
+		FROM paradas
+		ORDER BY id DESC
+	`
+
+	rows, err := s.db.Query(ctx, q)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	paradas, err := pgx.CollectRows(rows, scanParada)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return paradas, nil
+}
+
+func (s *paradaStore) ListByCity(ctx context.Context, cidade string) ([]Parada, error) {
+	const op = "db/paradaStore.ListByCity"
+
+	const q = `
+		SELECT id, nome, latitude, longitude, cidade
+		FROM paradas
+		WHERE cidade = @cidade
+		ORDER BY nome ASC
+	`
+	args := pgx.StrictNamedArgs{"cidade": cidade}
+
+	rows, err := s.db.Query(ctx, q, args)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	paradas, err := pgx.CollectRows(rows, scanParada)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return paradas, nil
+}
+
 func scanParada(row pgx.CollectableRow) (Parada, error) {
 	var p Parada
 	err := row.Scan(&p.ID, &p.Nome, &p.Latitude, &p.Longitude, &p.Cidade)
