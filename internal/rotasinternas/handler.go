@@ -72,7 +72,7 @@ func (h *RotaInternaHandler) Create(w http.ResponseWriter, r *http.Request) {
 
     rota, err := h.svc.Create(ctx, input)
     if err != nil {
-        if errors.Is(err, ErrOrdemDuplicada) {
+        if errors.Is(err, ErrOrdemDuplicada) || errors.Is(err, ErrSemParadas) || errors.Is(err, ErrParadaInvalida) {
             http.Error(w, err.Error(), http.StatusUnprocessableEntity)
             return
         }
@@ -170,7 +170,7 @@ func (h *RotaInternaHandler) UpdateParadas(w http.ResponseWriter, r *http.Reques
             http.Error(w, "rota interna not found", http.StatusNotFound)
             return
         }
-        if errors.Is(err, ErrOrdemDuplicada) {
+        if errors.Is(err, ErrOrdemDuplicada) || errors.Is(err, ErrSemParadas) || errors.Is(err, ErrParadaInvalida) {
             http.Error(w, err.Error(), http.StatusUnprocessableEntity)
             return
         }

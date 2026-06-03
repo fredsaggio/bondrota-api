@@ -7,6 +7,8 @@ import (
 
 var ErrNotFound = errors.New("rota interna not found")
 var ErrOrdemDuplicada = errors.New("ordens das paradas devem ser únicas")
+var ErrSemParadas = errors.New("rota deve ter ao menos uma parada") // Adicionar
+var ErrParadaInvalida = errors.New("parada_id e ordem devem ser maiores que zero")
 
 type RotaInterna struct {
 	ID      int64
