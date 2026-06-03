@@ -40,9 +40,18 @@ type UpdateParadasInput struct {
 
 type RotaInternaStore interface {
 	Create(ctx context.Context, input CreateRotaInternaInput) (*RotaInterna, error)
-	GetByID(ctx context.Context, id int64) (*RotaInterna, error)
+	GetByID(ctx context.Context, rotaInternaID int64) (*RotaInterna, error)
 	List(ctx context.Context) ([]RotaInterna, error)
 	ListByCity(ctx context.Context, cidade string) ([]RotaInterna, error)
-	UpdateParadas(ctx context.Context, id int64, input UpdateParadasInput) (*RotaInterna, error)
-	Delete(ctx context.Context, id int64) error
+	UpdateParadas(ctx context.Context, rotaInternaID int64, input UpdateParadasInput) (*RotaInterna, error)
+	Delete(ctx context.Context, rotaInternaID int64) error
+}
+
+type RotaInternaService interface {
+	Create(ctx context.Context, input CreateRotaInternaInput) (*RotaInterna, error)
+	GetByID(ctx context.Context, rotaInternaID int64) (*RotaInterna, error)
+	List(ctx context.Context) ([]RotaInterna, error)
+	ListByCity(ctx context.Context, cidade string) ([]RotaInterna, error)
+	UpdateParadas(ctx context.Context, rotaInternaID int64, input UpdateParadasInput) (*RotaInterna, error)
+	Delete(ctx context.Context, rotaInternaID int64) error
 }

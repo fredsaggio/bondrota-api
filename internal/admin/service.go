@@ -6,15 +6,6 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/auth"
 )
 
-type AdminService interface {
-	Login(ctx context.Context, email, password string) (string, error)
-	Create(ctx context.Context, input AdminInput) (*Admin, error)
-	Update(ctx context.Context, adminID int64, email string) (*Admin, error)
-	GetByID(ctx context.Context, adminID int64) (*Admin, error)
-	Delete(ctx context.Context, adminID int64) error
-	List(ctx context.Context) ([]Admin, error)
-}
-
 type adminService struct {
 	store   AdminStore
 	authSvc *auth.AuthService

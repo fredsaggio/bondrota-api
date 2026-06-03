@@ -132,7 +132,7 @@ func (s *rotaInternaStore) ListByCity(ctx context.Context, cidade string) ([]Rot
 	return rotas, nil
 }
 
-func (s *rotaInternaStore) UpdateParadas(ctx context.Context, id int64, input UpdateParadasInput) (*RotaInterna, error) {
+func (s *rotaInternaStore) UpdateParadas(ctx context.Context, rotaInternaID int64, input UpdateParadasInput) (*RotaInterna, error) {
 	const op = "db/rotaInternaStore.UpdateParadas"
 
 	var rota RotaInterna
@@ -144,7 +144,7 @@ func (s *rotaInternaStore) UpdateParadas(ctx context.Context, id int64, input Up
 			WHERE id = @id
 			FOR UPDATE
 		`
-		err := tx.QueryRow(ctx, selectQ, pgx.StrictNamedArgs{"id": id}).Scan(&rota.ID, &rota.Cidade)
+		err := tx.QueryRow(ctx, selectQ, pgx.StrictNamedArgs{"id": rotaInternaID}).Scan(&rota.ID, &rota.Cidade)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return ErrNotFound
@@ -153,11 +153,11 @@ func (s *rotaInternaStore) UpdateParadas(ctx context.Context, id int64, input Up
 		}
 
 		const deleteQ = `DELETE FROM rota_interna_paradas WHERE rota_interna_id = @rota_interna_id`
-		if _, err := tx.Exec(ctx, deleteQ, pgx.StrictNamedArgs{"rota_interna_id": id}); err != nil {
+		if _, err := tx.Exec(ctx, deleteQ, pgx.StrictNamedArgs{"rota_interna_id": rotaInternaID}); err != nil {
 			return fmt.Errorf("delete paradas: %w", err)
 		}
 
-		paradas, err := insertParadas(ctx, tx, id, input.Paradas)
+		paradas, err := insertParadas(ctx, tx, rotaInternaID, input.Paradas)
 		if err != nil {
 			return err
 		}
@@ -172,12 +172,12 @@ func (s *rotaInternaStore) UpdateParadas(ctx context.Context, id int64, input Up
 	return &rota, nil
 }
 
-func (s *rotaInternaStore) Delete(ctx context.Context, id int64) error {
+func (s *rotaInternaStore) Delete(ctx context.Context, rotaInternaID int64) error {
 	const op = "db/rotaInternaStore.Delete"
 
 	const q = `DELETE FROM rotas_internas WHERE id = @id`
 
-	cmdTag, err := s.db.Exec(ctx, q, pgx.StrictNamedArgs{"id": id})
+	cmdTag, err := s.db.Exec(ctx, q, pgx.StrictNamedArgs{"id": rotaInternaID})
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
@@ -229,7 +229,7 @@ func collectRotas(rows pgx.Rows) ([]RotaInterna, error) {
 	return rotas, rows.Err()
 }
 
-func insertParadas(ctx context.Context, tx pgx.Tx, rotaID int64, paradas []ParadaInput) ([]Parada, error) {
+func insertParadas(ctx context.Context, tx pgx.Tx, rotaInternaID int64, paradas []ParadaInput) ([]Parada, error) {
 	const q = `
 		INSERT INTO rota_interna_paradas (rota_interna_id, nome, latitude, longitude, ordem)
 		VALUES (@rota_interna_id, @nome, @latitude, @longitude, @ordem)
@@ -239,7 +239,7 @@ func insertParadas(ctx context.Context, tx pgx.Tx, rotaID int64, paradas []Parad
 	batch := &pgx.Batch{}
 	for _, p := range paradas {
 		batch.Queue(q, pgx.StrictNamedArgs{
-			"rota_interna_id": rotaID,
+			"rota_interna_id": rotaInternaID,
 			"nome":            p.Nome,
 			"latitude":        p.Latitude,
 			"longitude":       p.Longitude,
