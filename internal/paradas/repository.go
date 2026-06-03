@@ -172,6 +172,23 @@ func (s *paradaStore) Update(ctx context.Context, paradaID int64, updateFunc fun
 	return &parada, nil
 }
 
+func (s *paradaStore) Delete(ctx context.Context, paradaID int64) error {
+	const op = "db/paradaStore.Delete"
+
+	const q = `DELETE FROM paradas WHERE id = @id`
+
+	cmdTag, err := s.db.Exec(ctx, q, pgx.StrictNamedArgs{"id": paradaID})
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	if cmdTag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
 func scanParada(row pgx.CollectableRow) (Parada, error) {
 	var p Parada
 	err := row.Scan(&p.ID, &p.Nome, &p.Latitude, &p.Longitude, &p.Cidade)
