@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/fredsaggio/bondrota-api/internal/admin"
+	"github.com/fredsaggio/bondrota-api/internal/motoristas"
 	"github.com/fredsaggio/bondrota-api/internal/paradas"
 	"github.com/fredsaggio/bondrota-api/internal/pontos"
 	"github.com/fredsaggio/bondrota-api/internal/rotasinternas"
@@ -19,6 +20,7 @@ type Handlers struct {
 	PontoHandler       *pontos.PontoHandler
 	ParadaHandler      *paradas.ParadaHandler
 	RotaInternaHandler *rotasinternas.RotaInternaHandler
+	MotoristaHandler   *motoristas.MotoristaHandler
 }
 
 type Server struct {
@@ -78,5 +80,14 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 		r.Get("/{id}", srv.handlers.RotaInternaHandler.GetByID)
 		r.Put("/{id}/paradas", srv.handlers.RotaInternaHandler.UpdateParadas)
 		r.Delete("/{id}", srv.handlers.RotaInternaHandler.Delete)
+	})
+
+	r.Route("/motoristas", func(r chi.Router) {
+		r.Post("/login", srv.handlers.MotoristaHandler.Login)
+		r.Post("/", srv.handlers.MotoristaHandler.Create)
+		r.Get("/", srv.handlers.MotoristaHandler.List)
+		r.Get("/{id}", srv.handlers.MotoristaHandler.GetByID)
+		r.Put("/{id}", srv.handlers.MotoristaHandler.Update)
+		r.Delete("/{id}", srv.handlers.MotoristaHandler.Delete)
 	})
 }

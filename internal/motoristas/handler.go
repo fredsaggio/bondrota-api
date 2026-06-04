@@ -1,1 +1,307 @@
 package motoristas
+
+import (
+	"encoding/json"
+	"errors"
+	"log/slog"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/fredsaggio/bondrota-api/internal/auth"
+	"github.com/fredsaggio/bondrota-api/internal/conv"
+	"github.com/fredsaggio/bondrota-api/internal/httputils"
+)
+
+type MotoristaRequest struct {
+	Nome           string `json:"nome"`
+	CPF            string `json:"cpf"`
+	Senha          string `json:"senha"`
+	Telefone       string `json:"telefone"`
+	DataNasc       string `json:"data_nasc"`
+	Turno          Turno  `json:"turno"`
+	CidadeTrabalho string `json:"cidade_trabalho"`
+	Residencia     string `json:"residencia"`
+	Foto           string `json:"foto"`
+}
+
+type LoginRequest struct {
+	CPF   string `json:"cpf"`
+	Senha string `json:"senha"`
+}
+
+type MotoristaResponse struct {
+	ID             int64  `json:"id"`
+	Nome           string `json:"nome"`
+	CPF            string `json:"cpf"`
+	Telefone       string `json:"telefone"`
+	DataNasc       string `json:"data_nasc"`
+	Turno          Turno  `json:"turno"`
+	CidadeTrabalho string `json:"cidade_trabalho"`
+	Residencia     string `json:"residencia"`
+	Foto           string `json:"foto"`
+}
+
+type MotoristaHandler struct {
+	svc MotoristaService
+}
+
+func NewMotoristaHandler(svc MotoristaService) *MotoristaHandler {
+	return &MotoristaHandler{svc: svc}
+}
+
+func (h *MotoristaHandler) Login(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var req LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.CPF == "" {
+		http.Error(w, "cpf is required", http.StatusBadRequest)
+		return
+	}
+	if req.Senha == "" {
+		http.Error(w, "senha is required", http.StatusBadRequest)
+		return
+	}
+
+	token, err := h.svc.Login(ctx, req.CPF, req.Senha)
+	if err != nil {
+		if errors.Is(err, auth.ErrInvalidCredentials) {
+			http.Error(w, "invalid credentials", http.StatusUnauthorized)
+			return
+		}
+		slog.Error("failed to login motorista", "error", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	httputils.Respond(w, http.StatusOK, map[string]string{"token": token})
+}
+
+func (h *MotoristaHandler) Create(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var req MotoristaRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Nome == "" {
+		http.Error(w, "nome is required", http.StatusBadRequest)
+		return
+	}
+	if req.CPF == "" {
+		http.Error(w, "cpf is required", http.StatusBadRequest)
+		return
+	}
+	if req.Senha == "" {
+		http.Error(w, "senha is required", http.StatusBadRequest)
+		return
+	}
+	if req.Turno == "" {
+		http.Error(w, "turno is required", http.StatusBadRequest)
+		return
+	}
+	if req.DataNasc == "" {
+		http.Error(w, "data_nasc is required", http.StatusBadRequest)
+		return
+	}
+
+	switch req.Turno {
+	case TurnoMatutino, TurnoVespertino, TurnoNoturno, TurnoIntegral:
+
+	default:
+    	http.Error(w, "turno must be MT, VT, NT or IN", http.StatusBadRequest)
+    	return
+	}
+
+	dataNasc, err := time.Parse("2006-01-02", req.DataNasc)
+	if err != nil {
+		http.Error(w, "data_nasc must be in format YYYY-MM-DD", http.StatusBadRequest)
+		return
+	}
+
+	input := MotoristaInput{
+		Nome:           strings.TrimSpace(req.Nome),
+		CPF:            strings.TrimSpace(req.CPF),
+		Senha:          req.Senha,
+		Telefone:       strings.TrimSpace(req.Telefone),
+		DataNasc:       dataNasc,
+		Turno:          req.Turno,
+		CidadeTrabalho: strings.TrimSpace(req.CidadeTrabalho),
+		Residencia:     strings.TrimSpace(req.Residencia),
+		Foto:           strings.TrimSpace(req.Foto),
+	}
+
+	motorista, err := h.svc.Create(ctx, input)
+	if err != nil {
+		slog.Error("failed to create motorista", "error", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	httputils.Respond(w, http.StatusCreated, toMotoristaResponse(motorista))
+}
+
+func (h *MotoristaHandler) GetByID(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	motoristaID, err := conv.ParseInt(r, "id")
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+
+	motorista, err := h.svc.GetByID(ctx, motoristaID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			http.Error(w, "motorista not found", http.StatusNotFound)
+			return
+		}
+		slog.Error("failed to get motorista", "error", err, "motoristaID", motoristaID)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	httputils.Respond(w, http.StatusOK, toMotoristaResponse(motorista))
+}
+
+func (h *MotoristaHandler) List(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	motoristas, err := h.svc.List(ctx)
+	if err != nil {
+		slog.Error("failed to list motoristas", "error", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	resp := make([]MotoristaResponse, 0, len(motoristas))
+	for _, m := range motoristas {
+		resp = append(resp, toMotoristaResponse(&m))
+	}
+
+	httputils.Respond(w, http.StatusOK, resp)
+}
+
+func (h *MotoristaHandler) Update(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	motoristaID, err := conv.ParseInt(r, "id")
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+
+	var req MotoristaRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	motorista, err := h.svc.Update(ctx, motoristaID, func(m *Motorista) (bool, error) {
+		updated := false
+		if req.Nome != "" && req.Nome != m.Nome {
+			m.Nome = strings.TrimSpace(req.Nome)
+			updated = true
+		}
+		if req.CPF != "" && req.CPF != m.CPF {
+			m.CPF = strings.TrimSpace(req.CPF)
+			updated = true
+		}
+		if req.Telefone != "" && req.Telefone != m.Telefone {
+			m.Telefone = strings.TrimSpace(req.Telefone)
+			updated = true
+		}
+		if req.DataNasc != "" {
+			dataNasc, err := time.Parse("2006-01-02", req.DataNasc)
+			if err != nil {
+				return false, ErrDataNascInvalida
+			}
+			if !dataNasc.Equal(m.DataNasc) {
+				m.DataNasc = dataNasc
+				updated = true
+			}
+		}
+		if req.Turno != "" {
+			switch req.Turno {
+			case TurnoMatutino, TurnoVespertino, TurnoNoturno, TurnoIntegral:
+			default:
+				return false, ErrTurnoInvalido
+			}
+			if req.Turno != m.Turno {
+				m.Turno = req.Turno
+				updated = true
+			}
+		}
+		if req.CidadeTrabalho != "" && req.CidadeTrabalho != m.CidadeTrabalho {
+			m.CidadeTrabalho = strings.TrimSpace(req.CidadeTrabalho)
+			updated = true
+		}
+		if req.Residencia != "" && req.Residencia != m.Residencia {
+			m.Residencia = strings.TrimSpace(req.Residencia)
+			updated = true
+		}
+		if req.Foto != "" && req.Foto != m.Foto {
+			m.Foto = strings.TrimSpace(req.Foto)
+			updated = true
+		}
+		return updated, nil
+	})
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			http.Error(w, "motorista not found", http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, ErrTurnoInvalido) || errors.Is(err, ErrDataNascInvalida) {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		slog.Error("failed to update motorista", "error", err, "motoristaID", motoristaID)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	httputils.Respond(w, http.StatusOK, toMotoristaResponse(motorista))
+}
+
+func (h *MotoristaHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	motoristaID, err := conv.ParseInt(r, "id")
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.svc.Delete(ctx, motoristaID); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			http.Error(w, "motorista not found", http.StatusNotFound)
+			return
+		}
+		slog.Error("failed to delete motorista", "error", err, "motoristaID", motoristaID)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func toMotoristaResponse(m *Motorista) MotoristaResponse {
+	return MotoristaResponse{
+		ID:             m.ID,
+		Nome:           m.Nome,
+		CPF:            m.CPF,
+		Telefone:       m.Telefone,
+		DataNasc:       m.DataNasc.Format("2006-01-02"),
+		Turno:          m.Turno,
+		CidadeTrabalho: m.CidadeTrabalho,
+		Residencia:     m.Residencia,
+		Foto:           m.Foto,
+	}
+}
