@@ -3,11 +3,12 @@ package admin
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/fredsaggio/bondrota-api/internal/auth"
-	"github.com/fredsaggio/bondrota-api/internal/httputils"
 	"github.com/fredsaggio/bondrota-api/internal/conv"
+	"github.com/fredsaggio/bondrota-api/internal/httputils"
 )
 
 type AdminHandler struct {
@@ -59,6 +60,7 @@ func (h *AdminHandler) Login(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "invalid email or password", http.StatusUnauthorized)
 			return
 		}
+		slog.Error("failed to login admin", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -79,6 +81,7 @@ func (h *AdminHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Senha: req.Senha,
 	})
 	if err != nil {
+		slog.Error("failed to create admin", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -103,9 +106,11 @@ func (h *AdminHandler) Update(w http.ResponseWriter, r *http.Request) {
 	admin, err := h.svc.Update(ctx, adminID, req.Email)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
+			slog.Error("failed to update admin", "error", err)
 			http.Error(w, "admin not found", http.StatusNotFound)
 			return
 		}
+		slog.Error("failed to update admin", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -130,6 +135,7 @@ func (h *AdminHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "admin not found", http.StatusNotFound)
 			return
 		}
+		slog.Error("failed to get admin", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -154,6 +160,7 @@ func (h *AdminHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "admin not found", http.StatusNotFound)
 			return
 		}
+		slog.Error("failed to delete admin", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -166,6 +173,7 @@ func (h *AdminHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	admins, err := h.svc.List(ctx)
 	if err != nil {
+		slog.Error("failed to list admins", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}

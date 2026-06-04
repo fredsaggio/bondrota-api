@@ -3,6 +3,7 @@ package paradas
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -61,6 +62,7 @@ func (h *ParadaHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	parada, err := h.store.Create(ctx, input)
 	if err != nil {
+		slog.Error("failed to create parada", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -83,6 +85,7 @@ func (h *ParadaHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "parada not found", http.StatusNotFound)
 			return
 		}
+		slog.Error("failed to get parada", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -95,6 +98,7 @@ func (h *ParadaHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	paradas, err := h.store.List(ctx)
 	if err != nil {
+		slog.Error("failed to list paradas", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -118,6 +122,7 @@ func (h *ParadaHandler) ListByCity(w http.ResponseWriter, r *http.Request) {
 
 	paradas, err := h.store.ListByCity(ctx, cidade)
 	if err != nil {
+		slog.Error("failed to list paradas by city", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -170,6 +175,7 @@ func (h *ParadaHandler) Update(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "parada not found", http.StatusNotFound)
 			return
 		}
+		slog.Error("failed to update parada", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -191,6 +197,7 @@ func (h *ParadaHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "parada not found", http.StatusNotFound)
 			return
 		}
+		slog.Error("failed to delete parada", "error", err)
 		http.Error(w, "parada em uso por uma rota interna", http.StatusConflict)
 		return
 	}

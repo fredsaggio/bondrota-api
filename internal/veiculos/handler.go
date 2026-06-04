@@ -3,6 +3,7 @@ package veiculos
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/fredsaggio/bondrota-api/internal/conv"
@@ -83,6 +84,7 @@ func (h *VeiculoHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Tomada:         req.Tomada,
 	})
 	if err != nil {
+		slog.Error("failed to create veiculo", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -104,6 +106,7 @@ func (h *VeiculoHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "veiculo not found", http.StatusNotFound)
 			return
 		}
+		slog.Error("failed to get veiculo", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -116,6 +119,7 @@ func (h *VeiculoHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	veiculos, err := h.store.List(ctx)
 	if err != nil {
+		slog.Error("failed to list veiculos", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -191,6 +195,7 @@ func (h *VeiculoHandler) Update(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "veiculo not found", http.StatusNotFound)
 			return
 		}
+		slog.Error("failed to update veiculo", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -213,6 +218,7 @@ func (h *VeiculoHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "veiculo not found", http.StatusNotFound)
 			return
 		}
+		slog.Error("failed to delete veiculo", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}

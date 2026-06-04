@@ -45,72 +45,72 @@ func (s *adminStore) Create(ctx context.Context, input AdminInput) (*Admin, erro
 }
 
 func (s *adminStore) Update(ctx context.Context, adminID int64, updateFunc func(*Admin) (bool, error)) (*Admin, error) {
-    const op = "db/adminStore.Update"
-    var admin *Admin
+	const op = "db/adminStore.Update"
+	var admin *Admin
 
-    err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-        var err error
-        admin, err = getAdminByIDForUpdate(ctx, tx, adminID)
-        if err != nil {
-            if errors.Is(err, pgx.ErrNoRows) {
-                return ErrNotFound
-            }
-            return fmt.Errorf("select for update: %w", err)
-        }
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		var err error
+		admin, err = getAdminByIDForUpdate(ctx, tx, adminID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrNotFound
+			}
+			return fmt.Errorf("select for update: %w", err)
+		}
 
-        updated, err := updateFunc(admin)
-        if err != nil {
-            return err
-        }
-        if !updated {
-            return nil
-        }
+		updated, err := updateFunc(admin)
+		if err != nil {
+			return err
+		}
+		if !updated {
+			return nil
+		}
 
-        const updateQ = `
+		const updateQ = `
             UPDATE administrador
             SET email = @email, senha = @senha
             WHERE id = @id
         `
-        updateArgs := pgx.StrictNamedArgs{
-            "id":    admin.ID,
-            "email": admin.Email,
-            "senha": admin.Senha,
-        }
+		updateArgs := pgx.StrictNamedArgs{
+			"id":    admin.ID,
+			"email": admin.Email,
+			"senha": admin.Senha,
+		}
 
-        if _, err := tx.Exec(ctx, updateQ, updateArgs); err != nil {
-            return fmt.Errorf("update: %w", err)
-        }
+		if _, err := tx.Exec(ctx, updateQ, updateArgs); err != nil {
+			return fmt.Errorf("update: %w", err)
+		}
 
-        return nil
-    })
+		return nil
+	})
 
-    if err != nil {
-        return nil, fmt.Errorf("%s: %w", op, err)
-    }
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
 
-    return admin, nil
+	return admin, nil
 }
 
 func getAdminByIDForUpdate(ctx context.Context, tx pgx.Tx, id int64) (*Admin, error) {
-    const q = `
+	const q = `
         SELECT id, email, senha
         FROM administrador
         WHERE id = @id
         FOR UPDATE
     `
-    args := pgx.StrictNamedArgs{"id": id}
+	args := pgx.StrictNamedArgs{"id": id}
 
-    rows, err := tx.Query(ctx, q, args)
-    if err != nil {
-        return nil, err
-    }
+	rows, err := tx.Query(ctx, q, args)
+	if err != nil {
+		return nil, err
+	}
 
-    admin, err := pgx.CollectExactlyOneRow(rows, scanAdmin)
-    if err != nil {
-        return nil, err
-    }
+	admin, err := pgx.CollectExactlyOneRow(rows, scanAdminWithPassword)
+	if err != nil {
+		return nil, err
+	}
 
-    return &admin, nil
+	return &admin, nil
 }
 
 func (s *adminStore) GetByID(ctx context.Context, adminID int64) (*Admin, error) {
@@ -131,7 +131,7 @@ func getAdminByID(ctx context.Context, querier interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 }, adminID int64) (*Admin, error) {
 	const q = `
-		SELECT id, email, senha
+		SELECT id, email
 		FROM administrador
 		WHERE id = @id
 	`
@@ -178,7 +178,7 @@ func getAdminByEmail(ctx context.Context, querier interface {
 		return nil, err
 	}
 
-	admin, err := pgx.CollectExactlyOneRow(rows, scanAdmin)
+	admin, err := pgx.CollectExactlyOneRow(rows, scanAdminWithPassword)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +188,7 @@ func getAdminByEmail(ctx context.Context, querier interface {
 
 func (s *adminStore) Delete(ctx context.Context, adminID int64) error {
 	const op = "db/adminStore.Delete"
-	
+
 	const q = `
 		DELETE FROM administrador
 		WHERE id = @id
@@ -229,8 +229,13 @@ func (s *adminStore) List(ctx context.Context) ([]Admin, error) {
 }
 
 func scanAdmin(row pgx.CollectableRow) (Admin, error) {
-    var a Admin
-    // Lê as 3 colunas exatamente na ordem do banco
-    err := row.Scan(&a.ID, &a.Email, &a.Senha)
-    return a, err
+	var a Admin
+	err := row.Scan(&a.ID, &a.Email)
+	return a, err
+}
+
+func scanAdminWithPassword(row pgx.CollectableRow) (Admin, error) {
+	var a Admin
+	err := row.Scan(&a.ID, &a.Email, &a.Senha)
+	return a, err
 }

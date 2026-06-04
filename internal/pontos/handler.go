@@ -3,6 +3,7 @@ package pontos
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -77,6 +78,7 @@ func (h *PontoHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	ponto, err := h.store.Create(ctx, input)
 	if err != nil {
+		slog.Error("failed to create ponto", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -99,6 +101,7 @@ func (h *PontoHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "ponto not found", http.StatusNotFound)
 			return
 		}
+		slog.Error("failed to get ponto", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -110,6 +113,7 @@ func (h *PontoHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	pontos, err := h.store.List(ctx)
 	if err != nil {
+		slog.Error("failed to list pontos", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -132,6 +136,7 @@ func (h *PontoHandler) ListByCity(w http.ResponseWriter, r *http.Request) {
 
 	pontos, err := h.store.ListByCity(ctx, cidade)
 	if err != nil {
+		slog.Error("failed to list pontos by city", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -152,7 +157,7 @@ func (h *PontoHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req PontoRequest	
+	var req PontoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
@@ -188,6 +193,7 @@ func (h *PontoHandler) Update(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "ponto not found", http.StatusNotFound)
 			return
 		}
+		slog.Error("failed to update ponto", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -209,6 +215,7 @@ func (h *PontoHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "ponto not found", http.StatusNotFound)
 			return
 		}
+		slog.Error("failed to delete ponto", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
