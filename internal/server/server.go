@@ -14,10 +14,10 @@ import (
 const reqBodyLimitBytes = 250 * 1024
 
 type Handlers struct {
-	AdminHandler   *admin.AdminHandler
-	VeiculoHandler *veiculos.VeiculoHandler
-	PontoHandler   *pontos.PontoHandler
-	ParadaHandler   *paradas.ParadaHandler
+	AdminHandler       *admin.AdminHandler
+	VeiculoHandler     *veiculos.VeiculoHandler
+	PontoHandler       *pontos.PontoHandler
+	ParadaHandler      *paradas.ParadaHandler
 	RotaInternaHandler *rotasinternas.RotaInternaHandler
 }
 

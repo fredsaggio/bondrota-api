@@ -24,12 +24,14 @@ Documentação completa de todos os endpoints da API Bondrota. Pronta para teste
 Verifica se o servidor está funcionando.
 
 **Request:**
+
 ```http
 GET /health HTTP/1.1
 Host: localhost:8080
 ```
 
 **Response:** `200 OK`
+
 ```json
 {}
 ```
@@ -43,6 +45,7 @@ Host: localhost:8080
 Cria um novo administrador.
 
 **Request:**
+
 ```http
 POST /admin HTTP/1.1
 Host: localhost:8080
@@ -55,6 +58,7 @@ Content-Type: application/json
 ```
 
 **Response:** `201 Created`
+
 ```json
 {
   "id": 1,
@@ -69,6 +73,7 @@ Content-Type: application/json
 Lista todos os administradores cadastrados.
 
 **Request:**
+
 ```http
 GET /admin HTTP/1.1
 Host: localhost:8080
@@ -76,6 +81,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:** `200 OK`
+
 ```json
 [
   {
@@ -96,6 +102,7 @@ Authorization: Bearer <token>
 Obtém informações de um administrador específico.
 
 **Request:**
+
 ```http
 GET /admin/1 HTTP/1.1
 Host: localhost:8080
@@ -103,6 +110,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:** `200 OK`
+
 ```json
 {
   "id": 1,
@@ -117,6 +125,7 @@ Authorization: Bearer <token>
 Atualiza as informações de um administrador.
 
 **Request:**
+
 ```http
 PUT /admin/1 HTTP/1.1
 Host: localhost:8080
@@ -129,6 +138,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:** `200 OK`
+
 ```json
 {
   "id": 1,
@@ -143,6 +153,7 @@ Authorization: Bearer <token>
 Remove um administrador do sistema.
 
 **Request:**
+
 ```http
 DELETE /admin/1 HTTP/1.1
 Host: localhost:8080
@@ -150,6 +161,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:** `204 No Content`
+
 ```
 (sem corpo)
 ```
@@ -161,6 +173,7 @@ Authorization: Bearer <token>
 Autentica um administrador e retorna um token JWT.
 
 **Request:**
+
 ```http
 POST /admin/login HTTP/1.1
 Host: localhost:8080
@@ -173,6 +186,7 @@ Content-Type: application/json
 ```
 
 **Response:** `200 OK`
+
 ```json
 {
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
@@ -188,6 +202,7 @@ Content-Type: application/json
 Cria um novo veículo na frota.
 
 **Request:**
+
 ```http
 POST /veiculos HTTP/1.1
 Host: localhost:8080
@@ -209,6 +224,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:** `201 Created`
+
 ```json
 {
   "id": 1,
@@ -232,6 +248,7 @@ Authorization: Bearer <token>
 Lista todos os veículos cadastrados.
 
 **Request:**
+
 ```http
 GET /veiculos HTTP/1.1
 Host: localhost:8080
@@ -239,6 +256,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:** `200 OK`
+
 ```json
 [
   {
@@ -277,6 +295,7 @@ Authorization: Bearer <token>
 Obtém informações de um veículo específico.
 
 **Request:**
+
 ```http
 GET /veiculos/1 HTTP/1.1
 Host: localhost:8080
@@ -284,6 +303,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:** `200 OK`
+
 ```json
 {
   "id": 1,
@@ -307,6 +327,7 @@ Authorization: Bearer <token>
 Atualiza as informações de um veículo.
 
 **Request:**
+
 ```http
 PUT /veiculos/1 HTTP/1.1
 Host: localhost:8080
@@ -328,6 +349,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:** `200 OK`
+
 ```json
 {
   "id": 1,
@@ -345,6 +367,7 @@ Authorization: Bearer <token>
 ```
 
 **Valores válidos para status:**
+
 - `ativo`
 - `inativo`
 - `manutencao`
@@ -356,6 +379,7 @@ Authorization: Bearer <token>
 Remove um veículo da frota.
 
 **Request:**
+
 ```http
 DELETE /veiculos/1 HTTP/1.1
 Host: localhost:8080
@@ -363,6 +387,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:** `204 No Content`
+
 ```
 (sem corpo)
 ```
@@ -376,6 +401,7 @@ Authorization: Bearer <token>
 Cria um novo ponto (ponto de parada ou origem/destino de viagem).
 
 **Request:**
+
 ```http
 POST /pontos HTTP/1.1
 Host: localhost:8080
@@ -392,6 +418,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:** `201 Created`
+
 ```json
 {
   "id": 1,
@@ -410,6 +437,7 @@ Authorization: Bearer <token>
 Lista todos os pontos cadastrados.
 
 **Request:**
+
 ```http
 GET /pontos HTTP/1.1
 Host: localhost:8080
@@ -417,6 +445,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:** `200 OK`
+
 ```json
 [
   {
@@ -445,6 +474,7 @@ Authorization: Bearer <token>
 Lista todos os pontos de uma cidade específica.
 
 **Request:**
+
 ```http
 GET /pontos/cidade/São%20Paulo HTTP/1.1
 Host: localhost:8080
@@ -452,6 +482,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:** `200 OK`
+
 ```json
 [
   {
@@ -480,6 +511,7 @@ Authorization: Bearer <token>
 Obtém informações de um ponto específico.
 
 **Request:**
+
 ```http
 GET /pontos/1 HTTP/1.1
 Host: localhost:8080
@@ -487,6 +519,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:** `200 OK`
+
 ```json
 {
   "id": 1,
@@ -505,6 +538,7 @@ Authorization: Bearer <token>
 Atualiza as informações de um ponto.
 
 **Request:**
+
 ```http
 PUT /pontos/1 HTTP/1.1
 Host: localhost:8080
@@ -521,6 +555,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:** `200 OK`
+
 ```json
 {
   "id": 1,
@@ -539,6 +574,7 @@ Authorization: Bearer <token>
 Remove um ponto do sistema.
 
 **Request:**
+
 ```http
 DELETE /pontos/1 HTTP/1.1
 Host: localhost:8080
@@ -546,6 +582,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:** `204 No Content`
+
 ```
 (sem corpo)
 ```
@@ -559,6 +596,7 @@ Authorization: Bearer <token>
 Cria uma nova parada.
 
 **Request:**
+
 ```http
 POST /paradas HTTP/1.1
 Host: localhost:8080
@@ -574,6 +612,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:** `201 Created`
+
 ```json
 {
   "id": 1,
@@ -591,6 +630,7 @@ Authorization: Bearer <token>
 Lista todas as paradas cadastradas.
 
 **Request:**
+
 ```http
 GET /paradas HTTP/1.1
 Host: localhost:8080
@@ -598,6 +638,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:** `200 OK`
+
 ```json
 [
   {
@@ -624,6 +665,7 @@ Authorization: Bearer <token>
 Lista todas as paradas de uma cidade específica.
 
 **Request:**
+
 ```http
 GET /paradas/cidade/Campinas HTTP/1.1
 Host: localhost:8080
@@ -631,6 +673,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:** `200 OK`
+
 ```json
 [
   {
@@ -650,6 +693,7 @@ Authorization: Bearer <token>
 Obtém informações de uma parada específica.
 
 **Request:**
+
 ```http
 GET /paradas/1 HTTP/1.1
 Host: localhost:8080
@@ -657,6 +701,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:** `200 OK`
+
 ```json
 {
   "id": 1,
@@ -674,6 +719,7 @@ Authorization: Bearer <token>
 Atualiza as informações de uma parada.
 
 **Request:**
+
 ```http
 PUT /paradas/1 HTTP/1.1
 Host: localhost:8080
@@ -689,6 +735,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:** `200 OK`
+
 ```json
 {
   "id": 1,
@@ -706,6 +753,7 @@ Authorization: Bearer <token>
 Remove uma parada do sistema.
 
 **Request:**
+
 ```http
 DELETE /paradas/1 HTTP/1.1
 Host: localhost:8080
@@ -713,6 +761,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:** `204 No Content`
+
 ```
 (sem corpo)
 ```
@@ -726,6 +775,7 @@ Authorization: Bearer <token>
 Cria uma nova rota interna com suas paradas ordenadas.
 
 **Request:**
+
 ```http
 POST /rotas-internas HTTP/1.1
 Host: localhost:8080
@@ -752,6 +802,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:** `201 Created`
+
 ```json
 {
   "id": 1,
@@ -794,6 +845,7 @@ Authorization: Bearer <token>
 Lista todas as rotas internas cadastradas.
 
 **Request:**
+
 ```http
 GET /rotas-internas HTTP/1.1
 Host: localhost:8080
@@ -801,6 +853,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:** `200 OK`
+
 ```json
 [
   {
@@ -849,6 +902,7 @@ Authorization: Bearer <token>
 Lista todas as rotas internas de uma cidade específica.
 
 **Request:**
+
 ```http
 GET /rotas-internas/cidade/São%20Paulo HTTP/1.1
 Host: localhost:8080
@@ -856,6 +910,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:** `200 OK`
+
 ```json
 [
   {
@@ -890,6 +945,7 @@ Authorization: Bearer <token>
 Obtém informações de uma rota interna específica.
 
 **Request:**
+
 ```http
 GET /rotas-internas/1 HTTP/1.1
 Host: localhost:8080
@@ -897,6 +953,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:** `200 OK`
+
 ```json
 {
   "id": 1,
@@ -929,6 +986,7 @@ Authorization: Bearer <token>
 Atualiza as paradas e suas ordens em uma rota interna.
 
 **Request:**
+
 ```http
 PUT /rotas-internas/1/paradas HTTP/1.1
 Host: localhost:8080
@@ -954,6 +1012,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:** `200 OK`
+
 ```json
 {
   "id": 1,
@@ -994,6 +1053,7 @@ Authorization: Bearer <token>
 Remove uma rota interna do sistema.
 
 **Request:**
+
 ```http
 DELETE /rotas-internas/1 HTTP/1.1
 Host: localhost:8080
@@ -1001,6 +1061,7 @@ Authorization: Bearer <token>
 ```
 
 **Response:** `204 No Content`
+
 ```
 (sem corpo)
 ```

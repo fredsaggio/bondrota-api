@@ -40,11 +40,6 @@ infra/down:
 up:
 	@docker compose up -d
 
-## down: stop all docker containers
-.PHONY: down
-down:
-	@docker compose down
-
 ## reset: stop containers and remove volumes
 .PHONY: reset
 reset:
