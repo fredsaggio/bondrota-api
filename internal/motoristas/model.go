@@ -44,6 +44,16 @@ type MotoristaInput struct {
 type MotoristaStore interface {
 	Create(ctx context.Context, input MotoristaInput) (*Motorista, error)
 	GetByID(ctx context.Context, motoristaID int64) (*Motorista, error)
+	GetByCPF(ctx context.Context, cpf string) (*Motorista, error)
+	List(ctx context.Context) ([]Motorista, error)
+	Update(ctx context.Context, motoristaID int64, updateFunc func(*Motorista) (bool, error)) (*Motorista, error)
+	Delete(ctx context.Context, motoristaID int64) error
+}
+
+type MotoristaService interface {
+	Login(ctx context.Context, cpf, senha string) (string, error)
+	Create(ctx context.Context, input MotoristaInput) (*Motorista, error)
+	GetByID(ctx context.Context, motoristaID int64) (*Motorista, error)
 	List(ctx context.Context) ([]Motorista, error)
 	Update(ctx context.Context, motoristaID int64, updateFunc func(*Motorista) (bool, error)) (*Motorista, error)
 	Delete(ctx context.Context, motoristaID int64) error
