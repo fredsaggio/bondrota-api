@@ -40,11 +40,6 @@ infra/down:
 up:
 	@docker compose up -d
 
-## down: stop all docker containers
-.PHONY: down
-down:
-	@docker compose down
-
 ## reset: stop containers and remove volumes
 .PHONY: reset
 reset:
@@ -75,19 +70,19 @@ migration/fix:
 ## migration/up: apply all migrations locally
 .PHONY: migration/up
 migration/up:
-	@goose -dir internal/db/migrations postgres "$(DATABASE_URL_LOCAL)" up
+	@goose -dir internal/db/migrations postgres "$(DATABASE_URL)" up
 
 ## migration/up/prod: apply all migrations in production
 .PHONY: migration/up/prod
 migration/up/prod:
-	@goose -dir internal/db/migrations postgres "$(DATABASE_URL_PROD)" up
+	@goose -dir internal/db/migrations postgres "$(DATABASE_URL)" up
 
 ## migration/down: rollback last migration
 .PHONY: migration/down
 migration/down:
-	@goose -dir internal/db/migrations postgres "$(DATABASE_URL_LOCAL)" down
+	@goose -dir internal/db/migrations postgres "$(DATABASE_URL)" down
 
 ## migration/status: show migration status
 .PHONY: migration/status
 migration/status:
-	@goose -dir internal/db/migrations postgres "$(DATABASE_URL_LOCAL)" status
+	@goose -dir internal/db/migrations postgres "$(DATABASE_URL)" status

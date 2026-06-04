@@ -3,11 +3,11 @@ package veiculos
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
-	"strconv"
 
+	"github.com/fredsaggio/bondrota-api/internal/conv"
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
-	"github.com/go-chi/chi/v5"
 )
 
 type VeiculoHandler struct {
@@ -84,6 +84,7 @@ func (h *VeiculoHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Tomada:         req.Tomada,
 	})
 	if err != nil {
+		slog.Error("failed to create veiculo", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -93,8 +94,7 @@ func (h *VeiculoHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *VeiculoHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	idStr := chi.URLParam(r, "veiculoID")
-	vehicleID, err := strconv.ParseInt(idStr, 10, 64)
+	vehicleID, err := conv.ParseInt(r, "veiculoID")
 	if err != nil {
 		http.Error(w, "invalid veiculo id", http.StatusBadRequest)
 		return
@@ -106,6 +106,7 @@ func (h *VeiculoHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "veiculo not found", http.StatusNotFound)
 			return
 		}
+		slog.Error("failed to get veiculo", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -118,6 +119,7 @@ func (h *VeiculoHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	veiculos, err := h.store.List(ctx)
 	if err != nil {
+		slog.Error("failed to list veiculos", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -132,9 +134,7 @@ func (h *VeiculoHandler) List(w http.ResponseWriter, r *http.Request) {
 
 func (h *VeiculoHandler) Update(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	idStr := chi.URLParam(r, "veiculoID")
-	vehicleID, err := strconv.ParseInt(idStr, 10, 64)
-
+	vehicleID, err := conv.ParseInt(r, "veiculoID")
 	if err != nil {
 		http.Error(w, "invalid veiculo id", http.StatusBadRequest)
 		return
@@ -195,6 +195,7 @@ func (h *VeiculoHandler) Update(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "veiculo not found", http.StatusNotFound)
 			return
 		}
+		slog.Error("failed to update veiculo", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -204,9 +205,8 @@ func (h *VeiculoHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 func (h *VeiculoHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	idStr := chi.URLParam(r, "veiculoID")
-	vehicleID, err := strconv.ParseInt(idStr, 10, 64)
-	
+	vehicleID, err := conv.ParseInt(r, "veiculoID")
+
 	if err != nil {
 		http.Error(w, "invalid veiculo id", http.StatusBadRequest)
 		return
@@ -218,6 +218,7 @@ func (h *VeiculoHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "veiculo not found", http.StatusNotFound)
 			return
 		}
+		slog.Error("failed to delete veiculo", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}

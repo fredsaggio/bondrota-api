@@ -3,14 +3,16 @@ package pontos
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
-	"strconv"
+	"strings"
 
+	"github.com/fredsaggio/bondrota-api/internal/conv"
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
 	"github.com/go-chi/chi/v5"
 )
 
-type CreatePontoRequest struct {
+type PontoRequest struct {
 	Nome      string  `json:"nome"`
 	Rua       string  `json:"rua"`
 	Cidade    string  `json:"cidade"`
@@ -21,15 +23,6 @@ type CreatePontoRequest struct {
 type CreatePontoResponse struct {
 	ID int64 `json:"id"`
 }
-
-type UpdatePontoRequest struct {
-	Nome      string  `json:"nome"`
-	Rua       string  `json:"rua"`
-	Cidade    string  `json:"cidade"`
-	Latitude  float64 `json:"latitude"`
-	Longitude float64 `json:"longitude"`
-}
-
 type PontoResponse struct {
 	ID        int64   `json:"id"`
 	Nome      string  `json:"nome"`
@@ -50,7 +43,7 @@ func NewPontoHandler(store PontoStore) *PontoHandler {
 func (h *PontoHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	var req CreatePontoRequest
+	var req PontoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
@@ -73,16 +66,19 @@ func (h *PontoHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	cidade := strings.TrimSpace(strings.ToLower(req.Cidade))
+
 	input := PontoInput{
 		Nome:      req.Nome,
 		Rua:       req.Rua,
-		Cidade:    req.Cidade,
+		Cidade:    cidade,
 		Latitude:  req.Latitude,
 		Longitude: req.Longitude,
 	}
 
 	ponto, err := h.store.Create(ctx, input)
 	if err != nil {
+		slog.Error("failed to create ponto", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -92,8 +88,7 @@ func (h *PontoHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *PontoHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	idStr := chi.URLParam(r, "id")
-	pontoID, err := strconv.ParseInt(idStr, 10, 64)
+	pontoID, err := conv.ParseInt(r, "id")
 
 	if err != nil {
 		http.Error(w, "invalid id", http.StatusBadRequest)
@@ -106,6 +101,7 @@ func (h *PontoHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "ponto not found", http.StatusNotFound)
 			return
 		}
+		slog.Error("failed to get ponto", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -114,53 +110,54 @@ func (h *PontoHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *PontoHandler) List(w http.ResponseWriter, r *http.Request) {
-    ctx := r.Context()
-    pontos, err := h.store.List(ctx)
-    if err != nil {
-        http.Error(w, "internal server error", http.StatusInternalServerError)
-        return
-    }
+	ctx := r.Context()
+	pontos, err := h.store.List(ctx)
+	if err != nil {
+		slog.Error("failed to list pontos", "error", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
 
-    resp := make([]PontoResponse, 0, len(pontos))
-    for _, p := range pontos {
-        resp = append(resp, toPontoResponse(&p))
-    }
-    httputils.Respond(w, http.StatusOK, resp)
+	resp := make([]PontoResponse, 0, len(pontos))
+	for _, p := range pontos {
+		resp = append(resp, toPontoResponse(&p))
+	}
+	httputils.Respond(w, http.StatusOK, resp)
 }
 
 func (h *PontoHandler) ListByCity(w http.ResponseWriter, r *http.Request) {
-    ctx := r.Context()
-    cidade := chi.URLParam(r, "cidade")
+	ctx := r.Context()
+	cidade := strings.TrimSpace(strings.ToLower(chi.URLParam(r, "cidade")))
 
-    if cidade == "" {
-        http.Error(w, "cidade is required", http.StatusBadRequest)
-        return
-    }
+	if cidade == "" {
+		http.Error(w, "cidade is required", http.StatusBadRequest)
+		return
+	}
 
-    pontos, err := h.store.ListByCity(ctx, cidade)
-    if err != nil {
-        http.Error(w, "internal server error", http.StatusInternalServerError)
-        return
-    }
+	pontos, err := h.store.ListByCity(ctx, cidade)
+	if err != nil {
+		slog.Error("failed to list pontos by city", "error", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
 
-    resp := make([]PontoResponse, 0, len(pontos))
-    for _, p := range pontos {
-        resp = append(resp, toPontoResponse(&p))
-    }
-    httputils.Respond(w, http.StatusOK, resp)
+	resp := make([]PontoResponse, 0, len(pontos))
+	for _, p := range pontos {
+		resp = append(resp, toPontoResponse(&p))
+	}
+	httputils.Respond(w, http.StatusOK, resp)
 }
 
 func (h *PontoHandler) Update(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	idStr := chi.URLParam(r, "id")
-	pontoID, err := strconv.ParseInt(idStr, 10, 64)
+	pontoID, err := conv.ParseInt(r, "id")
 
 	if err != nil {
 		http.Error(w, "invalid id", http.StatusBadRequest)
 		return
 	}
 
-	var req UpdatePontoRequest
+	var req PontoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
@@ -196,6 +193,7 @@ func (h *PontoHandler) Update(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "ponto not found", http.StatusNotFound)
 			return
 		}
+		slog.Error("failed to update ponto", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -205,8 +203,7 @@ func (h *PontoHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 func (h *PontoHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
+	id, err := conv.ParseInt(r, "id")
 	if err != nil {
 		http.Error(w, "invalid id", http.StatusBadRequest)
 		return
@@ -218,6 +215,7 @@ func (h *PontoHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "ponto not found", http.StatusNotFound)
 			return
 		}
+		slog.Error("failed to delete ponto", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}

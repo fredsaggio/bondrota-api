@@ -92,11 +92,7 @@ func getVeiculoByID(ctx context.Context, querier interface {
 		return nil, err
 	}
 
-	veiculo, err := pgx.CollectExactlyOneRow(rows, func(row pgx.CollectableRow) (Veiculo, error) {
-		var v Veiculo
-		err := row.Scan(&v.ID, &v.Placa, &v.Modelo, &v.Capacidade, &v.CidadeBase, &v.Status, &v.ArCondicionado, &v.Banheiro, &v.Persiana, &v.LuzLeitura, &v.Tomada)
-		return v, err
-	})
+	veiculo, err := pgx.CollectExactlyOneRow(rows, scanVeiculo)
 	if err != nil {
 		return nil, err
 	}
@@ -118,11 +114,7 @@ func (s *veiculoStore) List(ctx context.Context) ([]Veiculo, error) {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	veiculos, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Veiculo, error) {
-		var v Veiculo
-		err := row.Scan(&v.ID, &v.Placa, &v.Modelo, &v.Capacidade, &v.CidadeBase, &v.Status, &v.ArCondicionado, &v.Banheiro, &v.Persiana, &v.LuzLeitura, &v.Tomada)
-		return v, err
-	})
+	veiculos, err := pgx.CollectRows(rows, scanVeiculo)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
@@ -202,15 +194,7 @@ func getVeiculoByIDForUpdate(ctx context.Context, tx pgx.Tx, id int64) (*Veiculo
 		return nil, err
 	}
 
-	veiculo, err := pgx.CollectExactlyOneRow(rows, func(row pgx.CollectableRow) (Veiculo, error) {
-		var v Veiculo
-		err := row.Scan(
-			&v.ID, &v.Placa, &v.Modelo, &v.Capacidade,
-			&v.CidadeBase, &v.Status, &v.ArCondicionado,
-			&v.Banheiro, &v.Persiana, &v.LuzLeitura, &v.Tomada,
-		)
-		return v, err
-	})
+	veiculo, err := pgx.CollectExactlyOneRow(rows, scanVeiculo)
 	if err != nil {
 		return nil, err
 	}
@@ -239,3 +223,8 @@ func (s *veiculoStore) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
+func scanVeiculo(row pgx.CollectableRow) (Veiculo, error) {
+	var v Veiculo
+	err := row.Scan(&v.ID, &v.Placa, &v.Modelo, &v.Capacidade, &v.CidadeBase, &v.Status, &v.ArCondicionado, &v.Banheiro, &v.Persiana, &v.LuzLeitura, &v.Tomada)
+	return v, err
+}

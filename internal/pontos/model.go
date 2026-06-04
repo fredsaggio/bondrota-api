@@ -8,12 +8,12 @@ import (
 var ErrNotFound = errors.New("ponto not found")
 
 type Ponto struct {
-	ID        int64   `json:"id"`
-	Nome      string  `json:"nome"`
-	Rua       string  `json:"rua"`
-	Cidade    string  `json:"cidade"`
-	Latitude  float64 `json:"latitude"`
-	Longitude float64 `json:"longitude"`
+	ID        int64
+	Nome      string
+	Rua       string
+	Cidade    string
+	Latitude  float64
+	Longitude float64
 }
 
 type PontoInput struct {
