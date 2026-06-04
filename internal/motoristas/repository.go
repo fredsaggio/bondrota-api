@@ -2,6 +2,7 @@ package motoristas
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/fredsaggio/bondrota-api/internal/db"
@@ -48,6 +49,33 @@ func (s *motoristaStore) Create(ctx context.Context, input MotoristaInput) (*Mot
 
 	return &motorista, nil
 }
+
+func (s *motoristaStore) GetByID(ctx context.Context, motoristaID int64) (*Motorista, error) {
+	const op = "db/motoristaStore.GetByID"
+
+	const q = `
+		SELECT id, nome, cpf, telefone, data_nasc, turno, cidade_trabalho, residencia, foto
+		FROM motoristas
+		WHERE id = @id
+	`
+	args := pgx.StrictNamedArgs{"id": motoristaID}
+
+	rows, err := s.db.Query(ctx, q, args)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	motorista, err := pgx.CollectExactlyOneRow(rows, scanMotorista)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return &motorista, nil
+}
+
 
 func scanMotorista(row pgx.CollectableRow) (Motorista, error) {
 	var m Motorista
