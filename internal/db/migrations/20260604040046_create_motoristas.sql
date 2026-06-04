@@ -1,6 +1,6 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TYPE turno_motorista AS ENUM ('MT', 'VT', 'NT');
+CREATE TYPE turno_motorista AS ENUM ('MT', 'VT', 'NT', 'IN');
 
 CREATE TABLE motoristas (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

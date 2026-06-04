@@ -7,6 +7,8 @@ import (
 )
 
 var ErrNotFound = errors.New("motorista not found")
+var ErrTurnoInvalido = errors.New("turno must be MT, VT, NT or IN")
+var ErrDataNascInvalida = errors.New("data_nasc must be in format YYYY-MM-DD")
 
 type Turno string
 
@@ -14,6 +16,7 @@ const (
 	TurnoMatutino   Turno = "MT"
 	TurnoVespertino Turno = "VT"
 	TurnoNoturno    Turno = "NT"
+	TurnoIntegral   Turno = "IN"
 )
 
 type Motorista struct {

@@ -10,10 +10,14 @@ Documentação completa de todos os endpoints da API Bondrota. Pronta para teste
 
 1. [Health Check](#health-check)
 2. [Admin](#admin)
-3. [Veículos](#veículos)
-4. [Pontos](#pontos)
-5. [Paradas](#paradas)
-6. [Rotas Internas](#rotas-internas)
+3. [Motoristas](#motoristas)
+4. [Veículos](#veículos)
+5. [Pontos](#pontos)
+6. [Paradas](#paradas)
+7. [Rotas Internas](#rotas-internas)
+8. [Clientes](#clientes)
+9. [Reservas](#reservas)
+10. [Viagens](#viagens)
 
 ---
 
@@ -191,6 +195,216 @@ Content-Type: application/json
 {
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
+```
+
+---
+
+## Motoristas
+
+### POST /motoristas/login - Login de Motorista
+
+Autentica um motorista e retorna um token JWT.
+
+**Request:**
+
+```http
+POST /motoristas/login HTTP/1.1
+Host: localhost:8080
+Content-Type: application/json
+
+{
+  "cpf": "12345678900",
+  "senha": "senha123"
+}
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+---
+
+### POST /motoristas - Criar Motorista
+
+Cria um novo motorista no sistema.
+
+**Request:**
+
+```http
+POST /motoristas HTTP/1.1
+Host: localhost:8080
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "nome": "João Silva",
+  "cpf": "12345678900",
+  "senha": "senha123",
+  "telefone": "11999999999",
+  "data_nasc": "1990-05-15",
+  "turno": "MT",
+  "cidade_trabalho": "São Paulo",
+  "residencia": "Rua das Flores, 123",
+  "foto": "https://example.com/foto.jpg"
+}
+```
+
+**Response:** `201 Created`
+
+```json
+{
+  "id": 1,
+  "nome": "João Silva",
+  "cpf": "12345678900",
+  "telefone": "11999999999",
+  "data_nasc": "1990-05-15",
+  "turno": "MT",
+  "cidade_trabalho": "São Paulo",
+  "residencia": "Rua das Flores, 123",
+  "foto": "https://example.com/foto.jpg"
+}
+```
+
+**Valores válidos para turno:**
+
+- `MT` - Matutino (06:00 - 14:00)
+- `VT` - Vespertino (14:00 - 22:00)
+- `NT` - Noturno (22:00 - 06:00)
+- `IN` - Integral (Tempo integral)
+
+---
+
+### GET /motoristas - Listar Todos os Motoristas
+
+Lista todos os motoristas cadastrados.
+
+**Request:**
+
+```http
+GET /motoristas HTTP/1.1
+Host: localhost:8080
+Authorization: Bearer <token>
+```
+
+**Response:** `200 OK`
+
+```json
+[
+  {
+    "id": 1,
+    "nome": "João Silva",
+    "cpf": "12345678900",
+    "telefone": "11999999999",
+    "data_nasc": "1990-05-15",
+    "turno": "MT",
+    "cidade_trabalho": "São Paulo",
+    "residencia": "Rua das Flores, 123",
+    "foto": "https://example.com/foto.jpg"
+  },
+  {
+    "id": 2,
+    "nome": "Maria Santos",
+    "cpf": "98765432100",
+    "telefone": "11988888888",
+    "data_nasc": "1988-03-20",
+    "turno": "VT",
+    "cidade_trabalho": "Rio de Janeiro",
+    "residencia": "Avenida Principal, 456",
+    "foto": "https://example.com/foto2.jpg"
+  }
+]
+```
+
+---
+
+### GET /motoristas/{id} - Obter Motorista por ID
+
+Obtém informações de um motorista específico.
+
+**Request:**
+
+```http
+GET /motoristas/1 HTTP/1.1
+Host: localhost:8080
+Authorization: Bearer <token>
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "id": 1,
+  "nome": "João Silva",
+  "cpf": "12345678900",
+  "telefone": "11999999999",
+  "data_nasc": "1990-05-15",
+  "turno": "MT",
+  "cidade_trabalho": "São Paulo",
+  "residencia": "Rua das Flores, 123",
+  "foto": "https://example.com/foto.jpg"
+}
+```
+
+---
+
+### PUT /motoristas/{id} - Atualizar Motorista
+
+Atualiza as informações de um motorista.
+
+**Request:**
+
+```http
+PUT /motoristas/1 HTTP/1.1
+Host: localhost:8080
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "nome": "João Silva Santos",
+  "telefone": "11987654321",
+  "turno": "VT",
+  "residencia": "Rua Nova, 789"
+}
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "id": 1,
+  "nome": "João Silva Santos",
+  "cpf": "12345678900",
+  "telefone": "11987654321",
+  "data_nasc": "1990-05-15",
+  "turno": "VT",
+  "cidade_trabalho": "São Paulo",
+  "residencia": "Rua Nova, 789",
+  "foto": "https://example.com/foto.jpg"
+}
+```
+
+---
+
+### DELETE /motoristas/{id} - Deletar Motorista
+
+Remove um motorista do sistema.
+
+**Request:**
+
+```http
+DELETE /motoristas/1 HTTP/1.1
+Host: localhost:8080
+Authorization: Bearer <token>
+```
+
+**Response:** `204 No Content`
+
+```
+(sem corpo)
 ```
 
 ---
@@ -1068,6 +1282,30 @@ Authorization: Bearer <token>
 
 ---
 
+## Clientes
+
+> **Status:** 🔄 Em desenvolvimento
+
+Endpoints para gerenciar clientes da plataforma.
+
+---
+
+## Reservas
+
+> **Status:** 🔄 Em desenvolvimento
+
+Endpoints para gerenciar reservas de viagens.
+
+---
+
+## Viagens
+
+> **Status:** 🔄 Em desenvolvimento
+
+Endpoints para gerenciar viagens/trajetos.
+
+---
+
 ## Headers Padrão
 
 Todos os endpoints (exceto `/health` e `/admin/login`) requerem:
@@ -1089,4 +1327,4 @@ Content-Type: application/json (para requisições com body)
 
 ---
 
-**Última atualização:** 03/06/2026
+**Última atualização:** 04/06/2026
