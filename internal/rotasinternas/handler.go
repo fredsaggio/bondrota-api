@@ -20,10 +20,6 @@ type CreateRotaInternaRequest struct {
     Paradas []ParadaRequest `json:"paradas"`
 }
 
-type CreateRotaInternaResponse struct {
-	ID int64 `json:"id"`
-}
-
 type UpdateParadasRequest struct {
     Paradas []ParadaRequest `json:"paradas"`
 }
@@ -80,7 +76,7 @@ func (h *RotaInternaHandler) Create(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    httputils.Respond(w, http.StatusCreated, CreateRotaInternaResponse{ID: rota.ID})
+    httputils.Respond(w, http.StatusCreated, toRotaInternaResponse(rota))
 }
 
 func (h *RotaInternaHandler) GetByID(w http.ResponseWriter, r *http.Request) {
