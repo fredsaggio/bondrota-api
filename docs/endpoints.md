@@ -12,7 +12,7 @@ Documentação completa de todos os endpoints da API Bondrota. Pronta para teste
 2. [Admin](#admin)
 3. [Motoristas](#motoristas)
 4. [Veículos](#veículos)
-5. [Pontos](#pontos)
+5. [Destinos](#destinos)
 6. [Paradas](#paradas)
 7. [Rotas Internas](#rotas-internas)
 8. [Clientes](#clientes)
@@ -608,26 +608,26 @@ Authorization: Bearer <token>
 
 ---
 
-## Pontos
+## Destinos
 
-### POST /pontos - Criar Ponto
+### POST /destinos - Criar Destino
 
-Cria um novo ponto (ponto de parada ou origem/destino de viagem).
+Cria um novo destino, como uma faculdade ou outro local final do cliente.
 
 **Request:**
 
 ```http
-POST /pontos HTTP/1.1
+POST /destinos HTTP/1.1
 Host: localhost:8080
 Content-Type: application/json
 Authorization: Bearer <token>
 
 {
-  "nome": "Terminal Rodoviário Central",
-  "rua": "Avenida Paulista, 1000",
-  "cidade": "São Paulo",
-  "latitude": -23.5505,
-  "longitude": -46.6333
+  "nome": "Universidade Federal de Alagoas",
+  "rua": "Av. Lourival Melo Mota",
+  "cidade": "Maceió",
+  "latitude": -9.555000,
+  "longitude": -35.775000
 }
 ```
 
@@ -636,24 +636,24 @@ Authorization: Bearer <token>
 ```json
 {
   "id": 1,
-  "nome": "Terminal Rodoviário Central",
-  "rua": "Avenida Paulista, 1000",
-  "cidade": "São Paulo",
-  "latitude": -23.5505,
-  "longitude": -46.6333
+  "nome": "Universidade Federal de Alagoas",
+  "rua": "Av. Lourival Melo Mota",
+  "cidade": "Maceió",
+  "latitude": -9.555000,
+  "longitude": -35.775000
 }
 ```
 
 ---
 
-### GET /pontos - Listar Todos os Pontos
+### GET /destinos - Listar Todos os Destinos
 
-Lista todos os pontos cadastrados.
+Lista todos os destinos cadastrados.
 
 **Request:**
 
 ```http
-GET /pontos HTTP/1.1
+GET /destinos HTTP/1.1
 Host: localhost:8080
 Authorization: Bearer <token>
 ```
@@ -683,14 +683,14 @@ Authorization: Bearer <token>
 
 ---
 
-### GET /pontos/cidade/{cidade} - Listar Pontos por Cidade
+### GET /destinos/cidade/{cidade} - Listar Destinos por Cidade
 
-Lista todos os pontos de uma cidade específica.
+Lista todos os destinos de uma cidade específica.
 
 **Request:**
 
 ```http
-GET /pontos/cidade/São%20Paulo HTTP/1.1
+GET /destinos/cidade/São%20Paulo HTTP/1.1
 Host: localhost:8080
 Authorization: Bearer <token>
 ```
@@ -720,14 +720,14 @@ Authorization: Bearer <token>
 
 ---
 
-### GET /pontos/{id} - Obter Ponto por ID
+### GET /destinos/{id} - Obter Destino por ID
 
-Obtém informações de um ponto específico.
+Obtém informações de um destino específico.
 
 **Request:**
 
 ```http
-GET /pontos/1 HTTP/1.1
+GET /destinos/1 HTTP/1.1
 Host: localhost:8080
 Authorization: Bearer <token>
 ```
@@ -747,14 +747,14 @@ Authorization: Bearer <token>
 
 ---
 
-### PUT /pontos/{id} - Atualizar Ponto
+### PUT /destinos/{id} - Atualizar Destino
 
-Atualiza as informações de um ponto.
+Atualiza as informações de um destino.
 
 **Request:**
 
 ```http
-PUT /pontos/1 HTTP/1.1
+PUT /destinos/1 HTTP/1.1
 Host: localhost:8080
 Content-Type: application/json
 Authorization: Bearer <token>
@@ -783,14 +783,14 @@ Authorization: Bearer <token>
 
 ---
 
-### DELETE /pontos/{id} - Deletar Ponto
+### DELETE /destinos/{id} - Deletar Destino
 
-Remove um ponto do sistema.
+Remove um destino do sistema.
 
 **Request:**
 
 ```http
-DELETE /pontos/1 HTTP/1.1
+DELETE /destinos/1 HTTP/1.1
 Host: localhost:8080
 Authorization: Bearer <token>
 ```
@@ -1284,9 +1284,32 @@ Authorization: Bearer <token>
 
 ## Clientes
 
-> **Status:** 🔄 Em desenvolvimento
+Endpoints para gerenciar clientes e seus vinculos.
 
-Endpoints para gerenciar clientes da plataforma.
+### Rotas de cliente
+
+```http
+POST /clientes/login
+POST /clientes/
+GET /clientes/
+GET /clientes/{clienteID}
+PUT /clientes/{clienteID}
+DELETE /clientes/{clienteID}
+```
+
+### Rotas de vinculos do cliente
+
+Os vinculos agora ficam aninhados em clientes. Isso deixa explicito a qual cliente cada vinculo pertence.
+
+```http
+POST /clientes/{clienteID}/vinculos/
+GET /clientes/{clienteID}/vinculos/
+GET /clientes/{clienteID}/vinculos/{vinculoID}
+PUT /clientes/{clienteID}/vinculos/{vinculoID}
+DELETE /clientes/{clienteID}/vinculos/{vinculoID}
+```
+
+Use `GET /clientes/{clienteID}/vinculos/` quando a tela precisar escolher apenas um vinculo. Use `GET /clientes/{clienteID}` quando precisar do cliente completo com seus vinculos e horarios. Quando a rota recebe `clienteID` e `vinculoID`, a API valida se o vinculo pertence ao cliente informado. Se nao pertencer, retorna `404 Not Found`.
 
 ---
 

@@ -28,7 +28,7 @@ CREATE TABLE cliente_vinculos (
     cliente_id BIGINT NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
     tipo tipo_conta NOT NULL,
     turno turno_cliente NOT NULL,
-    ponto_id BIGINT NOT NULL REFERENCES pontos(id) ON DELETE RESTRICT,
+    destino_id BIGINT NOT NULL REFERENCES destinos(id) ON DELETE RESTRICT,
     rota_interna_id BIGINT NOT NULL REFERENCES rotas_internas(id) ON DELETE RESTRICT,
     curso TEXT NOT NULL DEFAULT '',
     comprovante TEXT NOT NULL DEFAULT '',

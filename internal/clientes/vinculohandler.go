@@ -24,7 +24,7 @@ func NewVinculoHandler(svc VinculoService) *VinculoHandler {
 type VinculoRequest struct {
 	Tipo          TipoConta    `json:"tipo"`
 	Turno         TurnoCliente `json:"turno"`
-	PontoID       int64        `json:"ponto_id"`
+	DestinoID     int64        `json:"destino_id"`
 	RotaInternaID int64        `json:"rota_interna_id"`
 	Curso         string       `json:"curso"`
 	Comprovante   string       `json:"comprovante"`
@@ -43,7 +43,7 @@ type VinculoResponse struct {
 	ClienteID     int64                 `json:"cliente_id"`
 	Tipo          TipoConta             `json:"tipo"`
 	Turno         TurnoCliente          `json:"turno"`
-	PontoID       int64                 `json:"ponto_id"`
+	DestinoID     int64                 `json:"destino_id"`
 	RotaInternaID int64                 `json:"rota_interna_id"`
 	Curso         string                `json:"curso"`
 	Comprovante   string                `json:"comprovante"`
@@ -54,9 +54,9 @@ type VinculoResponse struct {
 func (h *VinculoHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	clienteID, err := conv.ParseInt(r, "id")
+	clienteID, err := conv.ParseInt(r, "clienteID")
 	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+		http.Error(w, "invalid cliente id", http.StatusBadRequest)
 		return
 	}
 
@@ -81,10 +81,34 @@ func (h *VinculoHandler) Create(w http.ResponseWriter, r *http.Request) {
 	httputils.Respond(w, http.StatusCreated, toVinculoResponse(vinculo))
 }
 
+func (h *VinculoHandler) ListByCliente(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	clienteID, err := conv.ParseInt(r, "clienteID")
+	if err != nil {
+		http.Error(w, "invalid cliente id", http.StatusBadRequest)
+		return
+	}
+
+	vinculos, err := h.svc.ListByCliente(ctx, clienteID)
+	if err != nil {
+		slog.Error("failed to list vinculos", "error", err, "clienteID", clienteID)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	resp := make([]VinculoResponse, 0, len(vinculos))
+	for _, v := range vinculos {
+		resp = append(resp, toVinculoResponse(&v))
+	}
+
+	httputils.Respond(w, http.StatusOK, resp)
+}
+
 func (h *VinculoHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	vinculoID, err := conv.ParseInt(r, "id")
+	clienteID, vinculoID, err := parseNestedVinculoIDs(r)
 	if err != nil {
 		http.Error(w, "invalid id", http.StatusBadRequest)
 		return
@@ -100,6 +124,10 @@ func (h *VinculoHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
+	if vinculo.ClienteID != clienteID {
+		http.Error(w, "vinculo not found", http.StatusNotFound)
+		return
+	}
 
 	httputils.Respond(w, http.StatusOK, toVinculoResponse(vinculo))
 }
@@ -107,9 +135,24 @@ func (h *VinculoHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 func (h *VinculoHandler) Update(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	vinculoID, err := conv.ParseInt(r, "id")
+	clienteID, vinculoID, err := parseNestedVinculoIDs(r)
 	if err != nil {
 		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+
+	vinculo, err := h.svc.GetByID(ctx, vinculoID)
+	if err != nil {
+		if errors.Is(err, ErrVinculoNotFound) {
+			http.Error(w, "vinculo not found", http.StatusNotFound)
+			return
+		}
+		slog.Error("failed to get vinculo", "error", err, "vinculoID", vinculoID)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	if vinculo.ClienteID != clienteID {
+		http.Error(w, "vinculo not found", http.StatusNotFound)
 		return
 	}
 
@@ -125,7 +168,7 @@ func (h *VinculoHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	vinculo, err := h.svc.Update(ctx, vinculoID, input)
+	vinculo, err = h.svc.Update(ctx, vinculoID, input)
 	if err != nil {
 		h.handleError(w, err, "failed to update vinculo")
 		return
@@ -137,9 +180,24 @@ func (h *VinculoHandler) Update(w http.ResponseWriter, r *http.Request) {
 func (h *VinculoHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	vinculoID, err := conv.ParseInt(r, "id")
+	clienteID, vinculoID, err := parseNestedVinculoIDs(r)
 	if err != nil {
 		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+
+	vinculo, err := h.svc.GetByID(ctx, vinculoID)
+	if err != nil {
+		if errors.Is(err, ErrVinculoNotFound) {
+			http.Error(w, "vinculo not found", http.StatusNotFound)
+			return
+		}
+		slog.Error("failed to get vinculo", "error", err, "vinculoID", vinculoID)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	if vinculo.ClienteID != clienteID {
+		http.Error(w, "vinculo not found", http.StatusNotFound)
 		return
 	}
 
@@ -154,6 +212,20 @@ func (h *VinculoHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func parseNestedVinculoIDs(r *http.Request) (int64, int64, error) {
+	clienteID, err := conv.ParseInt(r, "clienteID")
+	if err != nil {
+		return 0, 0, err
+	}
+
+	vinculoID, err := conv.ParseInt(r, "vinculoID")
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return clienteID, vinculoID, nil
 }
 
 func (h *VinculoHandler) handleError(w http.ResponseWriter, err error, msg string) {
@@ -173,8 +245,8 @@ func (h *VinculoHandler) handleError(w http.ResponseWriter, err error, msg strin
 		http.Error(w, "cliente not found", http.StatusNotFound)
 		return
 	}
-	if db.IsForeignKeyViolation(err, "cliente_vinculos_ponto_id_fkey") {
-		http.Error(w, "ponto not found", http.StatusUnprocessableEntity)
+	if db.IsForeignKeyViolation(err, "cliente_vinculos_destino_id_fkey") {
+		http.Error(w, "destino not found", http.StatusUnprocessableEntity)
 		return
 	}
 	if db.IsForeignKeyViolation(err, "cliente_vinculos_rota_interna_id_fkey") {
@@ -195,7 +267,7 @@ func toVinculoInput(clienteID int64, req VinculoRequest) (VinculoInput, error) {
 		ClienteID:     clienteID,
 		Tipo:          req.Tipo,
 		Turno:         req.Turno,
-		PontoID:       req.PontoID,
+		DestinoID:     req.DestinoID,
 		RotaInternaID: req.RotaInternaID,
 		Curso:         strings.TrimSpace(req.Curso),
 		Comprovante:   strings.TrimSpace(req.Comprovante),
@@ -213,7 +285,7 @@ func toVinculoUpdateInput(req VinculoRequest) (VinculoUpdateInput, error) {
 	return VinculoUpdateInput{
 		Tipo:          req.Tipo,
 		Turno:         req.Turno,
-		PontoID:       req.PontoID,
+		DestinoID:     req.DestinoID,
 		RotaInternaID: req.RotaInternaID,
 		Curso:         strings.TrimSpace(req.Curso),
 		Comprovante:   strings.TrimSpace(req.Comprovante),
@@ -223,8 +295,8 @@ func toVinculoUpdateInput(req VinculoRequest) (VinculoUpdateInput, error) {
 }
 
 func validateVinculoRequest(req VinculoRequest) (time.Time, error) {
-	if req.PontoID <= 0 {
-		return time.Time{}, errors.New("ponto_id is required")
+	if req.DestinoID <= 0 {
+		return time.Time{}, errors.New("destino_id is required")
 	}
 	if req.RotaInternaID <= 0 {
 		return time.Time{}, errors.New("rota_interna_id is required")
@@ -256,7 +328,7 @@ func toVinculoResponse(v *Vinculo) VinculoResponse {
 		ClienteID:     v.ClienteID,
 		Tipo:          v.Tipo,
 		Turno:         v.Turno,
-		PontoID:       v.PontoID,
+		DestinoID:     v.DestinoID,
 		RotaInternaID: v.RotaInternaID,
 		Curso:         v.Curso,
 		Comprovante:   v.Comprovante,

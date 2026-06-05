@@ -80,4 +80,4 @@ Nota: a aplicação atualmente registra as rotas via `server.RegisterRoutes` em 
 - Outras pastas do projeto (`clientes`, `veiculos`, `viagens`, etc.) possuem handlers e serviços, mas atualmente não estão registrados no `server.RegisterRoutes` — por isso não estão expostas pela API.
 - Variáveis de ambiente relevantes: `DATABASE_URL`, `JWT_SECRET`, `PORT`, `ALLOWED_ORIGINS`.
 
-Se quiser, posso também registrar as rotas restantes (clientes, motoristas, veículos, viagens, pontos, reservas, rotasinternas) no servidor e documentá-las automaticamente.
+Se quiser, posso também registrar as rotas restantes (clientes, motoristas, veículos, viagens, destinos, reservas, rotasinternas) no servidor e documentá-las automaticamente.

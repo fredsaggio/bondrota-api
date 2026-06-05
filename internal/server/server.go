@@ -5,9 +5,9 @@ import (
 
 	"github.com/fredsaggio/bondrota-api/internal/admin"
 	"github.com/fredsaggio/bondrota-api/internal/clientes"
+	"github.com/fredsaggio/bondrota-api/internal/destinos"
 	"github.com/fredsaggio/bondrota-api/internal/motoristas"
 	"github.com/fredsaggio/bondrota-api/internal/paradas"
-	"github.com/fredsaggio/bondrota-api/internal/pontos"
 	"github.com/fredsaggio/bondrota-api/internal/rotasinternas"
 	"github.com/fredsaggio/bondrota-api/internal/veiculos"
 	"github.com/go-chi/chi/v5"
@@ -18,7 +18,7 @@ const reqBodyLimitBytes = 250 * 1024
 type Handlers struct {
 	AdminHandler       *admin.AdminHandler
 	VeiculoHandler     *veiculos.VeiculoHandler
-	PontoHandler       *pontos.PontoHandler
+	DestinoHandler     *destinos.DestinoHandler
 	ParadaHandler      *paradas.ParadaHandler
 	RotaInternaHandler *rotasinternas.RotaInternaHandler
 	MotoristaHandler   *motoristas.MotoristaHandler
@@ -58,13 +58,13 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 		r.Delete("/{veiculoID}", srv.handlers.VeiculoHandler.Delete)
 	})
 
-	r.Route("/pontos", func(r chi.Router) {
-		r.Post("/", srv.handlers.PontoHandler.Create)
-		r.Get("/", srv.handlers.PontoHandler.List)
-		r.Get("/cidade/{cidade}", srv.handlers.PontoHandler.ListByCity)
-		r.Get("/{id}", srv.handlers.PontoHandler.GetByID)
-		r.Put("/{id}", srv.handlers.PontoHandler.Update)
-		r.Delete("/{id}", srv.handlers.PontoHandler.Delete)
+	r.Route("/destinos", func(r chi.Router) {
+		r.Post("/", srv.handlers.DestinoHandler.Create)
+		r.Get("/", srv.handlers.DestinoHandler.List)
+		r.Get("/cidade/{cidade}", srv.handlers.DestinoHandler.ListByCity)
+		r.Get("/{id}", srv.handlers.DestinoHandler.GetByID)
+		r.Put("/{id}", srv.handlers.DestinoHandler.Update)
+		r.Delete("/{id}", srv.handlers.DestinoHandler.Delete)
 	})
 
 	r.Route("/paradas", func(r chi.Router) {
@@ -98,15 +98,16 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 		r.Post("/login", srv.handlers.ClienteHandler.Login)
 		r.Post("/", srv.handlers.ClienteHandler.Create)
 		r.Get("/", srv.handlers.ClienteHandler.List)
-		r.Get("/{id}", srv.handlers.ClienteHandler.GetByID)
-		r.Put("/{id}", srv.handlers.ClienteHandler.Update)
-		r.Delete("/{id}", srv.handlers.ClienteHandler.Delete)
-		r.Post("/{id}/vinculos", srv.handlers.VinculoHandler.Create)
-	})
+		r.Get("/{clienteID}", srv.handlers.ClienteHandler.GetByID)
+		r.Put("/{clienteID}", srv.handlers.ClienteHandler.Update)
+		r.Delete("/{clienteID}", srv.handlers.ClienteHandler.Delete)
 
-	r.Route("/cliente-vinculos", func(r chi.Router) {
-		r.Get("/{id}", srv.handlers.VinculoHandler.GetByID)
-		r.Put("/{id}", srv.handlers.VinculoHandler.Update)
-		r.Delete("/{id}", srv.handlers.VinculoHandler.Delete)
+		r.Route("/{clienteID}/vinculos", func(r chi.Router) {
+			r.Post("/", srv.handlers.VinculoHandler.Create)
+			r.Get("/", srv.handlers.VinculoHandler.ListByCliente)
+			r.Get("/{vinculoID}", srv.handlers.VinculoHandler.GetByID)
+			r.Put("/{vinculoID}", srv.handlers.VinculoHandler.Update)
+			r.Delete("/{vinculoID}", srv.handlers.VinculoHandler.Delete)
+		})
 	})
 }

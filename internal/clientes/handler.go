@@ -128,7 +128,7 @@ func (h *ClienteHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *ClienteHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	clienteID, err := conv.ParseInt(r, "id")
+	clienteID, err := conv.ParseInt(r, "clienteID")
 	if err != nil {
 		http.Error(w, "invalid id", http.StatusBadRequest)
 		return
@@ -169,7 +169,7 @@ func (h *ClienteHandler) List(w http.ResponseWriter, r *http.Request) {
 func (h *ClienteHandler) Update(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	clienteID, err := conv.ParseInt(r, "id")
+	clienteID, err := conv.ParseInt(r, "clienteID")
 	if err != nil {
 		http.Error(w, "invalid id", http.StatusBadRequest)
 		return
@@ -243,7 +243,7 @@ func (h *ClienteHandler) Update(w http.ResponseWriter, r *http.Request) {
 func (h *ClienteHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	clienteID, err := conv.ParseInt(r, "id")
+	clienteID, err := conv.ParseInt(r, "clienteID")
 	if err != nil {
 		http.Error(w, "invalid id", http.StatusBadRequest)
 		return

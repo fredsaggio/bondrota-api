@@ -69,7 +69,7 @@ type Vinculo struct {
 	ClienteID     int64
 	Tipo          TipoConta
 	Turno         TurnoCliente
-	PontoID       int64
+	DestinoID     int64
 	RotaInternaID int64
 	Curso         string
 	Comprovante   string
@@ -81,7 +81,7 @@ type VinculoInput struct {
 	ClienteID     int64
 	Tipo          TipoConta
 	Turno         TurnoCliente
-	PontoID       int64
+	DestinoID     int64
 	RotaInternaID int64
 	Curso         string
 	Comprovante   string
@@ -92,7 +92,7 @@ type VinculoInput struct {
 type VinculoUpdateInput struct {
 	Tipo          TipoConta
 	Turno         TurnoCliente
-	PontoID       int64
+	DestinoID     int64
 	RotaInternaID int64
 	Curso         string
 	Comprovante   string

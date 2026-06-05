@@ -1,4 +1,4 @@
-package pontos
+package destinos
 
 import (
 	"context"
@@ -9,20 +9,20 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-type pontoStore struct {
+type destinoStore struct {
 	db db.DB
 }
 
-func NewPontoStore(db db.DB) PontoStore {
-	return &pontoStore{db: db}
+func NewDestinoStore(db db.DB) DestinoStore {
+	return &destinoStore{db: db}
 }
 
-func (s *pontoStore) Create(ctx context.Context, input PontoInput) (*Ponto, error) {
-	const op = "db/pontoStore.Create"
-	var p Ponto
+func (s *destinoStore) Create(ctx context.Context, input DestinoInput) (*Destino, error) {
+	const op = "db/destinoStore.Create"
+	var p Destino
 
 	const q = `
-		INSERT INTO pontos (nome, rua, cidade, latitude, longitude)
+		INSERT INTO destinos (nome, rua, cidade, latitude, longitude)
 		VALUES (@nome, @rua, @cidade, @latitude, @longitude)
 		RETURNING id, nome, rua, cidade, latitude, longitude
 	`
@@ -42,10 +42,10 @@ func (s *pontoStore) Create(ctx context.Context, input PontoInput) (*Ponto, erro
 	return &p, nil
 }
 
-func (s *pontoStore) GetByID(ctx context.Context, id int64) (*Ponto, error) {
-	const op = "db/pontoStore.GetByID"
+func (s *destinoStore) GetByID(ctx context.Context, id int64) (*Destino, error) {
+	const op = "db/destinoStore.GetByID"
 
-	ponto, err := getPontoByID(ctx, s.db, id)
+	destino, err := getDestinoByID(ctx, s.db, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
@@ -53,15 +53,15 @@ func (s *pontoStore) GetByID(ctx context.Context, id int64) (*Ponto, error) {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return ponto, nil
+	return destino, nil
 }
 
-func getPontoByID(ctx context.Context, querier interface {
+func getDestinoByID(ctx context.Context, querier interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
-}, id int64) (*Ponto, error) {
+}, id int64) (*Destino, error) {
 	const q = `
 		SELECT id, nome, rua, cidade, latitude, longitude
-		FROM pontos
+		FROM destinos
 		WHERE id = @id
 	`
 	args := pgx.StrictNamedArgs{"id": id}
@@ -71,20 +71,20 @@ func getPontoByID(ctx context.Context, querier interface {
 		return nil, err
 	}
 
-	ponto, err := pgx.CollectExactlyOneRow(rows, scanPonto)
+	destino, err := pgx.CollectExactlyOneRow(rows, scanDestino)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ponto, nil
+	return &destino, nil
 }
 
-func (s *pontoStore) List(ctx context.Context) ([]Ponto, error) {
-	const op = "db/pontoStore.List"
+func (s *destinoStore) List(ctx context.Context) ([]Destino, error) {
+	const op = "db/destinoStore.List"
 
 	const q = `
 		SELECT id, nome, rua, cidade, latitude, longitude
-		FROM pontos
+		FROM destinos
 		ORDER BY id DESC
 	`
 
@@ -93,20 +93,20 @@ func (s *pontoStore) List(ctx context.Context) ([]Ponto, error) {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	pontos, err := pgx.CollectRows(rows, scanPonto)
+	destinos, err := pgx.CollectRows(rows, scanDestino)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return pontos, nil
+	return destinos, nil
 }
 
-func (s *pontoStore) ListByCity(ctx context.Context, cidade string) ([]Ponto, error) {
-	const op = "db/pontoStore.ListByCity"
+func (s *destinoStore) ListByCity(ctx context.Context, cidade string) ([]Destino, error) {
+	const op = "db/destinoStore.ListByCity"
 
 	const q = `
 		SELECT id, nome, rua, cidade, latitude, longitude
-		FROM pontos
+		FROM destinos
 		WHERE cidade = @cidade
 		ORDER BY nome ASC
 	`
@@ -117,30 +117,30 @@ func (s *pontoStore) ListByCity(ctx context.Context, cidade string) ([]Ponto, er
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	pontos, err := pgx.CollectRows(rows, scanPonto)
+	destinos, err := pgx.CollectRows(rows, scanDestino)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return pontos, nil
+	return destinos, nil
 }
 
-func (s *pontoStore) Update(ctx context.Context, id int64, updateFunc func(*Ponto) (bool, error)) (*Ponto, error) {
-	const op = "db/pontoStore.Update"
+func (s *destinoStore) Update(ctx context.Context, id int64, updateFunc func(*Destino) (bool, error)) (*Destino, error) {
+	const op = "db/destinoStore.Update"
 
-	var ponto Ponto
+	var destino Destino
 
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		p, err := getPontoByIDForUpdate(ctx, tx, id)
+		p, err := getDestinoByIDForUpdate(ctx, tx, id)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return ErrNotFound
 			}
 			return fmt.Errorf("select: %w", err)
 		}
-		ponto = *p
+		destino = *p
 
-		changed, err := updateFunc(&ponto)
+		changed, err := updateFunc(&destino)
 		if err != nil {
 			return err
 		}
@@ -149,18 +149,18 @@ func (s *pontoStore) Update(ctx context.Context, id int64, updateFunc func(*Pont
 		}
 
 		const updateQ = `
-			UPDATE pontos
+			UPDATE destinos
 			SET nome = @nome, rua = @rua, cidade = @cidade,
 			    latitude = @latitude, longitude = @longitude
 			WHERE id = @id
 		`
 		updateArgs := pgx.StrictNamedArgs{
-			"id":        ponto.ID,
-			"nome":      ponto.Nome,
-			"rua":       ponto.Rua,
-			"cidade":    ponto.Cidade,
-			"latitude":  ponto.Latitude,
-			"longitude": ponto.Longitude,
+			"id":        destino.ID,
+			"nome":      destino.Nome,
+			"rua":       destino.Rua,
+			"cidade":    destino.Cidade,
+			"latitude":  destino.Latitude,
+			"longitude": destino.Longitude,
 		}
 
 		if _, err := tx.Exec(ctx, updateQ, updateArgs); err != nil {
@@ -174,13 +174,13 @@ func (s *pontoStore) Update(ctx context.Context, id int64, updateFunc func(*Pont
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return &ponto, nil
+	return &destino, nil
 }
 
-func getPontoByIDForUpdate(ctx context.Context, tx pgx.Tx, id int64) (*Ponto, error) {
+func getDestinoByIDForUpdate(ctx context.Context, tx pgx.Tx, id int64) (*Destino, error) {
 	const q = `
 		SELECT id, nome, rua, cidade, latitude, longitude
-		FROM pontos
+		FROM destinos
 		WHERE id = @id
 		FOR UPDATE
 	`
@@ -191,19 +191,19 @@ func getPontoByIDForUpdate(ctx context.Context, tx pgx.Tx, id int64) (*Ponto, er
 		return nil, err
 	}
 
-	ponto, err := pgx.CollectExactlyOneRow(rows, scanPonto)
+	destino, err := pgx.CollectExactlyOneRow(rows, scanDestino)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ponto, nil
+	return &destino, nil
 }
 
-func (s *pontoStore) Delete(ctx context.Context, id int64) error {
-	const op = "db/pontoStore.Delete"
+func (s *destinoStore) Delete(ctx context.Context, id int64) error {
+	const op = "db/destinoStore.Delete"
 
 	const q = `
-		DELETE FROM pontos
+		DELETE FROM destinos
 		WHERE id = @id
 	`
 	args := pgx.StrictNamedArgs{"id": id}
@@ -220,9 +220,8 @@ func (s *pontoStore) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
-
-func scanPonto(row pgx.CollectableRow) (Ponto, error) {
-	var p Ponto
+func scanDestino(row pgx.CollectableRow) (Destino, error) {
+	var p Destino
 	err := row.Scan(&p.ID, &p.Nome, &p.Rua, &p.Cidade, &p.Latitude, &p.Longitude)
 	return p, err
 }

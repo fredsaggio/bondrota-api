@@ -26,18 +26,18 @@ func (s *vinculoStore) Create(ctx context.Context, input VinculoInput) (*Vinculo
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		const q = `
 			INSERT INTO cliente_vinculos (
-				cliente_id, tipo, turno, ponto_id, rota_interna_id, curso, comprovante, validade
+				cliente_id, tipo, turno, destino_id, rota_interna_id, curso, comprovante, validade
 			)
 			VALUES (
-				@cliente_id, @tipo, @turno, @ponto_id, @rota_interna_id, @curso, @comprovante, @validade
+				@cliente_id, @tipo, @turno, @destino_id, @rota_interna_id, @curso, @comprovante, @validade
 			)
-			RETURNING id, cliente_id, tipo, turno, ponto_id, rota_interna_id, curso, comprovante, validade
+			RETURNING id, cliente_id, tipo, turno, destino_id, rota_interna_id, curso, comprovante, validade
 		`
 		rows, err := tx.Query(ctx, q, pgx.StrictNamedArgs{
 			"cliente_id":      input.ClienteID,
 			"tipo":            input.Tipo,
 			"turno":           input.Turno,
-			"ponto_id":        input.PontoID,
+			"destino_id":      input.DestinoID,
 			"rota_interna_id": input.RotaInternaID,
 			"curso":           input.Curso,
 			"comprovante":     input.Comprovante,
@@ -69,11 +69,11 @@ func (s *vinculoStore) Create(ctx context.Context, input VinculoInput) (*Vinculo
 }
 
 func (s *vinculoStore) GetByID(ctx context.Context, vinculoID int64) (*Vinculo, error) {
-    const op = "db/vinculoStore.GetByID"
+	const op = "db/vinculoStore.GetByID"
 
-    const q = `
+	const q = `
         SELECT
-            v.id, v.cliente_id, v.tipo, v.turno, v.ponto_id, v.rota_interna_id,
+            v.id, v.cliente_id, v.tipo, v.turno, v.destino_id, v.rota_interna_id,
             v.curso, v.comprovante, v.validade,
             h.id, h.vinculo_id, h.dia_semana
         FROM cliente_vinculos v
@@ -82,29 +82,29 @@ func (s *vinculoStore) GetByID(ctx context.Context, vinculoID int64) (*Vinculo, 
         ORDER BY v.id ASC, h.dia_semana ASC
     `
 
-    rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{"id": vinculoID})
-    if err != nil {
-        return nil, fmt.Errorf("%s: %w", op, err)
-    }
+	rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{"id": vinculoID})
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
 
-    vinculos, err := collectVinculos(rows)
-    if err != nil {
-        return nil, fmt.Errorf("%s: %w", op, err)
-    }
-    
-    if len(vinculos) == 0 {
-        return nil, ErrVinculoNotFound
-    }
+	vinculos, err := collectVinculos(rows)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
 
-    return &vinculos[0], nil
+	if len(vinculos) == 0 {
+		return nil, ErrVinculoNotFound
+	}
+
+	return &vinculos[0], nil
 }
 
 func (s *vinculoStore) ListByCliente(ctx context.Context, clienteID int64) ([]Vinculo, error) {
-    const op = "db/vinculoStore.ListByCliente"
+	const op = "db/vinculoStore.ListByCliente"
 
-    const q = `
+	const q = `
         SELECT
-            v.id, v.cliente_id, v.tipo, v.turno, v.ponto_id, v.rota_interna_id,
+            v.id, v.cliente_id, v.tipo, v.turno, v.destino_id, v.rota_interna_id,
             v.curso, v.comprovante, v.validade,
             h.id, h.vinculo_id, h.dia_semana
         FROM cliente_vinculos v
@@ -113,21 +113,21 @@ func (s *vinculoStore) ListByCliente(ctx context.Context, clienteID int64) ([]Vi
         ORDER BY v.id ASC, h.dia_semana ASC
     `
 
-    rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{"cliente_id": clienteID})
-    if err != nil {
-        return nil, fmt.Errorf("%s: %w", op, err)
-    }
+	rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{"cliente_id": clienteID})
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
 
-    vinculos, err := collectVinculos(rows)
-    if err != nil {
-        return nil, fmt.Errorf("%s: %w", op, err)
-    }
+	vinculos, err := collectVinculos(rows)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
 
-    if vinculos == nil {
-        return []Vinculo{}, nil
-    }
+	if vinculos == nil {
+		return []Vinculo{}, nil
+	}
 
-    return vinculos, nil
+	return vinculos, nil
 }
 
 func (s *vinculoStore) Update(ctx context.Context, vinculoID int64, input VinculoUpdateInput) (*Vinculo, error) {
@@ -137,7 +137,7 @@ func (s *vinculoStore) Update(ctx context.Context, vinculoID int64, input Vincul
 
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		const selectQ = `
-			SELECT id, cliente_id, tipo, turno, ponto_id, rota_interna_id, curso, comprovante, validade
+			SELECT id, cliente_id, tipo, turno, destino_id, rota_interna_id, curso, comprovante, validade
 			FROM cliente_vinculos
 			WHERE id = @id
 			FOR UPDATE
@@ -159,19 +159,19 @@ func (s *vinculoStore) Update(ctx context.Context, vinculoID int64, input Vincul
 			UPDATE cliente_vinculos
 			SET tipo = @tipo,
 				turno = @turno,
-				ponto_id = @ponto_id,
+				destino_id = @destino_id,
 				rota_interna_id = @rota_interna_id,
 				curso = @curso,
 				comprovante = @comprovante,
 				validade = @validade
 			WHERE id = @id
-			RETURNING id, cliente_id, tipo, turno, ponto_id, rota_interna_id, curso, comprovante, validade
+			RETURNING id, cliente_id, tipo, turno, destino_id, rota_interna_id, curso, comprovante, validade
 		`
 		rows, err = tx.Query(ctx, updateQ, pgx.StrictNamedArgs{
 			"id":              v.ID,
 			"tipo":            input.Tipo,
 			"turno":           input.Turno,
-			"ponto_id":        input.PontoID,
+			"destino_id":      input.DestinoID,
 			"rota_interna_id": input.RotaInternaID,
 			"curso":           input.Curso,
 			"comprovante":     input.Comprovante,
@@ -231,7 +231,7 @@ func collectVinculos(rows pgx.Rows) ([]Vinculo, error) {
 			vClienteID int64
 			vTipo      TipoConta
 			vTurno     TurnoCliente
-			vPontoID   int64
+			vDestinoID int64
 			vRotaID    int64
 			vCurso     string
 			vComp      string
@@ -242,7 +242,7 @@ func collectVinculos(rows pgx.Rows) ([]Vinculo, error) {
 		)
 
 		if err := rows.Scan(
-			&vID, &vClienteID, &vTipo, &vTurno, &vPontoID, &vRotaID,
+			&vID, &vClienteID, &vTipo, &vTurno, &vDestinoID, &vRotaID,
 			&vCurso, &vComp, &vValidade,
 			&hID, &hVinculoID, &hDia,
 		); err != nil {
@@ -255,7 +255,7 @@ func collectVinculos(rows pgx.Rows) ([]Vinculo, error) {
 				ClienteID:     vClienteID,
 				Tipo:          vTipo,
 				Turno:         vTurno,
-				PontoID:       vPontoID,
+				DestinoID:     vDestinoID,
 				RotaInternaID: vRotaID,
 				Curso:         vCurso,
 				Comprovante:   vComp,
@@ -285,7 +285,7 @@ func scanVinculo(row pgx.CollectableRow) (Vinculo, error) {
 		&v.ClienteID,
 		&v.Tipo,
 		&v.Turno,
-		&v.PontoID,
+		&v.DestinoID,
 		&v.RotaInternaID,
 		&v.Curso,
 		&v.Comprovante,

@@ -8,7 +8,7 @@ Projeto escrito em Go, organizado como uma API HTTP REST leve. A aplicação seg
 
 - `cmd/` - ponto de entrada da aplicação (`main.go`) e construção das dependências.
 - `internal/server` - inicialização do servidor HTTP e registro de rotas (utiliza `chi`).
-- `internal/*` - pacotes por domínio (admin, auth, clientes, motoristas, pontos, reservas, rotasinternas, veiculos, viagens).
+- `internal/*` - pacotes por domínio (admin, auth, clientes, motoristas, destinos, reservas, rotasinternas, veiculos, viagens).
 - `internal/db` - abstração de acesso ao banco e pool (`pgxpool`).
 - `internal/crypto` - implementações de hashing de senha (`bcrypt`).
 - `migrations/` - scripts SQL de migração do schema.
@@ -67,4 +67,3 @@ Projeto escrito em Go, organizado como uma API HTTP REST leve. A aplicação seg
 - Registrar rotas dos demais módulos (clientes, veiculos, viagens, etc.) e adicionar testes de integração.
 - Adicionar documentação OpenAPI/Swagger para facilitar consumo externo.
 - Implementar rate limiting e logs estruturados mais completos (ex.: request id tracing).
-

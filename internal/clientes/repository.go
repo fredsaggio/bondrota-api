@@ -54,7 +54,7 @@ func (s *clienteStore) GetByID(ctx context.Context, clienteID int64) (*ClienteCo
 	const q = `
 		SELECT
 			c.id, c.nome, c.cpf, c.telefone, c.data_nasc, c.foto,
-			v.id, v.cliente_id, v.tipo, v.turno, v.ponto_id, v.rota_interna_id,
+			v.id, v.cliente_id, v.tipo, v.turno, v.destino_id, v.rota_interna_id,
 			v.curso, v.comprovante, v.validade,
 			h.id, h.vinculo_id, h.dia_semana
 		FROM clientes c
@@ -221,7 +221,7 @@ func collectClienteComVinculos(rows pgx.Rows) (*ClienteComVinculos, error) {
 			vClienteID *int64
 			vTipo      *TipoConta
 			vTurno     *TurnoCliente
-			vPontoID   *int64
+			vDestinoID *int64
 			vRotaID    *int64
 			vCurso     *string
 			vComp      *string
@@ -233,7 +233,7 @@ func collectClienteComVinculos(rows pgx.Rows) (*ClienteComVinculos, error) {
 
 		if err := rows.Scan(
 			&cID, &cNome, &cCPF, &cTelefone, &cDataNasc, &cFoto,
-			&vID, &vClienteID, &vTipo, &vTurno, &vPontoID, &vRotaID,
+			&vID, &vClienteID, &vTipo, &vTurno, &vDestinoID, &vRotaID,
 			&vCurso, &vComp, &vValidade,
 			&hID, &hVinculoID, &hDia,
 		); err != nil {
@@ -261,7 +261,7 @@ func collectClienteComVinculos(rows pgx.Rows) (*ClienteComVinculos, error) {
 					ClienteID:     *vClienteID,
 					Tipo:          *vTipo,
 					Turno:         *vTurno,
-					PontoID:       *vPontoID,
+					DestinoID:     *vDestinoID,
 					RotaInternaID: *vRotaID,
 					Curso:         *vCurso,
 					Comprovante:   *vComp,

@@ -1,4 +1,4 @@
-package pontos
+package destinos
 
 import (
 	"encoding/json"
@@ -12,7 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type PontoRequest struct {
+type DestinoRequest struct {
 	Nome      string  `json:"nome"`
 	Rua       string  `json:"rua"`
 	Cidade    string  `json:"cidade"`
@@ -20,10 +20,10 @@ type PontoRequest struct {
 	Longitude float64 `json:"longitude"`
 }
 
-type CreatePontoResponse struct {
+type CreateDestinoResponse struct {
 	ID int64 `json:"id"`
 }
-type PontoResponse struct {
+type DestinoResponse struct {
 	ID        int64   `json:"id"`
 	Nome      string  `json:"nome"`
 	Rua       string  `json:"rua"`
@@ -32,18 +32,18 @@ type PontoResponse struct {
 	Longitude float64 `json:"longitude"`
 }
 
-type PontoHandler struct {
-	store PontoStore
+type DestinoHandler struct {
+	store DestinoStore
 }
 
-func NewPontoHandler(store PontoStore) *PontoHandler {
-	return &PontoHandler{store: store}
+func NewDestinoHandler(store DestinoStore) *DestinoHandler {
+	return &DestinoHandler{store: store}
 }
 
-func (h *PontoHandler) Create(w http.ResponseWriter, r *http.Request) {
+func (h *DestinoHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	var req PontoRequest
+	var req DestinoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
@@ -68,7 +68,7 @@ func (h *PontoHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	cidade := strings.TrimSpace(strings.ToLower(req.Cidade))
 
-	input := PontoInput{
+	input := DestinoInput{
 		Nome:      req.Nome,
 		Rua:       req.Rua,
 		Cidade:    cidade,
@@ -76,56 +76,56 @@ func (h *PontoHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Longitude: req.Longitude,
 	}
 
-	ponto, err := h.store.Create(ctx, input)
+	destino, err := h.store.Create(ctx, input)
 	if err != nil {
-		slog.Error("failed to create ponto", "error", err)
+		slog.Error("failed to create destino", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	httputils.Respond(w, http.StatusCreated, CreatePontoResponse{ID: ponto.ID})
+	httputils.Respond(w, http.StatusCreated, CreateDestinoResponse{ID: destino.ID})
 }
 
-func (h *PontoHandler) GetByID(w http.ResponseWriter, r *http.Request) {
+func (h *DestinoHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	pontoID, err := conv.ParseInt(r, "id")
+	destinoID, err := conv.ParseInt(r, "id")
 
 	if err != nil {
 		http.Error(w, "invalid id", http.StatusBadRequest)
 		return
 	}
 
-	ponto, err := h.store.GetByID(ctx, pontoID)
+	destino, err := h.store.GetByID(ctx, destinoID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			http.Error(w, "ponto not found", http.StatusNotFound)
+			http.Error(w, "destino not found", http.StatusNotFound)
 			return
 		}
-		slog.Error("failed to get ponto", "error", err)
+		slog.Error("failed to get destino", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	httputils.Respond(w, http.StatusOK, toPontoResponse(ponto))
+	httputils.Respond(w, http.StatusOK, toDestinoResponse(destino))
 }
 
-func (h *PontoHandler) List(w http.ResponseWriter, r *http.Request) {
+func (h *DestinoHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	pontos, err := h.store.List(ctx)
+	destinos, err := h.store.List(ctx)
 	if err != nil {
-		slog.Error("failed to list pontos", "error", err)
+		slog.Error("failed to list destinos", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	resp := make([]PontoResponse, 0, len(pontos))
-	for _, p := range pontos {
-		resp = append(resp, toPontoResponse(&p))
+	resp := make([]DestinoResponse, 0, len(destinos))
+	for _, p := range destinos {
+		resp = append(resp, toDestinoResponse(&p))
 	}
 	httputils.Respond(w, http.StatusOK, resp)
 }
 
-func (h *PontoHandler) ListByCity(w http.ResponseWriter, r *http.Request) {
+func (h *DestinoHandler) ListByCity(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	cidade := strings.TrimSpace(strings.ToLower(chi.URLParam(r, "cidade")))
 
@@ -134,36 +134,36 @@ func (h *PontoHandler) ListByCity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pontos, err := h.store.ListByCity(ctx, cidade)
+	destinos, err := h.store.ListByCity(ctx, cidade)
 	if err != nil {
-		slog.Error("failed to list pontos by city", "error", err)
+		slog.Error("failed to list destinos by city", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	resp := make([]PontoResponse, 0, len(pontos))
-	for _, p := range pontos {
-		resp = append(resp, toPontoResponse(&p))
+	resp := make([]DestinoResponse, 0, len(destinos))
+	for _, p := range destinos {
+		resp = append(resp, toDestinoResponse(&p))
 	}
 	httputils.Respond(w, http.StatusOK, resp)
 }
 
-func (h *PontoHandler) Update(w http.ResponseWriter, r *http.Request) {
+func (h *DestinoHandler) Update(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	pontoID, err := conv.ParseInt(r, "id")
+	destinoID, err := conv.ParseInt(r, "id")
 
 	if err != nil {
 		http.Error(w, "invalid id", http.StatusBadRequest)
 		return
 	}
 
-	var req PontoRequest
+	var req DestinoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	ponto, err := h.store.Update(ctx, pontoID, func(p *Ponto) (bool, error) {
+	destino, err := h.store.Update(ctx, destinoID, func(p *Destino) (bool, error) {
 		updated := false
 		if req.Nome != "" && req.Nome != p.Nome {
 			p.Nome = req.Nome
@@ -190,18 +190,18 @@ func (h *PontoHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			http.Error(w, "ponto not found", http.StatusNotFound)
+			http.Error(w, "destino not found", http.StatusNotFound)
 			return
 		}
-		slog.Error("failed to update ponto", "error", err)
+		slog.Error("failed to update destino", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	httputils.Respond(w, http.StatusOK, toPontoResponse(ponto))
+	httputils.Respond(w, http.StatusOK, toDestinoResponse(destino))
 }
 
-func (h *PontoHandler) Delete(w http.ResponseWriter, r *http.Request) {
+func (h *DestinoHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	id, err := conv.ParseInt(r, "id")
 	if err != nil {
@@ -212,10 +212,10 @@ func (h *PontoHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	err = h.store.Delete(ctx, id)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			http.Error(w, "ponto not found", http.StatusNotFound)
+			http.Error(w, "destino not found", http.StatusNotFound)
 			return
 		}
-		slog.Error("failed to delete ponto", "error", err)
+		slog.Error("failed to delete destino", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -223,8 +223,8 @@ func (h *PontoHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func toPontoResponse(p *Ponto) PontoResponse {
-	return PontoResponse{
+func toDestinoResponse(p *Destino) DestinoResponse {
+	return DestinoResponse{
 		ID:        p.ID,
 		Nome:      p.Nome,
 		Rua:       p.Rua,
