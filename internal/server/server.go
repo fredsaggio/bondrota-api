@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/fredsaggio/bondrota-api/internal/admin"
+	"github.com/fredsaggio/bondrota-api/internal/clientes"
 	"github.com/fredsaggio/bondrota-api/internal/motoristas"
 	"github.com/fredsaggio/bondrota-api/internal/paradas"
 	"github.com/fredsaggio/bondrota-api/internal/pontos"
@@ -21,6 +22,8 @@ type Handlers struct {
 	ParadaHandler      *paradas.ParadaHandler
 	RotaInternaHandler *rotasinternas.RotaInternaHandler
 	MotoristaHandler   *motoristas.MotoristaHandler
+	ClienteHandler     *clientes.ClienteHandler
+	VinculoHandler     *clientes.VinculoHandler
 }
 
 type Server struct {
@@ -89,5 +92,21 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 		r.Get("/{id}", srv.handlers.MotoristaHandler.GetByID)
 		r.Put("/{id}", srv.handlers.MotoristaHandler.Update)
 		r.Delete("/{id}", srv.handlers.MotoristaHandler.Delete)
+	})
+
+	r.Route("/clientes", func(r chi.Router) {
+		r.Post("/login", srv.handlers.ClienteHandler.Login)
+		r.Post("/", srv.handlers.ClienteHandler.Create)
+		r.Get("/", srv.handlers.ClienteHandler.List)
+		r.Get("/{id}", srv.handlers.ClienteHandler.GetByID)
+		r.Put("/{id}", srv.handlers.ClienteHandler.Update)
+		r.Delete("/{id}", srv.handlers.ClienteHandler.Delete)
+		r.Post("/{id}/vinculos", srv.handlers.VinculoHandler.Create)
+	})
+
+	r.Route("/cliente-vinculos", func(r chi.Router) {
+		r.Get("/{id}", srv.handlers.VinculoHandler.GetByID)
+		r.Put("/{id}", srv.handlers.VinculoHandler.Update)
+		r.Delete("/{id}", srv.handlers.VinculoHandler.Delete)
 	})
 }
