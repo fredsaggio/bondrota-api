@@ -22,7 +22,6 @@ CREATE TRIGGER set_updated_at_motoristas
     FOR EACH ROW
     EXECUTE FUNCTION trigger_set_updated_at();
 
-CREATE INDEX idx_motoristas_cpf ON motoristas(cpf);
 -- +goose StatementEnd
 
 -- +goose Down

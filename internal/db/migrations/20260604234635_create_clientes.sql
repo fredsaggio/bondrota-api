@@ -20,7 +20,8 @@ CREATE TRIGGER set_updated_at_clientes
     FOR EACH ROW
     EXECUTE FUNCTION trigger_set_updated_at();
 
-CREATE INDEX idx_clientes_cpf ON clientes(cpf);
+
+
 
 CREATE TABLE cliente_vinculos (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -47,7 +48,7 @@ CREATE TABLE horarios_fixos (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     vinculo_id BIGINT NOT NULL REFERENCES cliente_vinculos(id) ON DELETE CASCADE,
     dia_semana SMALLINT NOT NULL,
-    CONSTRAINT chk_dia_semana CHECK (dia_semana BETWEEN 1 AND 7),
+    CONSTRAINT chk_dia_semana CHECK (dia_semana BETWEEN 1 AND 5),
     CONSTRAINT uq_vinculo_dia UNIQUE (vinculo_id, dia_semana)
 );
 
