@@ -135,7 +135,7 @@ func (s *motoristaStore) Update(ctx context.Context, motoristaID int64, updateFu
 
 		const updateQ = `
 			UPDATE motoristas
-			SET nome = @nome, cpf = @cpf, telefone = @telefone,
+			SET nome = @nome, telefone = @telefone,
 			    data_nasc = @data_nasc, turno = @turno,
 			    cidade_trabalho = @cidade_trabalho, residencia = @residencia,
 			    foto = @foto
@@ -144,7 +144,6 @@ func (s *motoristaStore) Update(ctx context.Context, motoristaID int64, updateFu
 		_, err = tx.Exec(ctx, updateQ, pgx.StrictNamedArgs{
 			"id":              motorista.ID,
 			"nome":            motorista.Nome,
-			"cpf":             motorista.CPF,
 			"telefone":        motorista.Telefone,
 			"data_nasc":       motorista.DataNasc,
 			"turno":           motorista.Turno,

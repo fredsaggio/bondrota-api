@@ -10,13 +10,24 @@ import (
 
 	"github.com/fredsaggio/bondrota-api/internal/auth"
 	"github.com/fredsaggio/bondrota-api/internal/conv"
+	"github.com/fredsaggio/bondrota-api/internal/db"
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
 )
 
-type MotoristaRequest struct {
+type CreateMotoristaRequest struct {
 	Nome           string `json:"nome"`
 	CPF            string `json:"cpf"`
 	Senha          string `json:"senha"`
+	Telefone       string `json:"telefone"`
+	DataNasc       string `json:"data_nasc"`
+	Turno          Turno  `json:"turno"`
+	CidadeTrabalho string `json:"cidade_trabalho"`
+	Residencia     string `json:"residencia"`
+	Foto           string `json:"foto"`
+}
+
+type UpdateMotoristaRequest struct {
+	Nome           string `json:"nome"`
 	Telefone       string `json:"telefone"`
 	DataNasc       string `json:"data_nasc"`
 	Turno          Turno  `json:"turno"`
@@ -59,16 +70,16 @@ func (h *MotoristaHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.CPF == "" {
+	if strings.TrimSpace(req.CPF) == "" {
 		http.Error(w, "cpf is required", http.StatusBadRequest)
 		return
 	}
-	if req.Senha == "" {
+	if strings.TrimSpace(req.Senha) == "" {
 		http.Error(w, "senha is required", http.StatusBadRequest)
 		return
 	}
 
-	token, err := h.svc.Login(ctx, req.CPF, req.Senha)
+	token, err := h.svc.Login(ctx, strings.TrimSpace(req.CPF), req.Senha)
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidCredentials) {
 			http.Error(w, "invalid credentials", http.StatusUnauthorized)
@@ -85,21 +96,21 @@ func (h *MotoristaHandler) Login(w http.ResponseWriter, r *http.Request) {
 func (h *MotoristaHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	var req MotoristaRequest
+	var req CreateMotoristaRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	if req.Nome == "" {
+	if strings.TrimSpace(req.Nome) == "" {
 		http.Error(w, "nome is required", http.StatusBadRequest)
 		return
 	}
-	if req.CPF == "" {
+	if strings.TrimSpace(req.CPF) == "" {
 		http.Error(w, "cpf is required", http.StatusBadRequest)
 		return
 	}
-	if req.Senha == "" {
+	if strings.TrimSpace(req.Senha) == "" {
 		http.Error(w, "senha is required", http.StatusBadRequest)
 		return
 	}
@@ -116,8 +127,8 @@ func (h *MotoristaHandler) Create(w http.ResponseWriter, r *http.Request) {
 	case TurnoMatutino, TurnoVespertino, TurnoNoturno, TurnoIntegral:
 
 	default:
-    	http.Error(w, "turno must be MT, VT, NT or IN", http.StatusBadRequest)
-    	return
+		http.Error(w, "turno must be MT, VT, NT or IN", http.StatusBadRequest)
+		return
 	}
 
 	dataNasc, err := time.Parse("2006-01-02", req.DataNasc)
@@ -140,6 +151,10 @@ func (h *MotoristaHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	motorista, err := h.svc.Create(ctx, input)
 	if err != nil {
+		if db.IsUniqueViolation(err, "motoristas_cpf_key") {
+			http.Error(w, "cpf already exists", http.StatusConflict)
+			return
+		}
 		slog.Error("failed to create motorista", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
@@ -198,7 +213,7 @@ func (h *MotoristaHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req MotoristaRequest
+	var req UpdateMotoristaRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
@@ -206,17 +221,22 @@ func (h *MotoristaHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	motorista, err := h.svc.Update(ctx, motoristaID, func(m *Motorista) (bool, error) {
 		updated := false
-		if req.Nome != "" && req.Nome != m.Nome {
-			m.Nome = strings.TrimSpace(req.Nome)
-			updated = true
+		if req.Nome != "" {
+			nome := strings.TrimSpace(req.Nome)
+			if nome == "" {
+				return false, ErrNomeObrigatorio
+			}
+			if nome != m.Nome {
+				m.Nome = nome
+				updated = true
+			}
 		}
-		if req.CPF != "" && req.CPF != m.CPF {
-			m.CPF = strings.TrimSpace(req.CPF)
-			updated = true
-		}
-		if req.Telefone != "" && req.Telefone != m.Telefone {
-			m.Telefone = strings.TrimSpace(req.Telefone)
-			updated = true
+		if req.Telefone != "" {
+			telefone := strings.TrimSpace(req.Telefone)
+			if telefone != "" && telefone != m.Telefone {
+				m.Telefone = telefone
+				updated = true
+			}
 		}
 		if req.DataNasc != "" {
 			dataNasc, err := time.Parse("2006-01-02", req.DataNasc)
@@ -239,17 +259,26 @@ func (h *MotoristaHandler) Update(w http.ResponseWriter, r *http.Request) {
 				updated = true
 			}
 		}
-		if req.CidadeTrabalho != "" && req.CidadeTrabalho != m.CidadeTrabalho {
-			m.CidadeTrabalho = strings.TrimSpace(req.CidadeTrabalho)
-			updated = true
+		if req.CidadeTrabalho != "" {
+			cidadeTrabalho := strings.TrimSpace(req.CidadeTrabalho)
+			if cidadeTrabalho != "" && cidadeTrabalho != m.CidadeTrabalho {
+				m.CidadeTrabalho = cidadeTrabalho
+				updated = true
+			}
 		}
-		if req.Residencia != "" && req.Residencia != m.Residencia {
-			m.Residencia = strings.TrimSpace(req.Residencia)
-			updated = true
+		if req.Residencia != "" {
+			residencia := strings.TrimSpace(req.Residencia)
+			if residencia != "" && residencia != m.Residencia {
+				m.Residencia = residencia
+				updated = true
+			}
 		}
-		if req.Foto != "" && req.Foto != m.Foto {
-			m.Foto = strings.TrimSpace(req.Foto)
-			updated = true
+		if req.Foto != "" {
+			foto := strings.TrimSpace(req.Foto)
+			if foto != "" && foto != m.Foto {
+				m.Foto = foto
+				updated = true
+			}
 		}
 		return updated, nil
 	})
@@ -258,7 +287,9 @@ func (h *MotoristaHandler) Update(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "motorista not found", http.StatusNotFound)
 			return
 		}
-		if errors.Is(err, ErrTurnoInvalido) || errors.Is(err, ErrDataNascInvalida) {
+		if errors.Is(err, ErrNomeObrigatorio) ||
+			errors.Is(err, ErrTurnoInvalido) ||
+			errors.Is(err, ErrDataNascInvalida) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
