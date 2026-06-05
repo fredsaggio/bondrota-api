@@ -6,9 +6,12 @@ import (
 	"time"
 )
 
-var ErrNotFound = errors.New("motorista not found")
-var ErrTurnoInvalido = errors.New("turno must be MT, VT, NT or IN")
-var ErrDataNascInvalida = errors.New("data_nasc must be in format YYYY-MM-DD")
+var (
+	ErrNotFound         = errors.New("motorista not found")
+	ErrNomeObrigatorio  = errors.New("nome is required")
+	ErrTurnoInvalido    = errors.New("turno must be MT, VT, NT or IN")
+	ErrDataNascInvalida = errors.New("data_nasc must be in format YYYY-MM-DD")
+)
 
 type Turno string
 
