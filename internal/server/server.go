@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/fredsaggio/bondrota-api/internal/admin"
+	"github.com/fredsaggio/bondrota-api/internal/auth"
 	"github.com/fredsaggio/bondrota-api/internal/clientes"
 	"github.com/fredsaggio/bondrota-api/internal/destinos"
 	"github.com/fredsaggio/bondrota-api/internal/motoristas"
@@ -28,86 +29,104 @@ type Handlers struct {
 
 type Server struct {
 	handlers Handlers
+	authSvc  *auth.AuthService
 }
 
-func NewServer(handlers Handlers) *Server {
+func NewServer(handlers Handlers, authSvc *auth.AuthService) *Server {
 	return &Server{
 		handlers: handlers,
+		authSvc:  authSvc,
 	}
 }
 
 func (srv *Server) RegisterRoutes(r chi.Router) {
+	r.Use(limitRequestBody(reqBodyLimitBytes))
+
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	r.Route("/admin", func(r chi.Router) {
-		r.Post("/", srv.handlers.AdminHandler.Create)
-		r.Get("/", srv.handlers.AdminHandler.List)
-		r.Get("/{adminID}", srv.handlers.AdminHandler.GetByID)
-		r.Put("/{adminID}", srv.handlers.AdminHandler.Update)
-		r.Delete("/{adminID}", srv.handlers.AdminHandler.Delete)
-		r.Post("/login", srv.handlers.AdminHandler.Login)
-	})
+	r.Post("/admin/login", srv.handlers.AdminHandler.Login)
+	r.Post("/motoristas/login", srv.handlers.MotoristaHandler.Login)
+	r.Post("/clientes/login", srv.handlers.ClienteHandler.Login)
 
-	r.Route("/veiculos", func(r chi.Router) {
-		r.Post("/", srv.handlers.VeiculoHandler.Create)
-		r.Get("/", srv.handlers.VeiculoHandler.List)
-		r.Get("/{veiculoID}", srv.handlers.VeiculoHandler.GetByID)
-		r.Put("/{veiculoID}", srv.handlers.VeiculoHandler.Update)
-		r.Delete("/{veiculoID}", srv.handlers.VeiculoHandler.Delete)
-	})
+	r.Group(func(r chi.Router) {
+		r.Use(srv.authSvc.Authenticate)
 
-	r.Route("/destinos", func(r chi.Router) {
-		r.Post("/", srv.handlers.DestinoHandler.Create)
-		r.Get("/", srv.handlers.DestinoHandler.List)
-		r.Get("/cidade/{cidade}", srv.handlers.DestinoHandler.ListByCity)
-		r.Get("/{id}", srv.handlers.DestinoHandler.GetByID)
-		r.Put("/{id}", srv.handlers.DestinoHandler.Update)
-		r.Delete("/{id}", srv.handlers.DestinoHandler.Delete)
-	})
+		r.Route("/admin", func(r chi.Router) {
+			r.Post("/", srv.handlers.AdminHandler.Create)
+			r.Get("/", srv.handlers.AdminHandler.List)
+			r.Get("/{adminID}", srv.handlers.AdminHandler.GetByID)
+			r.Put("/{adminID}", srv.handlers.AdminHandler.Update)
+			r.Delete("/{adminID}", srv.handlers.AdminHandler.Delete)
+		})
 
-	r.Route("/paradas", func(r chi.Router) {
-		r.Post("/", srv.handlers.ParadaHandler.Create)
-		r.Get("/", srv.handlers.ParadaHandler.List)
-		r.Get("/cidade/{cidade}", srv.handlers.ParadaHandler.ListByCity)
-		r.Get("/{id}", srv.handlers.ParadaHandler.GetByID)
-		r.Put("/{id}", srv.handlers.ParadaHandler.Update)
-		r.Delete("/{id}", srv.handlers.ParadaHandler.Delete)
-	})
+		r.Route("/veiculos", func(r chi.Router) {
+			r.Post("/", srv.handlers.VeiculoHandler.Create)
+			r.Get("/", srv.handlers.VeiculoHandler.List)
+			r.Get("/{veiculoID}", srv.handlers.VeiculoHandler.GetByID)
+			r.Put("/{veiculoID}", srv.handlers.VeiculoHandler.Update)
+			r.Delete("/{veiculoID}", srv.handlers.VeiculoHandler.Delete)
+		})
 
-	r.Route("/rotas-internas", func(r chi.Router) {
-		r.Post("/", srv.handlers.RotaInternaHandler.Create)
-		r.Get("/", srv.handlers.RotaInternaHandler.List)
-		r.Get("/cidade/{cidade}", srv.handlers.RotaInternaHandler.ListByCity)
-		r.Get("/{id}", srv.handlers.RotaInternaHandler.GetByID)
-		r.Put("/{id}/paradas", srv.handlers.RotaInternaHandler.UpdateParadas)
-		r.Delete("/{id}", srv.handlers.RotaInternaHandler.Delete)
-	})
+		r.Route("/destinos", func(r chi.Router) {
+			r.Post("/", srv.handlers.DestinoHandler.Create)
+			r.Get("/", srv.handlers.DestinoHandler.List)
+			r.Get("/cidade/{cidade}", srv.handlers.DestinoHandler.ListByCity)
+			r.Get("/{id}", srv.handlers.DestinoHandler.GetByID)
+			r.Put("/{id}", srv.handlers.DestinoHandler.Update)
+			r.Delete("/{id}", srv.handlers.DestinoHandler.Delete)
+		})
 
-	r.Route("/motoristas", func(r chi.Router) {
-		r.Post("/login", srv.handlers.MotoristaHandler.Login)
-		r.Post("/", srv.handlers.MotoristaHandler.Create)
-		r.Get("/", srv.handlers.MotoristaHandler.List)
-		r.Get("/{id}", srv.handlers.MotoristaHandler.GetByID)
-		r.Put("/{id}", srv.handlers.MotoristaHandler.Update)
-		r.Delete("/{id}", srv.handlers.MotoristaHandler.Delete)
-	})
+		r.Route("/paradas", func(r chi.Router) {
+			r.Post("/", srv.handlers.ParadaHandler.Create)
+			r.Get("/", srv.handlers.ParadaHandler.List)
+			r.Get("/cidade/{cidade}", srv.handlers.ParadaHandler.ListByCity)
+			r.Get("/{id}", srv.handlers.ParadaHandler.GetByID)
+			r.Put("/{id}", srv.handlers.ParadaHandler.Update)
+			r.Delete("/{id}", srv.handlers.ParadaHandler.Delete)
+		})
 
-	r.Route("/clientes", func(r chi.Router) {
-		r.Post("/login", srv.handlers.ClienteHandler.Login)
-		r.Post("/", srv.handlers.ClienteHandler.Create)
-		r.Get("/", srv.handlers.ClienteHandler.List)
-		r.Get("/{clienteID}", srv.handlers.ClienteHandler.GetByID)
-		r.Put("/{clienteID}", srv.handlers.ClienteHandler.Update)
-		r.Delete("/{clienteID}", srv.handlers.ClienteHandler.Delete)
+		r.Route("/rotas-internas", func(r chi.Router) {
+			r.Post("/", srv.handlers.RotaInternaHandler.Create)
+			r.Get("/", srv.handlers.RotaInternaHandler.List)
+			r.Get("/cidade/{cidade}", srv.handlers.RotaInternaHandler.ListByCity)
+			r.Get("/{id}", srv.handlers.RotaInternaHandler.GetByID)
+			r.Put("/{id}/paradas", srv.handlers.RotaInternaHandler.UpdateParadas)
+			r.Delete("/{id}", srv.handlers.RotaInternaHandler.Delete)
+		})
 
-		r.Route("/{clienteID}/vinculos", func(r chi.Router) {
-			r.Post("/", srv.handlers.VinculoHandler.Create)
-			r.Get("/", srv.handlers.VinculoHandler.ListByCliente)
-			r.Get("/{vinculoID}", srv.handlers.VinculoHandler.GetByID)
-			r.Put("/{vinculoID}", srv.handlers.VinculoHandler.Update)
-			r.Delete("/{vinculoID}", srv.handlers.VinculoHandler.Delete)
+		r.Route("/motoristas", func(r chi.Router) {
+			r.Post("/", srv.handlers.MotoristaHandler.Create)
+			r.Get("/", srv.handlers.MotoristaHandler.List)
+			r.Get("/{id}", srv.handlers.MotoristaHandler.GetByID)
+			r.Put("/{id}", srv.handlers.MotoristaHandler.Update)
+			r.Delete("/{id}", srv.handlers.MotoristaHandler.Delete)
+		})
+
+		r.Route("/clientes", func(r chi.Router) {
+			r.Post("/", srv.handlers.ClienteHandler.Create)
+			r.Get("/", srv.handlers.ClienteHandler.List)
+			r.Get("/{clienteID}", srv.handlers.ClienteHandler.GetByID)
+			r.Put("/{clienteID}", srv.handlers.ClienteHandler.Update)
+			r.Delete("/{clienteID}", srv.handlers.ClienteHandler.Delete)
+
+			r.Route("/{clienteID}/vinculos", func(r chi.Router) {
+				r.Post("/", srv.handlers.VinculoHandler.Create)
+				r.Get("/", srv.handlers.VinculoHandler.ListByCliente)
+				r.Get("/{vinculoID}", srv.handlers.VinculoHandler.GetByID)
+				r.Put("/{vinculoID}", srv.handlers.VinculoHandler.Update)
+				r.Delete("/{vinculoID}", srv.handlers.VinculoHandler.Delete)
+			})
 		})
 	})
+}
+
+func limitRequestBody(maxBytes int64) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
+			next.ServeHTTP(w, r)
+		})
+	}
 }

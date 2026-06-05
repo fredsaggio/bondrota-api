@@ -1331,7 +1331,7 @@ Endpoints para gerenciar viagens/trajetos.
 
 ## Headers Padrão
 
-Todos os endpoints (exceto `/health` e `/admin/login`) requerem:
+Todos os endpoints, exceto `GET /health`, `POST /admin/login`, `POST /clientes/login` e `POST /motoristas/login`, requerem:
 
 ```http
 Authorization: Bearer <seu_token_jwt>

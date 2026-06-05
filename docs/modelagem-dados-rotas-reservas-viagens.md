@@ -167,7 +167,7 @@ Observacao importante: as rotas de colecao foram registradas com `/` dentro de c
 | Viagens | Nao implementado |
 | Rotas dinamicas | Nao implementado |
 
-Apesar de existir JWT no projeto, o `server.go` atual nao aplica middleware de autenticacao nas rotas. Entao os CRUDs podem ser testados sem `Authorization` neste momento. Quando a protecao for ligada, os mesmos testes devem enviar `Authorization: Bearer <token>`.
+O `server.go` aplica middleware de autenticacao nas rotas protegidas. Apenas `GET /health`, `POST /admin/login`, `POST /clientes/login` e `POST /motoristas/login` ficam publicos. Os demais endpoints devem enviar `Authorization: Bearer <token>`.
 
 ## Como subir a API para testar
 
