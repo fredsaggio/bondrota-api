@@ -69,28 +69,65 @@ func (s *vinculoStore) Create(ctx context.Context, input VinculoInput) (*Vinculo
 }
 
 func (s *vinculoStore) GetByID(ctx context.Context, vinculoID int64) (*Vinculo, error) {
-	const op = "db/vinculoStore.GetByID"
+    const op = "db/vinculoStore.GetByID"
 
-	vinculos, err := queryVinculos(ctx, s.db, "v.id = @id", pgx.StrictNamedArgs{"id": vinculoID})
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
-	if len(vinculos) == 0 {
-		return nil, ErrVinculoNotFound
-	}
+    const q = `
+        SELECT
+            v.id, v.cliente_id, v.tipo, v.turno, v.ponto_id, v.rota_interna_id,
+            v.curso, v.comprovante, v.validade,
+            h.id, h.vinculo_id, h.dia_semana
+        FROM cliente_vinculos v
+        LEFT JOIN horarios_fixos h ON h.vinculo_id = v.id
+        WHERE v.id = @id
+        ORDER BY v.id ASC, h.dia_semana ASC
+    `
 
-	return &vinculos[0], nil
+    rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{"id": vinculoID})
+    if err != nil {
+        return nil, fmt.Errorf("%s: %w", op, err)
+    }
+
+    vinculos, err := collectVinculos(rows)
+    if err != nil {
+        return nil, fmt.Errorf("%s: %w", op, err)
+    }
+    
+    if len(vinculos) == 0 {
+        return nil, ErrVinculoNotFound
+    }
+
+    return &vinculos[0], nil
 }
 
 func (s *vinculoStore) ListByCliente(ctx context.Context, clienteID int64) ([]Vinculo, error) {
-	const op = "db/vinculoStore.ListByCliente"
+    const op = "db/vinculoStore.ListByCliente"
 
-	vinculos, err := queryVinculos(ctx, s.db, "v.cliente_id = @cliente_id", pgx.StrictNamedArgs{"cliente_id": clienteID})
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
+    const q = `
+        SELECT
+            v.id, v.cliente_id, v.tipo, v.turno, v.ponto_id, v.rota_interna_id,
+            v.curso, v.comprovante, v.validade,
+            h.id, h.vinculo_id, h.dia_semana
+        FROM cliente_vinculos v
+        LEFT JOIN horarios_fixos h ON h.vinculo_id = v.id
+        WHERE v.cliente_id = @cliente_id
+        ORDER BY v.id ASC, h.dia_semana ASC
+    `
 
-	return vinculos, nil
+    rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{"cliente_id": clienteID})
+    if err != nil {
+        return nil, fmt.Errorf("%s: %w", op, err)
+    }
+
+    vinculos, err := collectVinculos(rows)
+    if err != nil {
+        return nil, fmt.Errorf("%s: %w", op, err)
+    }
+
+    if vinculos == nil {
+        return []Vinculo{}, nil
+    }
+
+    return vinculos, nil
 }
 
 func (s *vinculoStore) Update(ctx context.Context, vinculoID int64, input VinculoUpdateInput) (*Vinculo, error) {
@@ -180,28 +217,6 @@ func (s *vinculoStore) Delete(ctx context.Context, vinculoID int64) error {
 	}
 
 	return nil
-}
-
-func queryVinculos(ctx context.Context, querier interface {
-	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
-}, where string, args pgx.StrictNamedArgs) ([]Vinculo, error) {
-	q := fmt.Sprintf(`
-		SELECT
-			v.id, v.cliente_id, v.tipo, v.turno, v.ponto_id, v.rota_interna_id,
-			v.curso, v.comprovante, v.validade,
-			h.id, h.vinculo_id, h.dia_semana
-		FROM cliente_vinculos v
-		LEFT JOIN horarios_fixos h ON h.vinculo_id = v.id
-		WHERE %s
-		ORDER BY v.id ASC, h.dia_semana ASC
-	`, where)
-
-	rows, err := querier.Query(ctx, q, args)
-	if err != nil {
-		return nil, err
-	}
-
-	return collectVinculos(rows)
 }
 
 func collectVinculos(rows pgx.Rows) ([]Vinculo, error) {
