@@ -10,7 +10,6 @@ RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
 COPY ./cmd ./cmd
 COPY ./internal ./internal
-COPY ./db ./db
 
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
@@ -20,6 +19,6 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 FROM gcr.io/distroless/static-debian13:nonroot
 WORKDIR /
 COPY --from=builder /app/bin/api /api
-COPY --from=builder /app/db/migrations /db/migrations
+COPY --from=builder /app/internal/db/migrations /db/migrations
 EXPOSE 8080
 ENTRYPOINT ["/api"]

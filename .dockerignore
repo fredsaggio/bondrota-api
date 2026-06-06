@@ -4,3 +4,4 @@
 bin/
 tmp/
 *.md
+.env.prod
