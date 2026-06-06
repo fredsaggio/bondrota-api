@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/fredsaggio/bondrota-api/internal/brerror"
 	"github.com/fredsaggio/bondrota-api/internal/db"
@@ -14,7 +15,7 @@ type calculadorRotaDinamicaStore struct {
 	db db.DB
 }
 
-func NewCalculadorRotaDinamicaStore(db db.DB) CalculadorRotaDinamicaStore {
+func NewCalculadorRotaDinamicaStore(db db.DB) *calculadorRotaDinamicaStore {
 	return &calculadorRotaDinamicaStore{db: db}
 }
 
@@ -43,6 +44,76 @@ func (s *calculadorRotaDinamicaStore) GetDadosCalculo(ctx context.Context, viage
 	dados.Destinos = destinos
 
 	return dados, nil
+}
+
+func (s *calculadorRotaDinamicaStore) ListViagensPendentesCalculo(ctx context.Context, now time.Time, janelaCalculo, janelaBloqueio time.Duration) ([]int64, error) {
+	const op = "db/calculadorRotaDinamicaStore.ListViagensPendentesCalculo"
+
+	const q = `
+		SELECT v.id
+		FROM viagens v
+		JOIN viagem_horarios vh ON vh.viagem_id = v.id
+			AND vh.tipo = 'partida_prevista'
+		WHERE v.status = 'programada'
+			AND vh.horario > @bloqueio_apos
+			AND vh.horario <= @calcular_ate
+			AND NOT EXISTS (
+				SELECT 1
+				FROM rotas_dinamicas rd
+				WHERE rd.viagem_id = v.id
+			)
+			AND EXISTS (
+				SELECT 1
+				FROM viagem_reservas vr
+				JOIN reservas r ON r.id = vr.reserva_id
+				WHERE vr.viagem_id = v.id
+					AND vr.status_presenca <> 'cancelado'
+					AND r.status = 'confirmada'
+			)
+		ORDER BY vh.horario ASC, v.id ASC
+	`
+
+	rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{
+		"bloqueio_apos": now.Add(janelaBloqueio),
+		"calcular_ate":  now.Add(janelaCalculo),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	ids, err := pgx.CollectRows(rows, pgx.RowTo[int64])
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	if ids == nil {
+		return []int64{}, nil
+	}
+
+	return ids, nil
+}
+
+func (s *calculadorRotaDinamicaStore) DeleteRotasPorReservaAntesDoBloqueio(ctx context.Context, reservaID int64, now time.Time, janelaBloqueio time.Duration) error {
+	const op = "db/calculadorRotaDinamicaStore.DeleteRotasPorReservaAntesDoBloqueio"
+
+	const q = `
+		DELETE FROM rotas_dinamicas rd
+		USING viagens v, viagem_reservas vr, viagem_horarios vh
+		WHERE rd.viagem_id = v.id
+			AND vr.viagem_id = v.id
+			AND vr.reserva_id = @reserva_id
+			AND vh.viagem_id = v.id
+			AND vh.tipo = 'partida_prevista'
+			AND vh.horario > @bloqueio_apos
+	`
+
+	if _, err := s.db.Exec(ctx, q, pgx.StrictNamedArgs{
+		"reserva_id":    reservaID,
+		"bloqueio_apos": now.Add(janelaBloqueio),
+	}); err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
 }
 
 func getDadosBaseCalculo(ctx context.Context, querier interface {
