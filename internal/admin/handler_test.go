@@ -166,7 +166,9 @@ func TestAdminHandler_GetByID(t *testing.T) {
 		{
 			name:    "sucesso",
 			adminID: "1",
-			setup:   func(svc *mocks.MockAdminService) { svc.EXPECT().GetByID(mock.Anything, int64(1)).Return(sampleAdmin(), nil) },
+			setup: func(svc *mocks.MockAdminService) {
+				svc.EXPECT().GetByID(mock.Anything, int64(1)).Return(sampleAdmin(), nil)
+			},
 			wantStatus: http.StatusOK,
 		},
 		{
@@ -178,13 +180,17 @@ func TestAdminHandler_GetByID(t *testing.T) {
 		{
 			name:    "não encontrado → 404",
 			adminID: "99",
-			setup:   func(svc *mocks.MockAdminService) { svc.EXPECT().GetByID(mock.Anything, int64(99)).Return(nil, admin.ErrNotFound) },
+			setup: func(svc *mocks.MockAdminService) {
+				svc.EXPECT().GetByID(mock.Anything, int64(99)).Return(nil, admin.ErrNotFound)
+			},
 			wantStatus: http.StatusNotFound,
 		},
 		{
 			name:    "erro interno → 500",
 			adminID: "1",
-			setup:   func(svc *mocks.MockAdminService) { svc.EXPECT().GetByID(mock.Anything, int64(1)).Return(nil, errors.New("db")) },
+			setup: func(svc *mocks.MockAdminService) {
+				svc.EXPECT().GetByID(mock.Anything, int64(1)).Return(nil, errors.New("db"))
+			},
 			wantStatus: http.StatusInternalServerError,
 		},
 	}
@@ -213,8 +219,10 @@ func TestAdminHandler_List(t *testing.T) {
 		wantStatus int
 	}{
 		{
-			name:       "sucesso com itens",
-			setup:      func(svc *mocks.MockAdminService) { svc.EXPECT().List(mock.Anything).Return([]admin.Admin{*sampleAdmin()}, nil) },
+			name: "sucesso com itens",
+			setup: func(svc *mocks.MockAdminService) {
+				svc.EXPECT().List(mock.Anything).Return([]admin.Admin{*sampleAdmin()}, nil)
+			},
 			wantStatus: http.StatusOK,
 		},
 		{
@@ -335,15 +343,19 @@ func TestAdminHandler_Delete(t *testing.T) {
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:       "não encontrado → 404",
-			adminID:    "99",
-			setup:      func(svc *mocks.MockAdminService) { svc.EXPECT().Delete(mock.Anything, int64(99)).Return(admin.ErrNotFound) },
+			name:    "não encontrado → 404",
+			adminID: "99",
+			setup: func(svc *mocks.MockAdminService) {
+				svc.EXPECT().Delete(mock.Anything, int64(99)).Return(admin.ErrNotFound)
+			},
 			wantStatus: http.StatusNotFound,
 		},
 		{
-			name:       "erro interno → 500",
-			adminID:    "1",
-			setup:      func(svc *mocks.MockAdminService) { svc.EXPECT().Delete(mock.Anything, int64(1)).Return(errors.New("db")) },
+			name:    "erro interno → 500",
+			adminID: "1",
+			setup: func(svc *mocks.MockAdminService) {
+				svc.EXPECT().Delete(mock.Anything, int64(1)).Return(errors.New("db"))
+			},
 			wantStatus: http.StatusInternalServerError,
 		},
 	}

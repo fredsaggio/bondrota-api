@@ -82,8 +82,8 @@ func TestAdminService_Login(t *testing.T) {
 			wantErr: auth.ErrInvalidCredentials,
 		},
 		{
-			name:    "admin não encontrado → ErrNotFound",
-			email:   "ghost@bondrota.com",
+			name:     "admin não encontrado → ErrNotFound",
+			email:    "ghost@bondrota.com",
 			password: "pw",
 			setup: func(st *mocks.MockAdminStore) {
 				st.EXPECT().GetByEmail(mock.Anything, "ghost@bondrota.com").
@@ -93,8 +93,8 @@ func TestAdminService_Login(t *testing.T) {
 			wantErr: admin.ErrNotFound,
 		},
 		{
-			name:    "erro do store → propaga",
-			email:   "a@a.com",
+			name:     "erro do store → propaga",
+			email:    "a@a.com",
 			password: "pw",
 			setup: func(st *mocks.MockAdminStore) {
 				st.EXPECT().GetByEmail(mock.Anything, "a@a.com").
@@ -257,14 +257,18 @@ func TestAdminService_GetByID(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name:  "sucesso",
-			id:    1,
-			setup: func(st *mocks.MockAdminStore) { st.EXPECT().GetByID(mock.Anything, int64(1)).Return(sampleAdmin(), nil) },
+			name: "sucesso",
+			id:   1,
+			setup: func(st *mocks.MockAdminStore) {
+				st.EXPECT().GetByID(mock.Anything, int64(1)).Return(sampleAdmin(), nil)
+			},
 		},
 		{
-			name:    "não encontrado",
-			id:      99,
-			setup:   func(st *mocks.MockAdminStore) { st.EXPECT().GetByID(mock.Anything, int64(99)).Return(nil, admin.ErrNotFound) },
+			name: "não encontrado",
+			id:   99,
+			setup: func(st *mocks.MockAdminStore) {
+				st.EXPECT().GetByID(mock.Anything, int64(99)).Return(nil, admin.ErrNotFound)
+			},
 			wantErr: admin.ErrNotFound,
 		},
 	}
@@ -331,8 +335,10 @@ func TestAdminService_List(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "retorna lista",
-			setup:   func(st *mocks.MockAdminStore) { st.EXPECT().List(mock.Anything).Return([]admin.Admin{*sampleAdmin()}, nil) },
+			name: "retorna lista",
+			setup: func(st *mocks.MockAdminStore) {
+				st.EXPECT().List(mock.Anything).Return([]admin.Admin{*sampleAdmin()}, nil)
+			},
 			wantLen: 1,
 		},
 		{

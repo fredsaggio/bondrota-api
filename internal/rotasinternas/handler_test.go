@@ -152,9 +152,11 @@ func TestRotaInternaHandler_GetByID(t *testing.T) {
 		wantStatus int
 	}{
 		{
-			name:       "sucesso",
-			id:         "1",
-			setup:      func(svc *mocks.MockRotaInternaService) { svc.EXPECT().GetByID(mock.Anything, int64(1)).Return(sampleRotaInterna(), nil) },
+			name: "sucesso",
+			id:   "1",
+			setup: func(svc *mocks.MockRotaInternaService) {
+				svc.EXPECT().GetByID(mock.Anything, int64(1)).Return(sampleRotaInterna(), nil)
+			},
 			wantStatus: http.StatusOK,
 		},
 		{
@@ -164,15 +166,19 @@ func TestRotaInternaHandler_GetByID(t *testing.T) {
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:       "não encontrada → 404",
-			id:         "99",
-			setup:      func(svc *mocks.MockRotaInternaService) { svc.EXPECT().GetByID(mock.Anything, int64(99)).Return(nil, rotasinternas.ErrNotFound) },
+			name: "não encontrada → 404",
+			id:   "99",
+			setup: func(svc *mocks.MockRotaInternaService) {
+				svc.EXPECT().GetByID(mock.Anything, int64(99)).Return(nil, rotasinternas.ErrNotFound)
+			},
 			wantStatus: http.StatusNotFound,
 		},
 		{
-			name:       "erro interno → 500",
-			id:         "1",
-			setup:      func(svc *mocks.MockRotaInternaService) { svc.EXPECT().GetByID(mock.Anything, int64(1)).Return(nil, errors.New("db")) },
+			name: "erro interno → 500",
+			id:   "1",
+			setup: func(svc *mocks.MockRotaInternaService) {
+				svc.EXPECT().GetByID(mock.Anything, int64(1)).Return(nil, errors.New("db"))
+			},
 			wantStatus: http.StatusInternalServerError,
 		},
 	}
@@ -201,18 +207,24 @@ func TestRotaInternaHandler_List(t *testing.T) {
 		wantStatus int
 	}{
 		{
-			name:       "sucesso com itens",
-			setup:      func(svc *mocks.MockRotaInternaService) { svc.EXPECT().List(mock.Anything).Return([]rotasinternas.RotaInterna{*sampleRotaInterna()}, nil) },
+			name: "sucesso com itens",
+			setup: func(svc *mocks.MockRotaInternaService) {
+				svc.EXPECT().List(mock.Anything).Return([]rotasinternas.RotaInterna{*sampleRotaInterna()}, nil)
+			},
 			wantStatus: http.StatusOK,
 		},
 		{
-			name:       "lista vazia",
-			setup:      func(svc *mocks.MockRotaInternaService) { svc.EXPECT().List(mock.Anything).Return([]rotasinternas.RotaInterna{}, nil) },
+			name: "lista vazia",
+			setup: func(svc *mocks.MockRotaInternaService) {
+				svc.EXPECT().List(mock.Anything).Return([]rotasinternas.RotaInterna{}, nil)
+			},
 			wantStatus: http.StatusOK,
 		},
 		{
-			name:       "erro interno → 500",
-			setup:      func(svc *mocks.MockRotaInternaService) { svc.EXPECT().List(mock.Anything).Return(nil, errors.New("db")) },
+			name: "erro interno → 500",
+			setup: func(svc *mocks.MockRotaInternaService) {
+				svc.EXPECT().List(mock.Anything).Return(nil, errors.New("db"))
+			},
 			wantStatus: http.StatusInternalServerError,
 		},
 	}
@@ -250,15 +262,19 @@ func TestRotaInternaHandler_ListByCity(t *testing.T) {
 			wantStatus: http.StatusOK,
 		},
 		{
-			name:       "lista vazia",
-			cidade:     "Olinda",
-			setup:      func(svc *mocks.MockRotaInternaService) { svc.EXPECT().ListByCity(mock.Anything, "olinda").Return([]rotasinternas.RotaInterna{}, nil) },
+			name:   "lista vazia",
+			cidade: "Olinda",
+			setup: func(svc *mocks.MockRotaInternaService) {
+				svc.EXPECT().ListByCity(mock.Anything, "olinda").Return([]rotasinternas.RotaInterna{}, nil)
+			},
 			wantStatus: http.StatusOK,
 		},
 		{
-			name:       "erro interno → 500",
-			cidade:     "Recife",
-			setup:      func(svc *mocks.MockRotaInternaService) { svc.EXPECT().ListByCity(mock.Anything, "recife").Return(nil, errors.New("db")) },
+			name:   "erro interno → 500",
+			cidade: "Recife",
+			setup: func(svc *mocks.MockRotaInternaService) {
+				svc.EXPECT().ListByCity(mock.Anything, "recife").Return(nil, errors.New("db"))
+			},
 			wantStatus: http.StatusInternalServerError,
 		},
 	}
@@ -297,10 +313,12 @@ func TestRotaInternaHandler_UpdateParadas(t *testing.T) {
 		wantStatus int
 	}{
 		{
-			name:       "sucesso",
-			id:         "1",
-			body:       validBody(),
-			setup:      func(svc *mocks.MockRotaInternaService) { svc.EXPECT().UpdateParadas(mock.Anything, int64(1), mock.Anything).Return(sampleRotaInterna(), nil) },
+			name: "sucesso",
+			id:   "1",
+			body: validBody(),
+			setup: func(svc *mocks.MockRotaInternaService) {
+				svc.EXPECT().UpdateParadas(mock.Anything, int64(1), mock.Anything).Return(sampleRotaInterna(), nil)
+			},
 			wantStatus: http.StatusOK,
 		},
 		{
@@ -318,10 +336,12 @@ func TestRotaInternaHandler_UpdateParadas(t *testing.T) {
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:       "não encontrada → 404",
-			id:         "99",
-			body:       validBody(),
-			setup:      func(svc *mocks.MockRotaInternaService) { svc.EXPECT().UpdateParadas(mock.Anything, int64(99), mock.Anything).Return(nil, rotasinternas.ErrNotFound) },
+			name: "não encontrada → 404",
+			id:   "99",
+			body: validBody(),
+			setup: func(svc *mocks.MockRotaInternaService) {
+				svc.EXPECT().UpdateParadas(mock.Anything, int64(99), mock.Anything).Return(nil, rotasinternas.ErrNotFound)
+			},
 			wantStatus: http.StatusNotFound,
 		},
 		{
@@ -382,15 +402,19 @@ func TestRotaInternaHandler_Delete(t *testing.T) {
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:       "não encontrada → 404",
-			id:         "99",
-			setup:      func(svc *mocks.MockRotaInternaService) { svc.EXPECT().Delete(mock.Anything, int64(99)).Return(rotasinternas.ErrNotFound) },
+			name: "não encontrada → 404",
+			id:   "99",
+			setup: func(svc *mocks.MockRotaInternaService) {
+				svc.EXPECT().Delete(mock.Anything, int64(99)).Return(rotasinternas.ErrNotFound)
+			},
 			wantStatus: http.StatusNotFound,
 		},
 		{
-			name:       "erro interno → 500",
-			id:         "1",
-			setup:      func(svc *mocks.MockRotaInternaService) { svc.EXPECT().Delete(mock.Anything, int64(1)).Return(errors.New("db")) },
+			name: "erro interno → 500",
+			id:   "1",
+			setup: func(svc *mocks.MockRotaInternaService) {
+				svc.EXPECT().Delete(mock.Anything, int64(1)).Return(errors.New("db"))
+			},
 			wantStatus: http.StatusInternalServerError,
 		},
 	}

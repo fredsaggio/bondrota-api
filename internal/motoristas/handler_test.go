@@ -234,9 +234,11 @@ func TestMotoristaHandler_GetByID(t *testing.T) {
 		wantStatus int
 	}{
 		{
-			name:       "sucesso",
-			id:         "1",
-			setup:      func(svc *mocks.MockMotoristaService) { svc.EXPECT().GetByID(mock.Anything, int64(1)).Return(sampleMotorista(), nil) },
+			name: "sucesso",
+			id:   "1",
+			setup: func(svc *mocks.MockMotoristaService) {
+				svc.EXPECT().GetByID(mock.Anything, int64(1)).Return(sampleMotorista(), nil)
+			},
 			wantStatus: http.StatusOK,
 		},
 		{
@@ -246,15 +248,19 @@ func TestMotoristaHandler_GetByID(t *testing.T) {
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:       "não encontrado → 404",
-			id:         "99",
-			setup:      func(svc *mocks.MockMotoristaService) { svc.EXPECT().GetByID(mock.Anything, int64(99)).Return(nil, motoristas.ErrNotFound) },
+			name: "não encontrado → 404",
+			id:   "99",
+			setup: func(svc *mocks.MockMotoristaService) {
+				svc.EXPECT().GetByID(mock.Anything, int64(99)).Return(nil, motoristas.ErrNotFound)
+			},
 			wantStatus: http.StatusNotFound,
 		},
 		{
-			name:       "erro interno → 500",
-			id:         "1",
-			setup:      func(svc *mocks.MockMotoristaService) { svc.EXPECT().GetByID(mock.Anything, int64(1)).Return(nil, errors.New("db")) },
+			name: "erro interno → 500",
+			id:   "1",
+			setup: func(svc *mocks.MockMotoristaService) {
+				svc.EXPECT().GetByID(mock.Anything, int64(1)).Return(nil, errors.New("db"))
+			},
 			wantStatus: http.StatusInternalServerError,
 		},
 	}
@@ -283,13 +289,17 @@ func TestMotoristaHandler_List(t *testing.T) {
 		wantStatus int
 	}{
 		{
-			name:       "sucesso com itens",
-			setup:      func(svc *mocks.MockMotoristaService) { svc.EXPECT().List(mock.Anything).Return([]motoristas.Motorista{*sampleMotorista()}, nil) },
+			name: "sucesso com itens",
+			setup: func(svc *mocks.MockMotoristaService) {
+				svc.EXPECT().List(mock.Anything).Return([]motoristas.Motorista{*sampleMotorista()}, nil)
+			},
 			wantStatus: http.StatusOK,
 		},
 		{
-			name:       "lista vazia",
-			setup:      func(svc *mocks.MockMotoristaService) { svc.EXPECT().List(mock.Anything).Return([]motoristas.Motorista{}, nil) },
+			name: "lista vazia",
+			setup: func(svc *mocks.MockMotoristaService) {
+				svc.EXPECT().List(mock.Anything).Return([]motoristas.Motorista{}, nil)
+			},
 			wantStatus: http.StatusOK,
 		},
 		{
@@ -325,10 +335,12 @@ func TestMotoristaHandler_Update(t *testing.T) {
 		wantStatus int
 	}{
 		{
-			name:  "sucesso",
-			id:    "1",
-			body:  jsonBuf(map[string]any{"nome": "Maria"}),
-			setup: func(svc *mocks.MockMotoristaService) { svc.EXPECT().Update(mock.Anything, int64(1), anyUpdateFunc).Return(sampleMotorista(), nil) },
+			name: "sucesso",
+			id:   "1",
+			body: jsonBuf(map[string]any{"nome": "Maria"}),
+			setup: func(svc *mocks.MockMotoristaService) {
+				svc.EXPECT().Update(mock.Anything, int64(1), anyUpdateFunc).Return(sampleMotorista(), nil)
+			},
 			wantStatus: http.StatusOK,
 		},
 		{
@@ -346,31 +358,39 @@ func TestMotoristaHandler_Update(t *testing.T) {
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:  "não encontrado → 404",
-			id:    "99",
-			body:  jsonBuf(map[string]any{"nome": "Maria"}),
-			setup: func(svc *mocks.MockMotoristaService) { svc.EXPECT().Update(mock.Anything, int64(99), anyUpdateFunc).Return(nil, motoristas.ErrNotFound) },
+			name: "não encontrado → 404",
+			id:   "99",
+			body: jsonBuf(map[string]any{"nome": "Maria"}),
+			setup: func(svc *mocks.MockMotoristaService) {
+				svc.EXPECT().Update(mock.Anything, int64(99), anyUpdateFunc).Return(nil, motoristas.ErrNotFound)
+			},
 			wantStatus: http.StatusNotFound,
 		},
 		{
-			name:  "nome obrigatório retornado pelo updateFunc → 400",
-			id:    "1",
-			body:  jsonBuf(map[string]any{"nome": "   "}),
-			setup: func(svc *mocks.MockMotoristaService) { svc.EXPECT().Update(mock.Anything, int64(1), anyUpdateFunc).Return(nil, motoristas.ErrNomeObrigatorio) },
+			name: "nome obrigatório retornado pelo updateFunc → 400",
+			id:   "1",
+			body: jsonBuf(map[string]any{"nome": "   "}),
+			setup: func(svc *mocks.MockMotoristaService) {
+				svc.EXPECT().Update(mock.Anything, int64(1), anyUpdateFunc).Return(nil, motoristas.ErrNomeObrigatorio)
+			},
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:  "turno inválido retornado pelo updateFunc → 400",
-			id:    "1",
-			body:  jsonBuf(map[string]any{"turno": "XX"}),
-			setup: func(svc *mocks.MockMotoristaService) { svc.EXPECT().Update(mock.Anything, int64(1), anyUpdateFunc).Return(nil, motoristas.ErrTurnoInvalido) },
+			name: "turno inválido retornado pelo updateFunc → 400",
+			id:   "1",
+			body: jsonBuf(map[string]any{"turno": "XX"}),
+			setup: func(svc *mocks.MockMotoristaService) {
+				svc.EXPECT().Update(mock.Anything, int64(1), anyUpdateFunc).Return(nil, motoristas.ErrTurnoInvalido)
+			},
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:  "erro interno → 500",
-			id:    "1",
-			body:  jsonBuf(map[string]any{"nome": "Maria"}),
-			setup: func(svc *mocks.MockMotoristaService) { svc.EXPECT().Update(mock.Anything, int64(1), anyUpdateFunc).Return(nil, errors.New("db")) },
+			name: "erro interno → 500",
+			id:   "1",
+			body: jsonBuf(map[string]any{"nome": "Maria"}),
+			setup: func(svc *mocks.MockMotoristaService) {
+				svc.EXPECT().Update(mock.Anything, int64(1), anyUpdateFunc).Return(nil, errors.New("db"))
+			},
 			wantStatus: http.StatusInternalServerError,
 		},
 	}
@@ -413,15 +433,19 @@ func TestMotoristaHandler_Delete(t *testing.T) {
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:       "não encontrado → 404",
-			id:         "99",
-			setup:      func(svc *mocks.MockMotoristaService) { svc.EXPECT().Delete(mock.Anything, int64(99)).Return(motoristas.ErrNotFound) },
+			name: "não encontrado → 404",
+			id:   "99",
+			setup: func(svc *mocks.MockMotoristaService) {
+				svc.EXPECT().Delete(mock.Anything, int64(99)).Return(motoristas.ErrNotFound)
+			},
 			wantStatus: http.StatusNotFound,
 		},
 		{
-			name:       "erro interno → 500",
-			id:         "1",
-			setup:      func(svc *mocks.MockMotoristaService) { svc.EXPECT().Delete(mock.Anything, int64(1)).Return(errors.New("db")) },
+			name: "erro interno → 500",
+			id:   "1",
+			setup: func(svc *mocks.MockMotoristaService) {
+				svc.EXPECT().Delete(mock.Anything, int64(1)).Return(errors.New("db"))
+			},
 			wantStatus: http.StatusInternalServerError,
 		},
 	}
@@ -464,5 +488,3 @@ func TestMotoristaHandler_Login_DirectInvalidCredentials(t *testing.T) {
 		t.Errorf("want 500 for non-sentinel error, got %d", rr.Code)
 	}
 }
-
-

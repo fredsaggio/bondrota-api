@@ -59,11 +59,11 @@ type UpdateVeiculoRequest struct {
 	Capacidade     int16            `json:"capacidade"`
 	CidadeBase     string           `json:"cidade_base"`
 	Status         StatusVeiculo    `json:"status"`
-	ArCondicionado bool             `json:"ar_condicionado"`
-	Banheiro       bool             `json:"banheiro"`
-	Persiana       bool             `json:"persiana"`
-	LuzLeitura     bool             `json:"luz_leitura"`
-	Tomada         bool             `json:"tomada"`
+	ArCondicionado *bool            `json:"ar_condicionado"`
+	Banheiro       *bool            `json:"banheiro"`
+	Persiana       *bool            `json:"persiana"`
+	LuzLeitura     *bool            `json:"luz_leitura"`
+	Tomada         *bool            `json:"tomada"`
 }
 
 func (h *VeiculoHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -181,24 +181,24 @@ func (h *VeiculoHandler) Update(w http.ResponseWriter, r *http.Request) {
 			v.Status = req.Status
 			changed = true
 		}
-		if req.ArCondicionado != v.ArCondicionado {
-			v.ArCondicionado = req.ArCondicionado
+		if req.ArCondicionado != nil && *req.ArCondicionado != v.ArCondicionado {
+			v.ArCondicionado = *req.ArCondicionado
 			changed = true
 		}
-		if req.Banheiro != v.Banheiro {
-			v.Banheiro = req.Banheiro
+		if req.Banheiro != nil && *req.Banheiro != v.Banheiro {
+			v.Banheiro = *req.Banheiro
 			changed = true
 		}
-		if req.Persiana != v.Persiana {
-			v.Persiana = req.Persiana
+		if req.Persiana != nil && *req.Persiana != v.Persiana {
+			v.Persiana = *req.Persiana
 			changed = true
 		}
-		if req.LuzLeitura != v.LuzLeitura {
-			v.LuzLeitura = req.LuzLeitura
+		if req.LuzLeitura != nil && *req.LuzLeitura != v.LuzLeitura {
+			v.LuzLeitura = *req.LuzLeitura
 			changed = true
 		}
-		if req.Tomada != v.Tomada {
-			v.Tomada = req.Tomada
+		if req.Tomada != nil && *req.Tomada != v.Tomada {
+			v.Tomada = *req.Tomada
 			changed = true
 		}
 		if err := ValidateCategoriaCapacidade(v.Categoria, v.Capacidade); err != nil {

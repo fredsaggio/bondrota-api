@@ -21,8 +21,8 @@ type stubHasher struct {
 	compareFn func(string, string) (bool, error)
 }
 
-func (s *stubHasher) Hash(p string) (string, error)                           { return s.hashFn(p) }
-func (s *stubHasher) CompareHashAndPassword(h, p string) (bool, error)        { return s.compareFn(h, p) }
+func (s *stubHasher) Hash(p string) (string, error)                    { return s.hashFn(p) }
+func (s *stubHasher) CompareHashAndPassword(h, p string) (bool, error) { return s.compareFn(h, p) }
 
 func okHasher() *stubHasher {
 	return &stubHasher{
@@ -198,14 +198,18 @@ func TestMotoristaService_GetByID(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name:  "sucesso",
-			id:    1,
-			setup: func(st *mocks.MockMotoristaStore) { st.EXPECT().GetByID(mock.Anything, int64(1)).Return(sampleMotorista(), nil) },
+			name: "sucesso",
+			id:   1,
+			setup: func(st *mocks.MockMotoristaStore) {
+				st.EXPECT().GetByID(mock.Anything, int64(1)).Return(sampleMotorista(), nil)
+			},
 		},
 		{
-			name:    "não encontrado → ErrNotFound",
-			id:      99,
-			setup:   func(st *mocks.MockMotoristaStore) { st.EXPECT().GetByID(mock.Anything, int64(99)).Return(nil, motoristas.ErrNotFound) },
+			name: "não encontrado → ErrNotFound",
+			id:   99,
+			setup: func(st *mocks.MockMotoristaStore) {
+				st.EXPECT().GetByID(mock.Anything, int64(99)).Return(nil, motoristas.ErrNotFound)
+			},
 			wantErr: motoristas.ErrNotFound,
 		},
 	}
@@ -247,9 +251,11 @@ func TestMotoristaService_Update(t *testing.T) {
 			},
 		},
 		{
-			name:    "não encontrado → ErrNotFound",
-			id:      99,
-			setup:   func(st *mocks.MockMotoristaStore) { st.EXPECT().Update(mock.Anything, int64(99), mock.Anything).Return(nil, motoristas.ErrNotFound) },
+			name: "não encontrado → ErrNotFound",
+			id:   99,
+			setup: func(st *mocks.MockMotoristaStore) {
+				st.EXPECT().Update(mock.Anything, int64(99), mock.Anything).Return(nil, motoristas.ErrNotFound)
+			},
 			wantErr: motoristas.ErrNotFound,
 		},
 	}
@@ -287,9 +293,11 @@ func TestMotoristaService_Delete(t *testing.T) {
 			setup: func(st *mocks.MockMotoristaStore) { st.EXPECT().Delete(mock.Anything, int64(1)).Return(nil) },
 		},
 		{
-			name:    "não encontrado → ErrNotFound",
-			id:      99,
-			setup:   func(st *mocks.MockMotoristaStore) { st.EXPECT().Delete(mock.Anything, int64(99)).Return(motoristas.ErrNotFound) },
+			name: "não encontrado → ErrNotFound",
+			id:   99,
+			setup: func(st *mocks.MockMotoristaStore) {
+				st.EXPECT().Delete(mock.Anything, int64(99)).Return(motoristas.ErrNotFound)
+			},
 			wantErr: motoristas.ErrNotFound,
 		},
 	}
@@ -319,13 +327,17 @@ func TestMotoristaService_List(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "retorna lista",
-			setup:   func(st *mocks.MockMotoristaStore) { st.EXPECT().List(mock.Anything).Return([]motoristas.Motorista{*sampleMotorista()}, nil) },
+			name: "retorna lista",
+			setup: func(st *mocks.MockMotoristaStore) {
+				st.EXPECT().List(mock.Anything).Return([]motoristas.Motorista{*sampleMotorista()}, nil)
+			},
 			wantLen: 1,
 		},
 		{
-			name:    "lista vazia",
-			setup:   func(st *mocks.MockMotoristaStore) { st.EXPECT().List(mock.Anything).Return([]motoristas.Motorista{}, nil) },
+			name: "lista vazia",
+			setup: func(st *mocks.MockMotoristaStore) {
+				st.EXPECT().List(mock.Anything).Return([]motoristas.Motorista{}, nil)
+			},
 			wantLen: 0,
 		},
 		{

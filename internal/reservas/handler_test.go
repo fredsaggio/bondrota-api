@@ -80,22 +80,22 @@ func TestHandler_CreateByVinculo(t *testing.T) {
 			wantStatus: http.StatusCreated,
 		},
 		{
-			name:       "clienteID inválido",
-			clienteID:  "abc", vinculoID: "20",
+			name:      "clienteID inválido",
+			clienteID: "abc", vinculoID: "20",
 			body:       jsonBody(validBody),
 			setup:      func(_ *mocks.MockReservaService) {},
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:       "body malformado",
-			clienteID:  "10", vinculoID: "20",
+			name:      "body malformado",
+			clienteID: "10", vinculoID: "20",
 			body:       bytes.NewBufferString("not-json"),
 			setup:      func(_ *mocks.MockReservaService) {},
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:       "data_viagem ausente",
-			clienteID:  "10", vinculoID: "20",
+			name:      "data_viagem ausente",
+			clienteID: "10", vinculoID: "20",
 			body:       jsonBody(map[string]any{"sentido": "ida"}),
 			setup:      func(_ *mocks.MockReservaService) {},
 			wantStatus: http.StatusBadRequest,
@@ -160,7 +160,9 @@ func TestHandler_GetByID(t *testing.T) {
 		{
 			name:      "sucesso",
 			reservaID: "1",
-			setup:     func(svc *mocks.MockReservaService) { svc.EXPECT().GetByID(mock.Anything, int64(1)).Return(sampleReserva(), nil) },
+			setup: func(svc *mocks.MockReservaService) {
+				svc.EXPECT().GetByID(mock.Anything, int64(1)).Return(sampleReserva(), nil)
+			},
 			wantStatus: http.StatusOK,
 		},
 		{
@@ -170,15 +172,19 @@ func TestHandler_GetByID(t *testing.T) {
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:       "não encontrado → 404",
-			reservaID:  "99",
-			setup:      func(svc *mocks.MockReservaService) { svc.EXPECT().GetByID(mock.Anything, int64(99)).Return(nil, reservas.ErrReservaNotFound) },
+			name:      "não encontrado → 404",
+			reservaID: "99",
+			setup: func(svc *mocks.MockReservaService) {
+				svc.EXPECT().GetByID(mock.Anything, int64(99)).Return(nil, reservas.ErrReservaNotFound)
+			},
 			wantStatus: http.StatusNotFound,
 		},
 		{
-			name:       "erro interno → 500",
-			reservaID:  "1",
-			setup:      func(svc *mocks.MockReservaService) { svc.EXPECT().GetByID(mock.Anything, int64(1)).Return(nil, errors.New("db")) },
+			name:      "erro interno → 500",
+			reservaID: "1",
+			setup: func(svc *mocks.MockReservaService) {
+				svc.EXPECT().GetByID(mock.Anything, int64(1)).Return(nil, errors.New("db"))
+			},
 			wantStatus: http.StatusInternalServerError,
 		},
 	}
@@ -207,13 +213,17 @@ func TestHandler_List(t *testing.T) {
 		wantStatus int
 	}{
 		{
-			name:       "sucesso com itens",
-			setup:      func(svc *mocks.MockReservaService) { svc.EXPECT().List(mock.Anything).Return([]reservas.Reserva{*sampleReserva()}, nil) },
+			name: "sucesso com itens",
+			setup: func(svc *mocks.MockReservaService) {
+				svc.EXPECT().List(mock.Anything).Return([]reservas.Reserva{*sampleReserva()}, nil)
+			},
 			wantStatus: http.StatusOK,
 		},
 		{
-			name:       "lista vazia",
-			setup:      func(svc *mocks.MockReservaService) { svc.EXPECT().List(mock.Anything).Return([]reservas.Reserva{}, nil) },
+			name: "lista vazia",
+			setup: func(svc *mocks.MockReservaService) {
+				svc.EXPECT().List(mock.Anything).Return([]reservas.Reserva{}, nil)
+			},
 			wantStatus: http.StatusOK,
 		},
 		{
@@ -248,9 +258,11 @@ func TestHandler_ListByCliente(t *testing.T) {
 		wantStatus int
 	}{
 		{
-			name:       "sucesso",
-			clienteID:  "10",
-			setup:      func(svc *mocks.MockReservaService) { svc.EXPECT().ListByCliente(mock.Anything, int64(10)).Return([]reservas.Reserva{*sampleReserva()}, nil) },
+			name:      "sucesso",
+			clienteID: "10",
+			setup: func(svc *mocks.MockReservaService) {
+				svc.EXPECT().ListByCliente(mock.Anything, int64(10)).Return([]reservas.Reserva{*sampleReserva()}, nil)
+			},
 			wantStatus: http.StatusOK,
 		},
 		{
@@ -260,9 +272,11 @@ func TestHandler_ListByCliente(t *testing.T) {
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:       "erro interno → 500",
-			clienteID:  "10",
-			setup:      func(svc *mocks.MockReservaService) { svc.EXPECT().ListByCliente(mock.Anything, int64(10)).Return(nil, errors.New("db")) },
+			name:      "erro interno → 500",
+			clienteID: "10",
+			setup: func(svc *mocks.MockReservaService) {
+				svc.EXPECT().ListByCliente(mock.Anything, int64(10)).Return(nil, errors.New("db"))
+			},
 			wantStatus: http.StatusInternalServerError,
 		},
 	}
@@ -293,27 +307,33 @@ func TestHandler_ListByVinculo(t *testing.T) {
 		wantStatus int
 	}{
 		{
-			name:       "sucesso",
-			clienteID:  "10", vinculoID: "20",
-			setup:      func(svc *mocks.MockReservaService) { svc.EXPECT().ListByVinculo(mock.Anything, int64(10), int64(20)).Return([]reservas.Reserva{*sampleReserva()}, nil) },
+			name:      "sucesso",
+			clienteID: "10", vinculoID: "20",
+			setup: func(svc *mocks.MockReservaService) {
+				svc.EXPECT().ListByVinculo(mock.Anything, int64(10), int64(20)).Return([]reservas.Reserva{*sampleReserva()}, nil)
+			},
 			wantStatus: http.StatusOK,
 		},
 		{
-			name:       "id inválido",
-			clienteID:  "abc", vinculoID: "20",
+			name:      "id inválido",
+			clienteID: "abc", vinculoID: "20",
 			setup:      func(_ *mocks.MockReservaService) {},
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:       "vinculo não encontrado → 404",
-			clienteID:  "10", vinculoID: "99",
-			setup:      func(svc *mocks.MockReservaService) { svc.EXPECT().ListByVinculo(mock.Anything, int64(10), int64(99)).Return(nil, reservas.ErrVinculoNotFound) },
+			name:      "vinculo não encontrado → 404",
+			clienteID: "10", vinculoID: "99",
+			setup: func(svc *mocks.MockReservaService) {
+				svc.EXPECT().ListByVinculo(mock.Anything, int64(10), int64(99)).Return(nil, reservas.ErrVinculoNotFound)
+			},
 			wantStatus: http.StatusNotFound,
 		},
 		{
-			name:       "erro interno → 500",
-			clienteID:  "10", vinculoID: "20",
-			setup:      func(svc *mocks.MockReservaService) { svc.EXPECT().ListByVinculo(mock.Anything, int64(10), int64(20)).Return(nil, errors.New("db")) },
+			name:      "erro interno → 500",
+			clienteID: "10", vinculoID: "20",
+			setup: func(svc *mocks.MockReservaService) {
+				svc.EXPECT().ListByVinculo(mock.Anything, int64(10), int64(20)).Return(nil, errors.New("db"))
+			},
 			wantStatus: http.StatusInternalServerError,
 		},
 	}
@@ -428,15 +448,19 @@ func TestHandler_Cancel(t *testing.T) {
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:       "não encontrado → 404",
-			reservaID:  "99",
-			setup:      func(svc *mocks.MockReservaService) { svc.EXPECT().Cancel(mock.Anything, int64(99)).Return(nil, reservas.ErrReservaNotFound) },
+			name:      "não encontrado → 404",
+			reservaID: "99",
+			setup: func(svc *mocks.MockReservaService) {
+				svc.EXPECT().Cancel(mock.Anything, int64(99)).Return(nil, reservas.ErrReservaNotFound)
+			},
 			wantStatus: http.StatusNotFound,
 		},
 		{
-			name:       "erro interno → 500",
-			reservaID:  "1",
-			setup:      func(svc *mocks.MockReservaService) { svc.EXPECT().Cancel(mock.Anything, int64(1)).Return(nil, errors.New("db")) },
+			name:      "erro interno → 500",
+			reservaID: "1",
+			setup: func(svc *mocks.MockReservaService) {
+				svc.EXPECT().Cancel(mock.Anything, int64(1)).Return(nil, errors.New("db"))
+			},
 			wantStatus: http.StatusInternalServerError,
 		},
 	}
@@ -478,15 +502,19 @@ func TestHandler_Delete(t *testing.T) {
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:       "não encontrado → 404",
-			reservaID:  "99",
-			setup:      func(svc *mocks.MockReservaService) { svc.EXPECT().Delete(mock.Anything, int64(99)).Return(reservas.ErrReservaNotFound) },
+			name:      "não encontrado → 404",
+			reservaID: "99",
+			setup: func(svc *mocks.MockReservaService) {
+				svc.EXPECT().Delete(mock.Anything, int64(99)).Return(reservas.ErrReservaNotFound)
+			},
 			wantStatus: http.StatusNotFound,
 		},
 		{
-			name:       "erro interno → 500",
-			reservaID:  "1",
-			setup:      func(svc *mocks.MockReservaService) { svc.EXPECT().Delete(mock.Anything, int64(1)).Return(errors.New("db")) },
+			name:      "erro interno → 500",
+			reservaID: "1",
+			setup: func(svc *mocks.MockReservaService) {
+				svc.EXPECT().Delete(mock.Anything, int64(1)).Return(errors.New("db"))
+			},
 			wantStatus: http.StatusInternalServerError,
 		},
 	}

@@ -128,9 +128,11 @@ func TestParadaHandler_GetByID(t *testing.T) {
 		wantStatus int
 	}{
 		{
-			name:       "sucesso",
-			id:         "1",
-			setup:      func(st *mocks.MockParadaStore) { st.EXPECT().GetByID(mock.Anything, int64(1)).Return(sampleParada(), nil) },
+			name: "sucesso",
+			id:   "1",
+			setup: func(st *mocks.MockParadaStore) {
+				st.EXPECT().GetByID(mock.Anything, int64(1)).Return(sampleParada(), nil)
+			},
 			wantStatus: http.StatusOK,
 		},
 		{
@@ -140,15 +142,19 @@ func TestParadaHandler_GetByID(t *testing.T) {
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:       "não encontrada → 404",
-			id:         "99",
-			setup:      func(st *mocks.MockParadaStore) { st.EXPECT().GetByID(mock.Anything, int64(99)).Return(nil, paradas.ErrNotFound) },
+			name: "não encontrada → 404",
+			id:   "99",
+			setup: func(st *mocks.MockParadaStore) {
+				st.EXPECT().GetByID(mock.Anything, int64(99)).Return(nil, paradas.ErrNotFound)
+			},
 			wantStatus: http.StatusNotFound,
 		},
 		{
-			name:       "erro interno → 500",
-			id:         "1",
-			setup:      func(st *mocks.MockParadaStore) { st.EXPECT().GetByID(mock.Anything, int64(1)).Return(nil, errors.New("db")) },
+			name: "erro interno → 500",
+			id:   "1",
+			setup: func(st *mocks.MockParadaStore) {
+				st.EXPECT().GetByID(mock.Anything, int64(1)).Return(nil, errors.New("db"))
+			},
 			wantStatus: http.StatusInternalServerError,
 		},
 	}
@@ -177,8 +183,10 @@ func TestParadaHandler_List(t *testing.T) {
 		wantStatus int
 	}{
 		{
-			name:       "sucesso com itens",
-			setup:      func(st *mocks.MockParadaStore) { st.EXPECT().List(mock.Anything).Return([]paradas.Parada{*sampleParada()}, nil) },
+			name: "sucesso com itens",
+			setup: func(st *mocks.MockParadaStore) {
+				st.EXPECT().List(mock.Anything).Return([]paradas.Parada{*sampleParada()}, nil)
+			},
 			wantStatus: http.StatusOK,
 		},
 		{
@@ -226,15 +234,19 @@ func TestParadaHandler_ListByCity(t *testing.T) {
 			wantStatus: http.StatusOK,
 		},
 		{
-			name:       "lista vazia",
-			cidade:     "Olinda",
-			setup:      func(st *mocks.MockParadaStore) { st.EXPECT().ListByCity(mock.Anything, "olinda").Return([]paradas.Parada{}, nil) },
+			name:   "lista vazia",
+			cidade: "Olinda",
+			setup: func(st *mocks.MockParadaStore) {
+				st.EXPECT().ListByCity(mock.Anything, "olinda").Return([]paradas.Parada{}, nil)
+			},
 			wantStatus: http.StatusOK,
 		},
 		{
-			name:       "erro interno → 500",
-			cidade:     "Recife",
-			setup:      func(st *mocks.MockParadaStore) { st.EXPECT().ListByCity(mock.Anything, "recife").Return(nil, errors.New("db")) },
+			name:   "erro interno → 500",
+			cidade: "Recife",
+			setup: func(st *mocks.MockParadaStore) {
+				st.EXPECT().ListByCity(mock.Anything, "recife").Return(nil, errors.New("db"))
+			},
 			wantStatus: http.StatusInternalServerError,
 		},
 	}
@@ -265,10 +277,12 @@ func TestParadaHandler_Update(t *testing.T) {
 		wantStatus int
 	}{
 		{
-			name:       "sucesso",
-			id:         "1",
-			body:       jsonBuf(map[string]any{"nome": "Terminal Integração"}),
-			setup:      func(st *mocks.MockParadaStore) { st.EXPECT().Update(mock.Anything, int64(1), anyUpdateFunc).Return(sampleParada(), nil) },
+			name: "sucesso",
+			id:   "1",
+			body: jsonBuf(map[string]any{"nome": "Terminal Integração"}),
+			setup: func(st *mocks.MockParadaStore) {
+				st.EXPECT().Update(mock.Anything, int64(1), anyUpdateFunc).Return(sampleParada(), nil)
+			},
 			wantStatus: http.StatusOK,
 		},
 		{
@@ -286,17 +300,21 @@ func TestParadaHandler_Update(t *testing.T) {
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:       "não encontrada → 404",
-			id:         "99",
-			body:       jsonBuf(map[string]any{"nome": "X"}),
-			setup:      func(st *mocks.MockParadaStore) { st.EXPECT().Update(mock.Anything, int64(99), anyUpdateFunc).Return(nil, paradas.ErrNotFound) },
+			name: "não encontrada → 404",
+			id:   "99",
+			body: jsonBuf(map[string]any{"nome": "X"}),
+			setup: func(st *mocks.MockParadaStore) {
+				st.EXPECT().Update(mock.Anything, int64(99), anyUpdateFunc).Return(nil, paradas.ErrNotFound)
+			},
 			wantStatus: http.StatusNotFound,
 		},
 		{
-			name:       "erro interno → 500",
-			id:         "1",
-			body:       jsonBuf(map[string]any{"nome": "X"}),
-			setup:      func(st *mocks.MockParadaStore) { st.EXPECT().Update(mock.Anything, int64(1), anyUpdateFunc).Return(nil, errors.New("db")) },
+			name: "erro interno → 500",
+			id:   "1",
+			body: jsonBuf(map[string]any{"nome": "X"}),
+			setup: func(st *mocks.MockParadaStore) {
+				st.EXPECT().Update(mock.Anything, int64(1), anyUpdateFunc).Return(nil, errors.New("db"))
+			},
 			wantStatus: http.StatusInternalServerError,
 		},
 	}
@@ -339,16 +357,20 @@ func TestParadaHandler_Delete(t *testing.T) {
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:       "não encontrada → 404",
-			id:         "99",
-			setup:      func(st *mocks.MockParadaStore) { st.EXPECT().Delete(mock.Anything, int64(99)).Return(paradas.ErrNotFound) },
+			name: "não encontrada → 404",
+			id:   "99",
+			setup: func(st *mocks.MockParadaStore) {
+				st.EXPECT().Delete(mock.Anything, int64(99)).Return(paradas.ErrNotFound)
+			},
 			wantStatus: http.StatusNotFound,
 		},
 		{
 			// qualquer outro erro (ex: FK violation por rota interna) → 409 Conflict
-			name:       "parada em uso por rota interna → 409",
-			id:         "1",
-			setup:      func(st *mocks.MockParadaStore) { st.EXPECT().Delete(mock.Anything, int64(1)).Return(errors.New("fk violation")) },
+			name: "parada em uso por rota interna → 409",
+			id:   "1",
+			setup: func(st *mocks.MockParadaStore) {
+				st.EXPECT().Delete(mock.Anything, int64(1)).Return(errors.New("fk violation"))
+			},
 			wantStatus: http.StatusConflict,
 		},
 	}
