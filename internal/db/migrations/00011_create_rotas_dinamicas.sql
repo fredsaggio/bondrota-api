@@ -27,7 +27,6 @@ CREATE TRIGGER set_updated_at_rotas_dinamicas
     FOR EACH ROW
     EXECUTE FUNCTION trigger_set_updated_at();
 
-CREATE INDEX idx_rotas_dinamicas_viagem ON rotas_dinamicas(viagem_id);
 CREATE INDEX idx_rotas_dinamicas_expires_at ON rotas_dinamicas(expires_at);
 
 CREATE TABLE rota_dinamica_destinos (
@@ -41,7 +40,6 @@ CREATE TABLE rota_dinamica_destinos (
     CONSTRAINT uq_rota_dinamica_ordem UNIQUE (rota_dinamica_id, ordem)
 );
 
-CREATE INDEX idx_rota_dinamica_destinos_rota ON rota_dinamica_destinos(rota_dinamica_id);
 CREATE INDEX idx_rota_dinamica_destinos_destino ON rota_dinamica_destinos(destino_id);
 
 -- +goose StatementEnd
