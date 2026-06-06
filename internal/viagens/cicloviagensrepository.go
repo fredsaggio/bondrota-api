@@ -176,11 +176,11 @@ func (s *cicloViagemStore) CreateCiclosComViagens(ctx context.Context, inputs []
 	return &PlanejamentoViagens{Ciclos: ciclos}, nil
 }
 
-func (s *cicloViagemStore) ListReservaIDsConfirmadasParaPlanejamento(ctx context.Context, filtro PlanejamentoReservasFiltro) ([]int64, error) {
-	const op = "db/cicloViagemStore.ListReservaIDsConfirmadasParaPlanejamento"
+func (s *cicloViagemStore) ListReservasConfirmadasParaPlanejamento(ctx context.Context, filtro PlanejamentoReservasFiltro) ([]PlanejamentoReserva, error) {
+	const op = "db/cicloViagemStore.ListReservasConfirmadasParaPlanejamento"
 
 	const q = `
-		SELECT id
+		SELECT id, destino_id
 		FROM reservas
 		WHERE data_viagem = @data_viagem
 			AND turno = @turno
@@ -202,15 +202,19 @@ func (s *cicloViagemStore) ListReservaIDsConfirmadasParaPlanejamento(ctx context
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	reservaIDs, err := pgx.CollectRows(rows, pgx.RowTo[int64])
+	reservas, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (PlanejamentoReserva, error) {
+		var reserva PlanejamentoReserva
+		err := row.Scan(&reserva.ID, &reserva.DestinoID)
+		return reserva, err
+	})
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
-	if reservaIDs == nil {
-		return []int64{}, nil
+	if reservas == nil {
+		return []PlanejamentoReserva{}, nil
 	}
 
-	return reservaIDs, nil
+	return reservas, nil
 }
 
 func (s *cicloViagemStore) GetCicloByID(ctx context.Context, cicloID int64) (*CicloViagem, error) {
