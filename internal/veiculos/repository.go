@@ -21,13 +21,14 @@ func (s *veiculoStore) Create(ctx context.Context, input VeiculoInput) (*Veiculo
 	const op = "db/veiculoStore.Create"
 
 	const q = `
-		INSERT INTO veiculos (placa, modelo, capacidade, cidade_base, status, ar_condicionado, banheiro, persiana, luz_leitura, tomada)
-		VALUES (@placa, @modelo, @capacidade, @cidade_base, @status, @ar_condicionado, @banheiro, @persiana, @luz_leitura, @tomada)
+		INSERT INTO veiculos (placa, modelo, categoria, capacidade, cidade_base, status, ar_condicionado, banheiro, persiana, luz_leitura, tomada)
+		VALUES (@placa, @modelo, @categoria, @capacidade, @cidade_base, @status, @ar_condicionado, @banheiro, @persiana, @luz_leitura, @tomada)
 		RETURNING id
 	`
 	args := pgx.StrictNamedArgs{
 		"placa":           input.Placa,
 		"modelo":          input.Modelo,
+		"categoria":       input.Categoria,
 		"capacidade":      input.Capacidade,
 		"cidade_base":     input.CidadeBase,
 		"status":          input.Status,
@@ -48,6 +49,7 @@ func (s *veiculoStore) Create(ctx context.Context, input VeiculoInput) (*Veiculo
 		ID:             vehicleID,
 		Placa:          input.Placa,
 		Modelo:         input.Modelo,
+		Categoria:      input.Categoria,
 		Capacidade:     input.Capacidade,
 		CidadeBase:     input.CidadeBase,
 		Status:         input.Status,
@@ -77,7 +79,7 @@ func getVeiculoByID(ctx context.Context, querier interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 }, id int64, forUpdate bool) (*Veiculo, error) {
 	q := `
-		SELECT id, placa, modelo, capacidade, cidade_base, status, ar_condicionado, banheiro, persiana, luz_leitura, tomada
+		SELECT id, placa, modelo, categoria, capacidade, cidade_base, status, ar_condicionado, banheiro, persiana, luz_leitura, tomada
 		FROM veiculos
 		WHERE id = @id
 	`
@@ -104,7 +106,7 @@ func (s *veiculoStore) List(ctx context.Context) ([]Veiculo, error) {
 	const op = "db/veiculoStore.List"
 
 	const q = `
-		SELECT id, placa, modelo, capacidade, cidade_base, status, ar_condicionado, banheiro, persiana, luz_leitura, tomada
+		SELECT id, placa, modelo, categoria, capacidade, cidade_base, status, ar_condicionado, banheiro, persiana, luz_leitura, tomada
 		FROM veiculos
 		ORDER BY id DESC
 	`
@@ -147,7 +149,7 @@ func (s *veiculoStore) Update(ctx context.Context, id int64, updateFunc func(*Ve
 
 		const updateQ = `
 			UPDATE veiculos
-			SET placa = @placa, modelo = @modelo, capacidade = @capacidade, cidade_base = @cidade_base,
+			SET placa = @placa, modelo = @modelo, categoria = @categoria, capacidade = @capacidade, cidade_base = @cidade_base,
 			    status = @status, ar_condicionado = @ar_condicionado, banheiro = @banheiro,
 			    persiana = @persiana, luz_leitura = @luz_leitura, tomada = @tomada
 			WHERE id = @id
@@ -156,6 +158,7 @@ func (s *veiculoStore) Update(ctx context.Context, id int64, updateFunc func(*Ve
 			"id":              veiculo.ID,
 			"placa":           veiculo.Placa,
 			"modelo":          veiculo.Modelo,
+			"categoria":       veiculo.Categoria,
 			"capacidade":      veiculo.Capacidade,
 			"cidade_base":     veiculo.CidadeBase,
 			"status":          veiculo.Status,
@@ -182,7 +185,7 @@ func (s *veiculoStore) Update(ctx context.Context, id int64, updateFunc func(*Ve
 
 func getVeiculoByIDForUpdate(ctx context.Context, tx pgx.Tx, id int64) (*Veiculo, error) {
 	const q = `
-		SELECT id, placa, modelo, capacidade, cidade_base, status, ar_condicionado, banheiro, persiana, luz_leitura, tomada
+		SELECT id, placa, modelo, categoria, capacidade, cidade_base, status, ar_condicionado, banheiro, persiana, luz_leitura, tomada
 		FROM veiculos
 		WHERE id = @id
 		FOR UPDATE
@@ -225,6 +228,6 @@ func (s *veiculoStore) Delete(ctx context.Context, id int64) error {
 
 func scanVeiculo(row pgx.CollectableRow) (Veiculo, error) {
 	var v Veiculo
-	err := row.Scan(&v.ID, &v.Placa, &v.Modelo, &v.Capacidade, &v.CidadeBase, &v.Status, &v.ArCondicionado, &v.Banheiro, &v.Persiana, &v.LuzLeitura, &v.Tomada)
+	err := row.Scan(&v.ID, &v.Placa, &v.Modelo, &v.Categoria, &v.Capacidade, &v.CidadeBase, &v.Status, &v.ArCondicionado, &v.Banheiro, &v.Persiana, &v.LuzLeitura, &v.Tomada)
 	return v, err
 }
