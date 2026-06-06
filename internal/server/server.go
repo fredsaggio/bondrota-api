@@ -62,6 +62,7 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 		r.Use(srv.authSvc.Authenticate)
 
 		r.Route("/admin", func(r chi.Router) {
+			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin))
 			r.Post("/", srv.handlers.AdminHandler.Create)
 			r.Get("/", srv.handlers.AdminHandler.List)
 			r.Get("/{adminID}", srv.handlers.AdminHandler.GetByID)
@@ -70,6 +71,7 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 		})
 
 		r.Route("/veiculos", func(r chi.Router) {
+			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin))
 			r.Post("/", srv.handlers.VeiculoHandler.Create)
 			r.Get("/", srv.handlers.VeiculoHandler.List)
 			r.Get("/{veiculoID}", srv.handlers.VeiculoHandler.GetByID)
@@ -78,6 +80,7 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 		})
 
 		r.Route("/destinos", func(r chi.Router) {
+			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin))
 			r.Post("/", srv.handlers.DestinoHandler.Create)
 			r.Get("/", srv.handlers.DestinoHandler.List)
 			r.Get("/cidade/{cidade}", srv.handlers.DestinoHandler.ListByCity)
@@ -87,6 +90,7 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 		})
 
 		r.Route("/paradas", func(r chi.Router) {
+			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin))
 			r.Post("/", srv.handlers.ParadaHandler.Create)
 			r.Get("/", srv.handlers.ParadaHandler.List)
 			r.Get("/cidade/{cidade}", srv.handlers.ParadaHandler.ListByCity)
@@ -96,6 +100,7 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 		})
 
 		r.Route("/rotas-internas", func(r chi.Router) {
+			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin))
 			r.Post("/", srv.handlers.RotaInternaHandler.Create)
 			r.Get("/", srv.handlers.RotaInternaHandler.List)
 			r.Get("/cidade/{cidade}", srv.handlers.RotaInternaHandler.ListByCity)
@@ -105,6 +110,7 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 		})
 
 		r.Route("/motoristas", func(r chi.Router) {
+			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin))
 			r.Post("/", srv.handlers.MotoristaHandler.Create)
 			r.Get("/", srv.handlers.MotoristaHandler.List)
 			r.Get("/{id}", srv.handlers.MotoristaHandler.GetByID)
@@ -113,6 +119,7 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 		})
 
 		r.Route("/clientes", func(r chi.Router) {
+			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin, auth.RoleCliente))
 			r.Post("/", srv.handlers.ClienteHandler.Create)
 			r.Get("/", srv.handlers.ClienteHandler.List)
 			r.Get("/{clienteID}", srv.handlers.ClienteHandler.GetByID)
@@ -132,6 +139,7 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 		})
 
 		r.Route("/reservas", func(r chi.Router) {
+			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin, auth.RoleCliente))
 			r.Get("/", srv.handlers.ReservaHandler.List)
 			r.Get("/{reservaID}", srv.handlers.ReservaHandler.GetByID)
 			r.Put("/{reservaID}", srv.handlers.ReservaHandler.Update)
@@ -140,6 +148,7 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 		})
 
 		r.Route("/viagens", func(r chi.Router) {
+			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin, auth.RoleMotorista))
 			r.Get("/", srv.handlers.ViagemHandler.List)
 			r.Get("/{viagemID}", srv.handlers.ViagemHandler.GetByID)
 			r.Post("/{viagemID}/iniciar", srv.handlers.ViagemHandler.Iniciar)
@@ -155,10 +164,12 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 		})
 
 		r.Route("/planejamentos", func(r chi.Router) {
+			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin))
 			r.Post("/viagens", srv.handlers.PlanejamentoHandler.PlanejarViagens)
 		})
 
 		r.Route("/horarios-turno-viagem", func(r chi.Router) {
+			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin))
 			r.Post("/", srv.handlers.HorarioTurnoHandler.Create)
 			r.Get("/", srv.handlers.HorarioTurnoHandler.List)
 			r.Get("/{horarioTurnoID}", srv.handlers.HorarioTurnoHandler.GetByID)
