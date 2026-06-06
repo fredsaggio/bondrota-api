@@ -6,6 +6,7 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/clientes"
 	"github.com/fredsaggio/bondrota-api/internal/db"
 	"github.com/fredsaggio/bondrota-api/internal/destinos"
+	"github.com/fredsaggio/bondrota-api/internal/geo"
 	"github.com/fredsaggio/bondrota-api/internal/motoristas"
 	"github.com/fredsaggio/bondrota-api/internal/paradas"
 	"github.com/fredsaggio/bondrota-api/internal/reservas"
@@ -61,7 +62,16 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService) server.Handlers {
 
 	rotaDinamicaStore := rotasdinamicas.NewRotaDinamicaStore(pool)
 	rotaDinamicaSvc := rotasdinamicas.NewRotaDinamicaService(rotaDinamicaStore)
-	rotaDinamicaHandler := rotasdinamicas.NewRotaDinamicaHandler(rotaDinamicaSvc)
+	calculadorRotaDinamicaStore := rotasdinamicas.NewCalculadorRotaDinamicaStore(pool)
+	roteador := geo.NewOSRMClient(nil, "")
+	otimizadorRota := geo.NewOtimizadorRota()
+	calculadorRotaDinamicaSvc := rotasdinamicas.NewCalculadorRotaDinamicaService(
+		calculadorRotaDinamicaStore,
+		rotaDinamicaSvc,
+		roteador,
+		otimizadorRota,
+	)
+	rotaDinamicaHandler := rotasdinamicas.NewRotaDinamicaHandler(rotaDinamicaSvc, calculadorRotaDinamicaSvc)
 
 	return server.Handlers{
 		AdminHandler:        adminHandler,

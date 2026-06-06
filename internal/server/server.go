@@ -146,6 +146,7 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 			r.Post("/{viagemID}/cancelar", srv.handlers.ViagemHandler.Cancelar)
 			r.Get("/{viagemID}/reservas/", srv.handlers.ViagemHandler.ListReservas)
 			r.Put("/{viagemID}/reservas/{reservaID}/presenca", srv.handlers.ViagemHandler.AtualizarPresenca)
+			r.Post("/{viagemID}/rota-dinamica/calcular", srv.handlers.RotaDinamicaHandler.Calcular)
 			r.Post("/{viagemID}/rota-dinamica", srv.handlers.RotaDinamicaHandler.Create)
 			r.Get("/{viagemID}/rota-dinamica", srv.handlers.RotaDinamicaHandler.GetByViagem)
 			r.Delete("/{viagemID}/rota-dinamica", srv.handlers.RotaDinamicaHandler.DeleteByViagem)
