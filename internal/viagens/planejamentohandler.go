@@ -24,11 +24,16 @@ type PlanejarViagensRequest struct {
 	Turno         TurnoViagem `json:"turno"`
 	Cidade        string      `json:"cidade"`
 	RotaInternaID int64       `json:"rota_interna_id"`
-	VeiculoID     int64       `json:"veiculo_id"`
-	MotoristaID   int64       `json:"motorista_id"`
 	ExpiresAt     string      `json:"expires_at"`
 	PartidaIda    string      `json:"partida_ida"`
 	PartidaVolta  string      `json:"partida_volta"`
+}
+
+type PlanejamentoViagensResponse struct {
+	Ciclos                  []CicloComViagensResponse `json:"ciclos"`
+	QuantidadeReservasIda   int                       `json:"quantidade_reservas_ida"`
+	QuantidadeReservasVolta int                       `json:"quantidade_reservas_volta"`
+	CapacidadeTotal         int                       `json:"capacidade_total"`
 }
 
 type CicloComViagensResponse struct {
@@ -59,7 +64,7 @@ func (h *PlanejamentoHandler) PlanejarViagens(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	httputils.Respond(w, http.StatusCreated, toCicloComViagensResponse(ciclo))
+	httputils.Respond(w, http.StatusCreated, toPlanejamentoViagensResponse(ciclo))
 }
 
 func (h *PlanejamentoHandler) handleError(w http.ResponseWriter, err error, msg string) {
@@ -71,39 +76,41 @@ func (h *PlanejamentoHandler) handleError(w http.ResponseWriter, err error, msg 
 		http.Error(w, "resource not found", http.StatusNotFound)
 		return
 	}
+	if errors.Is(err, brerror.ErrInvalidInput) {
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
 
 	slog.Error(msg, "error", err)
 	http.Error(w, "internal server error", http.StatusInternalServerError)
 }
 
-func toPlanejamentoInput(req PlanejarViagensRequest) (CicloViagemInput, map[SentidoViagem]time.Time, error) {
+func toPlanejamentoInput(req PlanejarViagensRequest) (PlanejamentoViagensInput, map[SentidoViagem]time.Time, error) {
 	dataViagem, err := parseDate(req.DataViagem, "data_viagem")
 	if err != nil {
-		return CicloViagemInput{}, nil, err
+		return PlanejamentoViagensInput{}, nil, err
 	}
 
 	expiresAt, err := parseTimestamp(req.ExpiresAt, "expires_at")
 	if err != nil {
-		return CicloViagemInput{}, nil, err
+		return PlanejamentoViagensInput{}, nil, err
 	}
 
 	partidaIda, err := parseTimestamp(req.PartidaIda, "partida_ida")
 	if err != nil {
-		return CicloViagemInput{}, nil, err
+		return PlanejamentoViagensInput{}, nil, err
 	}
 
 	partidaVolta, err := parseTimestamp(req.PartidaVolta, "partida_volta")
 	if err != nil {
-		return CicloViagemInput{}, nil, err
+		return PlanejamentoViagensInput{}, nil, err
 	}
 
-	return CicloViagemInput{
+	return PlanejamentoViagensInput{
 			DataViagem:    dataViagem,
 			Turno:         req.Turno,
 			Cidade:        req.Cidade,
 			RotaInternaID: req.RotaInternaID,
-			VeiculoID:     req.VeiculoID,
-			MotoristaID:   req.MotoristaID,
 			ExpiresAt:     expiresAt,
 		}, map[SentidoViagem]time.Time{
 			SentidoIda:   partidaIda,
@@ -131,6 +138,21 @@ func parseTimestamp(value, field string) (time.Time, error) {
 		return time.Time{}, errors.New(field + " must be in RFC3339 format")
 	}
 	return parsed, nil
+}
+
+func toPlanejamentoViagensResponse(p *PlanejamentoViagens) PlanejamentoViagensResponse {
+	resp := PlanejamentoViagensResponse{
+		Ciclos:                  make([]CicloComViagensResponse, 0, len(p.Ciclos)),
+		QuantidadeReservasIda:   p.QuantidadeReservasIda,
+		QuantidadeReservasVolta: p.QuantidadeReservasVolta,
+		CapacidadeTotal:         p.CapacidadeTotal,
+	}
+
+	for _, ciclo := range p.Ciclos {
+		resp.Ciclos = append(resp.Ciclos, toCicloComViagensResponse(&ciclo))
+	}
+
+	return resp
 }
 
 func toCicloComViagensResponse(c *CicloComViagens) CicloComViagensResponse {

@@ -18,6 +18,10 @@ func NewVeiculoStore(db db.DB) VeiculoStore {
 	return &veiculoStore{db: db}
 }
 
+func NewAlocacaoVeiculoStore(db db.DB) AlocacaoVeiculoStore {
+	return &veiculoStore{db: db}
+}
+
 func (s *veiculoStore) Create(ctx context.Context, input VeiculoInput) (*Veiculo, error) {
 	const op = "db/veiculoStore.Create"
 

@@ -47,6 +47,20 @@ type MotoristaInput struct {
 	Foto           string
 }
 
+type MotoristasDisponiveisFiltro struct {
+	Cidade     string
+	DataViagem time.Time
+	Turno      Turno
+	Limit      int
+}
+
+type AlocarMotoristasInput struct {
+	Cidade     string
+	DataViagem time.Time
+	Turno      Turno
+	Quantidade int
+}
+
 type MotoristaStore interface {
 	Create(ctx context.Context, input MotoristaInput) (*Motorista, error)
 	GetByID(ctx context.Context, motoristaID int64) (*Motorista, error)
@@ -54,6 +68,10 @@ type MotoristaStore interface {
 	List(ctx context.Context) ([]Motorista, error)
 	Update(ctx context.Context, motoristaID int64, updateFunc func(*Motorista) (bool, error)) (*Motorista, error)
 	Delete(ctx context.Context, motoristaID int64) error
+}
+
+type AlocacaoMotoristaStore interface {
+	ListDisponiveisParaAlocacao(ctx context.Context, filtro MotoristasDisponiveisFiltro) ([]Motorista, error)
 }
 
 type MotoristaService interface {

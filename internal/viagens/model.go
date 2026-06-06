@@ -3,6 +3,9 @@ package viagens
 import (
 	"context"
 	"time"
+
+	"github.com/fredsaggio/bondrota-api/internal/motoristas"
+	"github.com/fredsaggio/bondrota-api/internal/veiculos"
 )
 
 type TurnoViagem string
@@ -98,6 +101,28 @@ type CicloViagemInput struct {
 	ExpiresAt     time.Time
 }
 
+type PlanejamentoViagensInput struct {
+	DataViagem    time.Time
+	Turno         TurnoViagem
+	Cidade        string
+	RotaInternaID int64
+	ExpiresAt     time.Time
+}
+
+type PlanejamentoReservasFiltro struct {
+	DataViagem    time.Time
+	Turno         TurnoViagem
+	Cidade        string
+	RotaInternaID int64
+	Sentido       SentidoViagem
+}
+
+type CicloViagemComReservasInput struct {
+	Ciclo           CicloViagemInput
+	ReservaIDsIda   []int64
+	ReservaIDsVolta []int64
+}
+
 type ViagemInput struct {
 	CicloViagemID   int64
 	Sentido         SentidoViagem
@@ -112,6 +137,13 @@ type ViagemReservaInput struct {
 type CicloComViagens struct {
 	Ciclo   CicloViagem
 	Viagens []Viagem
+}
+
+type PlanejamentoViagens struct {
+	Ciclos                  []CicloComViagens
+	QuantidadeReservasIda   int
+	QuantidadeReservasVolta int
+	CapacidadeTotal         int
 }
 
 type ViagemComCiclo struct {
@@ -134,6 +166,8 @@ type ViagemReservaComReserva struct {
 type CicloViagemStore interface {
 	CreateCiclo(ctx context.Context, input CicloViagemInput) (*CicloViagem, error)
 	CreateCicloComViagens(ctx context.Context, input CicloViagemInput, partidas map[SentidoViagem]time.Time) (*CicloComViagens, error)
+	CreateCiclosComViagens(ctx context.Context, inputs []CicloViagemComReservasInput, partidas map[SentidoViagem]time.Time) (*PlanejamentoViagens, error)
+	ListReservaIDsConfirmadasParaPlanejamento(ctx context.Context, filtro PlanejamentoReservasFiltro) ([]int64, error)
 	GetCicloByID(ctx context.Context, cicloID int64) (*CicloViagem, error)
 	ListCiclos(ctx context.Context) ([]CicloViagem, error)
 	UpdateCiclo(ctx context.Context, cicloID int64, updateFunc func(*CicloViagem) (bool, error)) (*CicloViagem, error)
@@ -157,7 +191,15 @@ type ViagemReservaStore interface {
 }
 
 type PlanejamentoService interface {
-	Planejar(ctx context.Context, input CicloViagemInput, partidas map[SentidoViagem]time.Time) (*CicloComViagens, error)
+	Planejar(ctx context.Context, input PlanejamentoViagensInput, partidas map[SentidoViagem]time.Time) (*PlanejamentoViagens, error)
+}
+
+type VeiculoAlocador interface {
+	Alocar(ctx context.Context, input veiculos.AlocarVeiculosInput) (*veiculos.AlocacaoVeiculos, error)
+}
+
+type MotoristaAlocador interface {
+	Alocar(ctx context.Context, input motoristas.AlocarMotoristasInput) ([]motoristas.Motorista, error)
 }
 
 type ViagemService interface {

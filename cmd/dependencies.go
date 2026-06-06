@@ -23,6 +23,8 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService) (server.Handlers, *rot
 	adminHandler := admin.NewAdminHandler(adminSvc)
 
 	veiculoStore := veiculos.NewVeiculoStore(pool)
+	alocacaoVeiculoStore := veiculos.NewAlocacaoVeiculoStore(pool)
+	alocacaoVeiculoSvc := veiculos.NewAlocacaoService(alocacaoVeiculoStore)
 	veiculoHandler := veiculos.NewVeiculoHandler(veiculoStore)
 
 	destinoStore := destinos.NewDestinoStore(pool)
@@ -36,6 +38,8 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService) (server.Handlers, *rot
 	rotaInternaHandler := rotasinternas.NewRotaInternaHandler(rotaInternaSvc)
 
 	motoristaStore := motoristas.NewMotoristaStore(pool)
+	alocacaoMotoristaStore := motoristas.NewAlocacaoMotoristaStore(pool)
+	alocacaoMotoristaSvc := motoristas.NewAlocacaoService(alocacaoMotoristaStore)
 	motoristaSvc := motoristas.NewMotoristaService(motoristaStore, authSvc)
 	motoristaHandler := motoristas.NewMotoristaHandler(motoristaSvc)
 
@@ -57,7 +61,7 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService) (server.Handlers, *rot
 	reservaHandler := reservas.NewReservaHandler(reservaSvc)
 
 	cicloViagemStore := viagens.NewCicloViagemStore(pool)
-	planejamentoSvc := viagens.NewPlanejamentoService(cicloViagemStore)
+	planejamentoSvc := viagens.NewPlanejamentoService(cicloViagemStore, alocacaoVeiculoSvc, alocacaoMotoristaSvc)
 	planejamentoHandler := viagens.NewPlanejamentoHandler(planejamentoSvc)
 
 	viagemStore := viagens.NewViagemStore(pool)

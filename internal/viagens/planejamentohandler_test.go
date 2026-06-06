@@ -14,10 +14,10 @@ import (
 )
 
 type fakePlanejamentoService struct {
-	planejarFn func(ctx context.Context, input viagens.CicloViagemInput, partidas map[viagens.SentidoViagem]time.Time) (*viagens.CicloComViagens, error)
+	planejarFn func(ctx context.Context, input viagens.PlanejamentoViagensInput, partidas map[viagens.SentidoViagem]time.Time) (*viagens.PlanejamentoViagens, error)
 }
 
-func (s fakePlanejamentoService) Planejar(ctx context.Context, input viagens.CicloViagemInput, partidas map[viagens.SentidoViagem]time.Time) (*viagens.CicloComViagens, error) {
+func (s fakePlanejamentoService) Planejar(ctx context.Context, input viagens.PlanejamentoViagensInput, partidas map[viagens.SentidoViagem]time.Time) (*viagens.PlanejamentoViagens, error) {
 	return s.planejarFn(ctx, input, partidas)
 }
 
@@ -33,8 +33,6 @@ func validPlanejamentoBody() map[string]any {
 		"turno":           "NT",
 		"cidade":          "Campo Alegre",
 		"rota_interna_id": 2,
-		"veiculo_id":      3,
-		"motorista_id":    4,
 		"expires_at":      "2026-09-10T00:00:00Z",
 		"partida_ida":     "2026-06-10T18:00:00Z",
 		"partida_volta":   "2026-06-10T22:00:00Z",
@@ -52,7 +50,7 @@ func TestPlanejamentoHandler_PlanejarViagens(t *testing.T) {
 			name: "success",
 			body: validPlanejamentoBody(),
 			svc: fakePlanejamentoService{
-				planejarFn: func(_ context.Context, input viagens.CicloViagemInput, partidas map[viagens.SentidoViagem]time.Time) (*viagens.CicloComViagens, error) {
+				planejarFn: func(_ context.Context, input viagens.PlanejamentoViagensInput, partidas map[viagens.SentidoViagem]time.Time) (*viagens.PlanejamentoViagens, error) {
 					if input.Cidade != "Campo Alegre" || input.Turno != viagens.TurnoNoturno {
 						t.Fatalf("unexpected input: %+v", input)
 					}
@@ -60,7 +58,12 @@ func TestPlanejamentoHandler_PlanejarViagens(t *testing.T) {
 						t.Fatalf("expected both partidas: %+v", partidas)
 					}
 					ciclo := sampleCicloComViagens()
-					return &ciclo, nil
+					return &viagens.PlanejamentoViagens{
+						Ciclos:                  []viagens.CicloComViagens{ciclo},
+						QuantidadeReservasIda:   1,
+						QuantidadeReservasVolta: 1,
+						CapacidadeTotal:         7,
+					}, nil
 				},
 			},
 			wantStatus: http.StatusCreated,
@@ -72,10 +75,10 @@ func TestPlanejamentoHandler_PlanejarViagens(t *testing.T) {
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name: "missing veiculo",
+			name: "missing rota interna",
 			body: func() map[string]any {
 				in := validPlanejamentoBody()
-				in["veiculo_id"] = 0
+				in["rota_interna_id"] = 0
 				return in
 			}(),
 			svc:        fakePlanejamentoService{},
@@ -85,7 +88,7 @@ func TestPlanejamentoHandler_PlanejarViagens(t *testing.T) {
 			name: "already exists",
 			body: validPlanejamentoBody(),
 			svc: fakePlanejamentoService{
-				planejarFn: func(_ context.Context, _ viagens.CicloViagemInput, _ map[viagens.SentidoViagem]time.Time) (*viagens.CicloComViagens, error) {
+				planejarFn: func(_ context.Context, _ viagens.PlanejamentoViagensInput, _ map[viagens.SentidoViagem]time.Time) (*viagens.PlanejamentoViagens, error) {
 					return nil, brerror.ErrAlreadyExists
 				},
 			},
@@ -95,7 +98,7 @@ func TestPlanejamentoHandler_PlanejarViagens(t *testing.T) {
 			name: "not found",
 			body: validPlanejamentoBody(),
 			svc: fakePlanejamentoService{
-				planejarFn: func(_ context.Context, _ viagens.CicloViagemInput, _ map[viagens.SentidoViagem]time.Time) (*viagens.CicloComViagens, error) {
+				planejarFn: func(_ context.Context, _ viagens.PlanejamentoViagensInput, _ map[viagens.SentidoViagem]time.Time) (*viagens.PlanejamentoViagens, error) {
 					return nil, brerror.ErrNotFound
 				},
 			},
@@ -105,7 +108,7 @@ func TestPlanejamentoHandler_PlanejarViagens(t *testing.T) {
 			name: "internal error",
 			body: validPlanejamentoBody(),
 			svc: fakePlanejamentoService{
-				planejarFn: func(_ context.Context, _ viagens.CicloViagemInput, _ map[viagens.SentidoViagem]time.Time) (*viagens.CicloComViagens, error) {
+				planejarFn: func(_ context.Context, _ viagens.PlanejamentoViagensInput, _ map[viagens.SentidoViagem]time.Time) (*viagens.PlanejamentoViagens, error) {
 					return nil, errors.New("db")
 				},
 			},

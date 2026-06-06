@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/fredsaggio/bondrota-api/internal/db"
 	"github.com/jackc/pgx/v5"
@@ -14,6 +15,10 @@ type motoristaStore struct {
 }
 
 func NewMotoristaStore(db db.DB) MotoristaStore {
+	return &motoristaStore{db: db}
+}
+
+func NewAlocacaoMotoristaStore(db db.DB) AlocacaoMotoristaStore {
 	return &motoristaStore{db: db}
 }
 
@@ -93,6 +98,49 @@ func (s *motoristaStore) List(ctx context.Context) ([]Motorista, error) {
 	motoristas, err := pgx.CollectRows(rows, scanMotorista)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return motoristas, nil
+}
+
+func (s *motoristaStore) ListDisponiveisParaAlocacao(ctx context.Context, filtro MotoristasDisponiveisFiltro) ([]Motorista, error) {
+	const op = "db/motoristaStore.ListDisponiveisParaAlocacao"
+
+	const q = `
+		SELECT m.id, m.nome, m.cpf, m.telefone, m.data_nasc, m.turno, m.cidade_trabalho, m.residencia, m.foto
+		FROM motoristas m
+		WHERE (m.turno = @turno OR m.turno = 'IN')
+		  AND (
+		      LOWER(m.residencia) = LOWER(@cidade)
+		      OR LOWER(m.cidade_trabalho) = LOWER(@cidade)
+		  )
+		  AND NOT EXISTS (
+		      SELECT 1
+		      FROM ciclos_viagem cv
+		      WHERE cv.motorista_id = m.id
+		        AND cv.data_viagem = CAST(@data_viagem AS date)
+		        AND cv.turno = @turno
+		        AND cv.status <> 'cancelado'
+		  )
+		ORDER BY m.id
+		LIMIT @limit
+	`
+	rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{
+		"cidade":      strings.TrimSpace(filtro.Cidade),
+		"data_viagem": filtro.DataViagem,
+		"turno":       filtro.Turno,
+		"limit":       filtro.Limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	motoristas, err := pgx.CollectRows(rows, scanMotorista)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	if motoristas == nil {
+		return []Motorista{}, nil
 	}
 
 	return motoristas, nil
