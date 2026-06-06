@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/fredsaggio/bondrota-api/internal/brerror"
 )
@@ -56,12 +57,36 @@ type VeiculoInput struct {
 	Tomada         bool             `json:"tomada"`
 }
 
+type VeiculosDisponiveisFiltro struct {
+	Cidade     string
+	DataViagem time.Time
+	Turno      string
+	Categorias []CategoriaVeiculo
+}
+
+type AlocarVeiculosInput struct {
+	Cidade           string
+	DataViagem       time.Time
+	Turno            string
+	QuantidadeAlunos int
+}
+
+type AlocacaoVeiculos struct {
+	Plano           []PlanoCategoriaVeiculo
+	Veiculos        []Veiculo
+	CapacidadeTotal int
+}
+
 type VeiculoStore interface {
 	Create(ctx context.Context, input VeiculoInput) (*Veiculo, error)
 	GetByID(ctx context.Context, id int64) (*Veiculo, error)
 	List(ctx context.Context) ([]Veiculo, error)
 	Update(ctx context.Context, id int64, updateFunc func(*Veiculo) (bool, error)) (*Veiculo, error)
 	Delete(ctx context.Context, id int64) error
+}
+
+type AlocacaoVeiculoStore interface {
+	ListDisponiveisParaAlocacao(ctx context.Context, filtro VeiculosDisponiveisFiltro) ([]Veiculo, error)
 }
 
 func CapacidadeDaCategoria(categoria CategoriaVeiculo) (int16, bool) {
