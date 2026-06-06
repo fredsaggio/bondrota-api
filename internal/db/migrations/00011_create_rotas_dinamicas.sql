@@ -17,8 +17,8 @@ CREATE TABLE rotas_dinamicas (
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT chk_rotas_dinamicas_distancia CHECK (distancia_metros >= 0),
-    CONSTRAINT chk_rotas_dinamicas_duracao CHECK (duracao_segundos >= 0),
+    CONSTRAINT chk_rotas_dinamicas_distancia CHECK (distancia_metros > 0),
+    CONSTRAINT chk_rotas_dinamicas_duracao CHECK (duracao_segundos > 0),
     CONSTRAINT chk_rotas_dinamicas_provider CHECK (provider <> '')
 );
 
