@@ -31,6 +31,7 @@ type Handlers struct {
 	ReservaHandler      *reservas.ReservaHandler
 	ViagemHandler       *viagens.ViagemHandler
 	PlanejamentoHandler *viagens.PlanejamentoHandler
+	HorarioTurnoHandler *viagens.HorarioTurnoViagemHandler
 	RotaDinamicaHandler *rotasdinamicas.RotaDinamicaHandler
 }
 
@@ -155,6 +156,14 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 
 		r.Route("/planejamentos", func(r chi.Router) {
 			r.Post("/viagens", srv.handlers.PlanejamentoHandler.PlanejarViagens)
+		})
+
+		r.Route("/horarios-turno-viagem", func(r chi.Router) {
+			r.Post("/", srv.handlers.HorarioTurnoHandler.Create)
+			r.Get("/", srv.handlers.HorarioTurnoHandler.List)
+			r.Get("/{horarioTurnoID}", srv.handlers.HorarioTurnoHandler.GetByID)
+			r.Put("/{horarioTurnoID}", srv.handlers.HorarioTurnoHandler.Update)
+			r.Delete("/{horarioTurnoID}", srv.handlers.HorarioTurnoHandler.Delete)
 		})
 	})
 }
