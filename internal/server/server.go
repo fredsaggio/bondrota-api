@@ -9,6 +9,7 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/destinos"
 	"github.com/fredsaggio/bondrota-api/internal/motoristas"
 	"github.com/fredsaggio/bondrota-api/internal/paradas"
+	"github.com/fredsaggio/bondrota-api/internal/reservas"
 	"github.com/fredsaggio/bondrota-api/internal/rotasinternas"
 	"github.com/fredsaggio/bondrota-api/internal/veiculos"
 	"github.com/go-chi/chi/v5"
@@ -25,6 +26,7 @@ type Handlers struct {
 	MotoristaHandler   *motoristas.MotoristaHandler
 	ClienteHandler     *clientes.ClienteHandler
 	VinculoHandler     *clientes.VinculoHandler
+	ReservaHandler     *reservas.ReservaHandler
 }
 
 type Server struct {
@@ -110,6 +112,7 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 			r.Get("/{clienteID}", srv.handlers.ClienteHandler.GetByID)
 			r.Put("/{clienteID}", srv.handlers.ClienteHandler.Update)
 			r.Delete("/{clienteID}", srv.handlers.ClienteHandler.Delete)
+			r.Get("/{clienteID}/reservas/", srv.handlers.ReservaHandler.ListByCliente)
 
 			r.Route("/{clienteID}/vinculos", func(r chi.Router) {
 				r.Post("/", srv.handlers.VinculoHandler.Create)
@@ -117,7 +120,17 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 				r.Get("/{vinculoID}", srv.handlers.VinculoHandler.GetByID)
 				r.Put("/{vinculoID}", srv.handlers.VinculoHandler.Update)
 				r.Delete("/{vinculoID}", srv.handlers.VinculoHandler.Delete)
+				r.Post("/{vinculoID}/reservas/", srv.handlers.ReservaHandler.CreateByVinculo)
+				r.Get("/{vinculoID}/reservas/", srv.handlers.ReservaHandler.ListByVinculo)
 			})
+		})
+
+		r.Route("/reservas", func(r chi.Router) {
+			r.Get("/", srv.handlers.ReservaHandler.List)
+			r.Get("/{reservaID}", srv.handlers.ReservaHandler.GetByID)
+			r.Put("/{reservaID}", srv.handlers.ReservaHandler.Update)
+			r.Post("/{reservaID}/cancelar", srv.handlers.ReservaHandler.Cancel)
+			r.Delete("/{reservaID}", srv.handlers.ReservaHandler.Delete)
 		})
 	})
 }

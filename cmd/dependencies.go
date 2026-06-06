@@ -8,6 +8,7 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/destinos"
 	"github.com/fredsaggio/bondrota-api/internal/motoristas"
 	"github.com/fredsaggio/bondrota-api/internal/paradas"
+	"github.com/fredsaggio/bondrota-api/internal/reservas"
 	"github.com/fredsaggio/bondrota-api/internal/rotasinternas"
 	"github.com/fredsaggio/bondrota-api/internal/server"
 	"github.com/fredsaggio/bondrota-api/internal/veiculos"
@@ -42,6 +43,10 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService) server.Handlers {
 	clienteHandler := clientes.NewClienteHandler(clienteSvc)
 	vinculoHandler := clientes.NewVinculoHandler(vinculoSvc)
 
+	reservaStore := reservas.NewReservaStore(pool)
+	reservaSvc := reservas.NewReservaService(reservaStore)
+	reservaHandler := reservas.NewReservaHandler(reservaSvc)
+
 	return server.Handlers{
 		AdminHandler:       adminHandler,
 		VeiculoHandler:     veiculoHandler,
@@ -51,5 +56,6 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService) server.Handlers {
 		MotoristaHandler:   motoristaHandler,
 		ClienteHandler:     clienteHandler,
 		VinculoHandler:     vinculoHandler,
+		ReservaHandler:     reservaHandler,
 	}
 }
