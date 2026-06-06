@@ -163,6 +163,7 @@ type PlanejamentoService interface {
 type ViagemService interface {
 	GetByID(ctx context.Context, viagemID int64) (*ViagemComCiclo, error)
 	List(ctx context.Context) ([]ViagemComCiclo, error)
+	ListHorariosByViagem(ctx context.Context, viagemID int64) ([]ViagemHorario, error)
 	Iniciar(ctx context.Context, viagemID int64) (*Viagem, error)
 	Concluir(ctx context.Context, viagemID int64) (*Viagem, error)
 	Cancelar(ctx context.Context, viagemID int64) (*Viagem, error)

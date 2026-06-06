@@ -8,6 +8,7 @@ packages:
       filename: adminmocks.go
     interfaces:
       AdminStore:
+      AdminService:
 
   github.com/fredsaggio/bondrota-api/internal/clientes:
     config:
@@ -25,6 +26,7 @@ packages:
       filename: motoristasmocks.go
     interfaces:
       MotoristaStore:
+      MotoristaService:
 
   github.com/fredsaggio/bondrota-api/internal/reservas:
     config:
@@ -42,6 +44,7 @@ packages:
       filename: rotasinternasmocks.go
     interfaces:
       RotaInternaStore:
+      RotaInternaService:
 
   github.com/fredsaggio/bondrota-api/internal/veiculos:
     config:
@@ -66,3 +69,21 @@ packages:
       filename: destinosmocks.go
     interfaces:
       DestinoStore:
+
+  github.com/fredsaggio/bondrota-api/internal/viagens:
+    config:
+      dir: internal/mocks
+      pkgname: mocks
+      filename: viagensmocks.go
+    interfaces:
+      ViagemStore:
+      ViagemService:
+
+  github.com/fredsaggio/bondrota-api/internal/rotasdinamicas:
+    config:
+      dir: internal/mocks
+      pkgname: mocks
+      filename: rotasdinamicasmocks.go
+    interfaces:
+      RotaDinamicaStore:
+      RotaDinamicaService:

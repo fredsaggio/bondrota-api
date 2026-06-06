@@ -179,13 +179,17 @@ func TestService_GetByID(t *testing.T) {
 		{
 			name:      "sucesso",
 			reservaID: 1,
-			setup:     func(st *mocks.MockReservaStore) { st.EXPECT().GetByID(mock.Anything, int64(1)).Return(sampleReserva(), nil) },
+			setup: func(st *mocks.MockReservaStore) {
+				st.EXPECT().GetByID(mock.Anything, int64(1)).Return(sampleReserva(), nil)
+			},
 		},
 		{
 			name:      "não encontrado",
 			reservaID: 99,
-			setup:     func(st *mocks.MockReservaStore) { st.EXPECT().GetByID(mock.Anything, int64(99)).Return(nil, reservas.ErrReservaNotFound) },
-			wantErr:   reservas.ErrReservaNotFound,
+			setup: func(st *mocks.MockReservaStore) {
+				st.EXPECT().GetByID(mock.Anything, int64(99)).Return(nil, reservas.ErrReservaNotFound)
+			},
+			wantErr: reservas.ErrReservaNotFound,
 		},
 	}
 
@@ -339,8 +343,10 @@ func TestService_Delete(t *testing.T) {
 		{
 			name:      "não encontrado",
 			reservaID: 99,
-			setup:     func(st *mocks.MockReservaStore) { st.EXPECT().Delete(mock.Anything, int64(99)).Return(reservas.ErrReservaNotFound) },
-			wantErr:   reservas.ErrReservaNotFound,
+			setup: func(st *mocks.MockReservaStore) {
+				st.EXPECT().Delete(mock.Anything, int64(99)).Return(reservas.ErrReservaNotFound)
+			},
+			wantErr: reservas.ErrReservaNotFound,
 		},
 	}
 

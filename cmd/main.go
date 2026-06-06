@@ -79,7 +79,8 @@ func Run(ctx context.Context, getEnv func(string) string) error {
 
 	slog.Info("database connected")
 
-	srv := server.NewServer(buildHandlers(pool, authSvc), authSvc)
+	handlers, rotaDinamicaWorker := buildHandlers(pool, authSvc)
+	srv := server.NewServer(handlers, authSvc)
 	apiRouter := chi.NewRouter()
 	srv.RegisterRoutes(apiRouter)
 	r.Mount("/api/v1", apiRouter)
@@ -93,6 +94,13 @@ func Run(ctx context.Context, getEnv func(string) string) error {
 		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			return fmt.Errorf("server error: %w", err)
 		}
+		return nil
+	})
+
+	g.Go(func() error {
+		slog.Info("dynamic route worker started")
+		rotaDinamicaWorker.Run(ctx)
+		slog.Info("dynamic route worker stopped")
 		return nil
 	})
 

@@ -238,14 +238,14 @@ func collectRotas(rows pgx.Rows) ([]RotaInterna, error) {
 
 	for rows.Next() {
 		var (
-			rid    int64
-			cidade string
-			pID    *int64
-			pNome  *string
-			pLat   *float64
-			pLng   *float64
+			rid     int64
+			cidade  string
+			pID     *int64
+			pNome   *string
+			pLat    *float64
+			pLng    *float64
 			pCidade *string
-			pOrdem *int
+			pOrdem  *int
 		)
 		if err := rows.Scan(&rid, &cidade, &pID, &pNome, &pLat, &pLng, &pCidade, &pOrdem); err != nil {
 			return nil, err

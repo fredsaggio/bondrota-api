@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/fredsaggio/bondrota-api/internal/brerror"
 	"github.com/fredsaggio/bondrota-api/internal/conv"
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
 )
@@ -19,16 +20,17 @@ func NewVeiculoHandler(store VeiculoStore) *VeiculoHandler {
 }
 
 type CreateVeiculoRequest struct {
-	Placa          string        `json:"placa"`
-	Modelo         string        `json:"modelo"`
-	Capacidade     int16         `json:"capacidade"`
-	CidadeBase     string        `json:"cidade_base"`
-	Status         StatusVeiculo `json:"status"`
-	ArCondicionado bool          `json:"ar_condicionado"`
-	Banheiro       bool          `json:"banheiro"`
-	Persiana       bool          `json:"persiana"`
-	LuzLeitura     bool          `json:"luz_leitura"`
-	Tomada         bool          `json:"tomada"`
+	Placa          string           `json:"placa"`
+	Modelo         string           `json:"modelo"`
+	Categoria      CategoriaVeiculo `json:"categoria"`
+	Capacidade     int16            `json:"capacidade"`
+	CidadeBase     string           `json:"cidade_base"`
+	Status         StatusVeiculo    `json:"status"`
+	ArCondicionado bool             `json:"ar_condicionado"`
+	Banheiro       bool             `json:"banheiro"`
+	Persiana       bool             `json:"persiana"`
+	LuzLeitura     bool             `json:"luz_leitura"`
+	Tomada         bool             `json:"tomada"`
 }
 
 type CreateVeiculoResponse struct {
@@ -36,30 +38,32 @@ type CreateVeiculoResponse struct {
 }
 
 type VeiculoResponse struct {
-	ID             int64         `json:"id"`
-	Placa          string        `json:"placa"`
-	Modelo         string        `json:"modelo"`
-	Capacidade     int16         `json:"capacidade"`
-	CidadeBase     string        `json:"cidade_base"`
-	Status         StatusVeiculo `json:"status"`
-	ArCondicionado bool          `json:"ar_condicionado"`
-	Banheiro       bool          `json:"banheiro"`
-	Persiana       bool          `json:"persiana"`
-	LuzLeitura     bool          `json:"luz_leitura"`
-	Tomada         bool          `json:"tomada"`
+	ID             int64            `json:"id"`
+	Placa          string           `json:"placa"`
+	Modelo         string           `json:"modelo"`
+	Categoria      CategoriaVeiculo `json:"categoria"`
+	Capacidade     int16            `json:"capacidade"`
+	CidadeBase     string           `json:"cidade_base"`
+	Status         StatusVeiculo    `json:"status"`
+	ArCondicionado bool             `json:"ar_condicionado"`
+	Banheiro       bool             `json:"banheiro"`
+	Persiana       bool             `json:"persiana"`
+	LuzLeitura     bool             `json:"luz_leitura"`
+	Tomada         bool             `json:"tomada"`
 }
 
 type UpdateVeiculoRequest struct {
-	Placa          string        `json:"placa"`
-	Modelo         string        `json:"modelo"`
-	Capacidade     int16         `json:"capacidade"`
-	CidadeBase     string        `json:"cidade_base"`
-	Status         StatusVeiculo `json:"status"`
-	ArCondicionado bool          `json:"ar_condicionado"`
-	Banheiro       bool          `json:"banheiro"`
-	Persiana       bool          `json:"persiana"`
-	LuzLeitura     bool          `json:"luz_leitura"`
-	Tomada         bool          `json:"tomada"`
+	Placa          string           `json:"placa"`
+	Modelo         string           `json:"modelo"`
+	Categoria      CategoriaVeiculo `json:"categoria"`
+	Capacidade     int16            `json:"capacidade"`
+	CidadeBase     string           `json:"cidade_base"`
+	Status         StatusVeiculo    `json:"status"`
+	ArCondicionado *bool            `json:"ar_condicionado"`
+	Banheiro       *bool            `json:"banheiro"`
+	Persiana       *bool            `json:"persiana"`
+	LuzLeitura     *bool            `json:"luz_leitura"`
+	Tomada         *bool            `json:"tomada"`
 }
 
 func (h *VeiculoHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -70,10 +74,15 @@ func (h *VeiculoHandler) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
+	if err := ValidateCategoriaCapacidade(req.Categoria, req.Capacidade); err != nil {
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
 
 	veiculo, err := h.store.Create(ctx, VeiculoInput{
 		Placa:          req.Placa,
 		Modelo:         req.Modelo,
+		Categoria:      req.Categoria,
 		Capacidade:     req.Capacidade,
 		CidadeBase:     req.CidadeBase,
 		Status:         req.Status,
@@ -156,6 +165,10 @@ func (h *VeiculoHandler) Update(w http.ResponseWriter, r *http.Request) {
 			v.Modelo = req.Modelo
 			changed = true
 		}
+		if req.Categoria != "" && req.Categoria != v.Categoria {
+			v.Categoria = req.Categoria
+			changed = true
+		}
 		if req.Capacidade > 0 && req.Capacidade != v.Capacidade {
 			v.Capacidade = req.Capacidade
 			changed = true
@@ -168,31 +181,38 @@ func (h *VeiculoHandler) Update(w http.ResponseWriter, r *http.Request) {
 			v.Status = req.Status
 			changed = true
 		}
-		if req.ArCondicionado != v.ArCondicionado {
-			v.ArCondicionado = req.ArCondicionado
+		if req.ArCondicionado != nil && *req.ArCondicionado != v.ArCondicionado {
+			v.ArCondicionado = *req.ArCondicionado
 			changed = true
 		}
-		if req.Banheiro != v.Banheiro {
-			v.Banheiro = req.Banheiro
+		if req.Banheiro != nil && *req.Banheiro != v.Banheiro {
+			v.Banheiro = *req.Banheiro
 			changed = true
 		}
-		if req.Persiana != v.Persiana {
-			v.Persiana = req.Persiana
+		if req.Persiana != nil && *req.Persiana != v.Persiana {
+			v.Persiana = *req.Persiana
 			changed = true
 		}
-		if req.LuzLeitura != v.LuzLeitura {
-			v.LuzLeitura = req.LuzLeitura
+		if req.LuzLeitura != nil && *req.LuzLeitura != v.LuzLeitura {
+			v.LuzLeitura = *req.LuzLeitura
 			changed = true
 		}
-		if req.Tomada != v.Tomada {
-			v.Tomada = req.Tomada
+		if req.Tomada != nil && *req.Tomada != v.Tomada {
+			v.Tomada = *req.Tomada
 			changed = true
+		}
+		if err := ValidateCategoriaCapacidade(v.Categoria, v.Capacidade); err != nil {
+			return false, err
 		}
 		return changed, nil
 	})
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			http.Error(w, "veiculo not found", http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, brerror.ErrInvalidInput) {
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
 		slog.Error("failed to update veiculo", "error", err)
@@ -231,6 +251,7 @@ func toVeiculoResponse(v *Veiculo) VeiculoResponse {
 		ID:             v.ID,
 		Placa:          v.Placa,
 		Modelo:         v.Modelo,
+		Categoria:      v.Categoria,
 		Capacidade:     v.Capacidade,
 		CidadeBase:     v.CidadeBase,
 		Status:         v.Status,

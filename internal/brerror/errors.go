@@ -13,6 +13,9 @@ var (
 	// but no valid credentials were provided.
 	ErrUnauthenticated = errors.New("unauthenticated")
 
+	// ErrInvalidInput indicates that the input failed application-level validation.
+	ErrInvalidInput = errors.New("invalid input")
+
 	// ErrResourceInUse indicates the resource is in use and has dependent records.
 	ErrResourceInUse = errors.New("resource is still in use and has dependants")
 )

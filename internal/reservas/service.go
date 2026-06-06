@@ -6,11 +6,16 @@ import (
 )
 
 type reservaService struct {
-	store ReservaStore
+	store           ReservaStore
+	rotaInvalidator RotaDinamicaInvalidator
 }
 
-func NewReservaService(store ReservaStore) ReservaService {
-	return &reservaService{store: store}
+func NewReservaService(store ReservaStore, rotaInvalidator ...RotaDinamicaInvalidator) ReservaService {
+	s := &reservaService{store: store}
+	if len(rotaInvalidator) > 0 {
+		s.rotaInvalidator = rotaInvalidator[0]
+	}
+	return s
 }
 
 func (s *reservaService) Create(ctx context.Context, input ReservaInput) (*Reserva, error) {
@@ -64,7 +69,7 @@ func (s *reservaService) ListByVinculo(ctx context.Context, clienteID, vinculoID
 }
 
 func (s *reservaService) Update(ctx context.Context, reservaID int64, updateFunc func(*Reserva) (bool, error)) (*Reserva, error) {
-	return s.store.Update(ctx, reservaID, func(r *Reserva) (bool, error) {
+	reserva, err := s.store.Update(ctx, reservaID, func(r *Reserva) (bool, error) {
 		changed, err := updateFunc(r)
 		if err != nil || !changed {
 			return changed, err
@@ -74,16 +79,30 @@ func (s *reservaService) Update(ctx context.Context, reservaID int64, updateFunc
 		}
 		return true, nil
 	})
+	if err != nil {
+		return nil, err
+	}
+	if err := s.invalidarRotaDinamicaPorReserva(ctx, reserva.ID); err != nil {
+		return nil, err
+	}
+	return reserva, nil
 }
 
 func (s *reservaService) Cancel(ctx context.Context, reservaID int64) (*Reserva, error) {
-	return s.store.Update(ctx, reservaID, func(r *Reserva) (bool, error) {
+	reserva, err := s.store.Update(ctx, reservaID, func(r *Reserva) (bool, error) {
 		if r.Status == StatusCancelada {
 			return false, nil
 		}
 		r.Status = StatusCancelada
 		return true, nil
 	})
+	if err != nil {
+		return nil, err
+	}
+	if err := s.invalidarRotaDinamicaPorReserva(ctx, reserva.ID); err != nil {
+		return nil, err
+	}
+	return reserva, nil
 }
 
 func (s *reservaService) Delete(ctx context.Context, reservaID int64) error {
@@ -166,4 +185,11 @@ func isValidStatus(status StatusReserva) bool {
 
 func sameDate(a, b time.Time) bool {
 	return a.Format("2006-01-02") == b.Format("2006-01-02")
+}
+
+func (s *reservaService) invalidarRotaDinamicaPorReserva(ctx context.Context, reservaID int64) error {
+	if s.rotaInvalidator == nil {
+		return nil
+	}
+	return s.rotaInvalidator.InvalidarPorReserva(ctx, reservaID)
 }

@@ -56,6 +56,15 @@ type ViagemComCicloResponse struct {
 	Ciclo  CicloViagemResponse `json:"ciclo"`
 }
 
+type ViagemHorarioResponse struct {
+	ID        int64             `json:"id"`
+	ViagemID  int64             `json:"viagem_id"`
+	Tipo      TipoHorarioViagem `json:"tipo"`
+	Horario   string            `json:"horario"`
+	CreatedAt string            `json:"created_at"`
+	UpdatedAt string            `json:"updated_at"`
+}
+
 type ViagemReservaResponse struct {
 	ID             int64                `json:"id"`
 	ViagemID       int64                `json:"viagem_id"`
@@ -150,6 +159,22 @@ func (h *ViagemHandler) Cancelar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httputils.Respond(w, http.StatusOK, toViagemResponse(viagem))
+}
+
+func (h *ViagemHandler) ListHorarios(w http.ResponseWriter, r *http.Request) {
+	viagemID, err := conv.ParseInt(r, "viagemID")
+	if err != nil {
+		http.Error(w, "invalid viagem id", http.StatusBadRequest)
+		return
+	}
+
+	horarios, err := h.viagemSvc.ListHorariosByViagem(r.Context(), viagemID)
+	if err != nil {
+		h.handleError(w, err, "failed to list viagem horarios")
+		return
+	}
+
+	httputils.Respond(w, http.StatusOK, toViagemHorarioResponses(horarios))
 }
 
 func (h *ViagemHandler) ListReservas(w http.ResponseWriter, r *http.Request) {
@@ -257,6 +282,25 @@ func toCicloViagemResponse(c *CicloViagem) CicloViagemResponse {
 		ExpiresAt:     c.ExpiresAt.Format(time.RFC3339),
 		CreatedAt:     c.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:     c.UpdatedAt.Format(time.RFC3339),
+	}
+}
+
+func toViagemHorarioResponses(horarios []ViagemHorario) []ViagemHorarioResponse {
+	resp := make([]ViagemHorarioResponse, 0, len(horarios))
+	for _, horario := range horarios {
+		resp = append(resp, toViagemHorarioResponse(&horario))
+	}
+	return resp
+}
+
+func toViagemHorarioResponse(h *ViagemHorario) ViagemHorarioResponse {
+	return ViagemHorarioResponse{
+		ID:        h.ID,
+		ViagemID:  h.ViagemID,
+		Tipo:      h.Tipo,
+		Horario:   h.Horario.Format(time.RFC3339),
+		CreatedAt: h.CreatedAt.Format(time.RFC3339),
+		UpdatedAt: h.UpdatedAt.Format(time.RFC3339),
 	}
 }
 
