@@ -1307,6 +1307,8 @@ GET /clientes/{clienteID}/vinculos/
 GET /clientes/{clienteID}/vinculos/{vinculoID}
 PUT /clientes/{clienteID}/vinculos/{vinculoID}
 DELETE /clientes/{clienteID}/vinculos/{vinculoID}
+POST /clientes/{clienteID}/vinculos/{vinculoID}/reservas/
+GET /clientes/{clienteID}/vinculos/{vinculoID}/reservas/
 ```
 
 Use `GET /clientes/{clienteID}/vinculos/` quando a tela precisar escolher apenas um vinculo. Use `GET /clientes/{clienteID}` quando precisar do cliente completo com seus vinculos e horarios. Quando a rota recebe `clienteID` e `vinculoID`, a API valida se o vinculo pertence ao cliente informado. Se nao pertencer, retorna `404 Not Found`.
@@ -1315,9 +1317,113 @@ Use `GET /clientes/{clienteID}/vinculos/` quando a tela precisar escolher apenas
 
 ## Reservas
 
-> **Status:** 🔄 Em desenvolvimento
+Endpoints para gerenciar reservas feitas pelos clientes.
 
-Endpoints para gerenciar reservas de viagens.
+Reservas copiam dados operacionais do vinculo no momento da criacao: `cliente_id`, `destino_id`, `rota_interna_id`, `cidade` e `turno`. Para vinculos integrais (`IN`), o campo `turno` deve ser informado como `MT`, `VT` ou `NT`.
+
+### POST /clientes/{clienteID}/vinculos/{vinculoID}/reservas/ - Criar reserva
+
+```http
+POST /clientes/1/vinculos/5/reservas/ HTTP/1.1
+Host: localhost:8080
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "data_viagem": "2026-06-10",
+  "turno": "NT",
+  "sentido": "ida"
+}
+```
+
+O status da reserva nasce como `confirmada` pelo default do banco. O create nao recebe `status`.
+
+O `clienteID` e o `vinculoID` vem da URL. O body nao recebe `vinculo_id`.
+
+**Response:** `201 Created`
+
+```json
+{
+  "id": 1,
+  "cliente_id": 1,
+  "vinculo_id": 5,
+  "data_viagem": "2026-06-10",
+  "turno": "NT",
+  "destino_id": 1,
+  "rota_interna_id": 1,
+  "cidade": "maceio",
+  "sentido": "ida",
+  "status": "confirmada",
+  "created_at": "2026-06-05T19:10:00-03:00",
+  "updated_at": "2026-06-05T19:10:00-03:00"
+}
+```
+
+### GET /reservas/ - Listar reservas
+
+```http
+GET /reservas/ HTTP/1.1
+Host: localhost:8080
+Authorization: Bearer <token>
+```
+
+### GET /reservas/{reservaID} - Buscar reserva por ID
+
+```http
+GET /reservas/1 HTTP/1.1
+Host: localhost:8080
+Authorization: Bearer <token>
+```
+
+### GET /clientes/{clienteID}/reservas/ - Listar reservas do cliente
+
+```http
+GET /clientes/1/reservas/ HTTP/1.1
+Host: localhost:8080
+Authorization: Bearer <token>
+```
+
+### GET /clientes/{clienteID}/vinculos/{vinculoID}/reservas/ - Listar reservas do vínculo
+
+```http
+GET /clientes/1/vinculos/5/reservas/ HTTP/1.1
+Host: localhost:8080
+Authorization: Bearer <token>
+```
+
+### PUT /reservas/{reservaID} - Atualizar reserva
+
+```http
+PUT /reservas/1 HTTP/1.1
+Host: localhost:8080
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "data_viagem": "2026-06-11",
+  "turno": "NT",
+  "sentido": "volta",
+  "status": "confirmada"
+}
+```
+
+### POST /reservas/{reservaID}/cancelar - Cancelar reserva
+
+```http
+POST /reservas/1/cancelar HTTP/1.1
+Host: localhost:8080
+Authorization: Bearer <token>
+```
+
+### DELETE /reservas/{reservaID} - Remover reserva
+
+```http
+DELETE /reservas/1 HTTP/1.1
+Host: localhost:8080
+Authorization: Bearer <token>
+```
+
+**Response:** `204 No Content`
 
 ---
 
@@ -1350,4 +1456,4 @@ Content-Type: application/json (para requisições com body)
 
 ---
 
-**Última atualização:** 04/06/2026
+**Última atualização:** 05/06/2026

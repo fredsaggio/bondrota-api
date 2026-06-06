@@ -33,6 +33,7 @@ packages:
       filename: reservasmocks.go
     interfaces:
       ReservaStore:
+      ReservaService:
 
   github.com/fredsaggio/bondrota-api/internal/rotasinternas:
     config:

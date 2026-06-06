@@ -4,9 +4,9 @@ Documento criado em 2026-06-05 com base nas migrations atuais em `internal/db/mi
 
 ## Resumo executivo
 
-Hoje o banco ja cobre a base administrativa do sistema: administradores, veiculos, motoristas, destinos, paradas, rotas internas, clientes, vinculos dos clientes e horarios fixos.
+Hoje o banco ja cobre a base administrativa do sistema: administradores, veiculos, motoristas, destinos, paradas, rotas internas, clientes, vinculos dos clientes, horarios fixos e reservas.
 
-Ainda nao existem migrations nem endpoints funcionais para `reservas`, `viagens` e `rotas dinamicas`. As pastas `internal/reservas` e `internal/viagens` existem, mas os arquivos estao praticamente vazios e esses handlers nao sao registrados no servidor.
+Ja existem migration e endpoints funcionais para `reservas`. Ainda nao existem migrations nem endpoints funcionais para `viagens` e `rotas dinamicas`. A pasta `internal/viagens` existe, mas os arquivos estao praticamente vazios e esses handlers nao sao registrados no servidor.
 
 Para as rotas inteligentes, a melhor decisao e persistir o resultado no banco. Redis pode ser usado depois como cache auxiliar, mas nao deve ser a fonte principal da rota, porque o motorista e o aluno precisam conseguir consultar a viagem planejada mesmo se um cache cair. A rota calculada deve virar dado persistido com prazo de expiracao.
 
@@ -140,11 +140,11 @@ erDiagram
 
 `paradas` sao os locais presentes dentro de uma rota interna. Elas representam onde o veiculo passa para pegar alunos na ida e onde passa para deixar alunos na volta. Hoje o sistema nao persiste exatamente em qual parada cada aluno embarca perto de casa. O que fica persistido no vinculo do aluno e o `destino_id`, ou seja, a faculdade/destino onde ele desembarca na ida e embarca na volta.
 
-`rotas_internas` nao sao as rotas inteligentes dinamicas. Elas representam uma rota base por cidade com paradas ordenadas. A rota dinamica ainda precisa ser criada e deve usar reservas reais, turno, capacidade, veiculo, motorista, destinos e as paradas das rotas internas envolvidas.
+`rotas_internas` nao sao as rotas inteligentes dinamicas. Elas representam uma rota base por cidade com paradas ordenadas. A rota dinamica ainda precisa ser criada e deve usar reservas reais, turno, cidade, capacidade, veiculo, motorista, destinos e as paradas das rotas internas envolvidas.
 
-`veiculos` ja tem a informacao principal para alocacao inteligente: `capacidade`, `cidade_base` e `status`. Hoje o modelo do veiculo ja permite diferenciar uma van de um onibus pelo `modelo` e pela `capacidade`; uma coluna futura `categoria` pode ajudar na interface, mas nao e obrigatoria para o algoritmo.
+`veiculos` ja tem a informacao principal para alocacao inteligente: `capacidade`, `cidade_base` e `status`. O admin nao deve escolher manualmente qual unidade do veiculo vai sair em cada viagem. Ele controla o cadastro e o status. O planejador escolhe automaticamente entre os veiculos ativos da cidade, priorizando capacidade adequada. Hoje o modelo do veiculo ja permite diferenciar uma van de um onibus pelo `modelo` e pela `capacidade`; uma coluna futura `categoria` pode ajudar na interface, mas nao e obrigatoria para o algoritmo.
 
-`motoristas` ja tem `turno` e `cidade_trabalho`, que podem ser usados para filtrar quem pode dirigir uma viagem planejada.
+`motoristas` ja tem `turno`, `cidade_trabalho` e `residencia`, que podem ajudar a filtrar quem pode dirigir uma viagem planejada. Para o MVP, recomendo usar `cidade_trabalho` como cidade operacional do motorista, porque `residencia` pode ser apenas onde ele mora. Se a regra do produto for que a residencia define a cidade base do motorista, vale renomear ou documentar isso depois para evitar ambiguidade. Nao recomendo adicionar destino/faculdade no motorista agora, porque isso aumentaria a refatoracao e nao e necessario para calcular as primeiras viagens.
 
 ## Status dos endpoints atuais
 
@@ -163,7 +163,7 @@ Observacao importante: as rotas de colecao foram registradas com `/` dentro de c
 | Motoristas | `POST /motoristas/login`, `POST /motoristas/`, `GET /motoristas/`, `GET /motoristas/{id}`, `PUT /motoristas/{id}`, `DELETE /motoristas/{id}` |
 | Clientes | `POST /clientes/login`, `POST /clientes/`, `GET /clientes/`, `GET /clientes/{clienteID}`, `PUT /clientes/{clienteID}`, `DELETE /clientes/{clienteID}` |
 | Cliente vinculos | `POST /clientes/{clienteID}/vinculos/`, `GET /clientes/{clienteID}/vinculos/`, `GET /clientes/{clienteID}/vinculos/{vinculoID}`, `PUT /clientes/{clienteID}/vinculos/{vinculoID}`, `DELETE /clientes/{clienteID}/vinculos/{vinculoID}` |
-| Reservas | Nao implementado |
+| Reservas | `POST /clientes/{clienteID}/vinculos/{vinculoID}/reservas/`, `GET /clientes/{clienteID}/vinculos/{vinculoID}/reservas/`, `GET /clientes/{clienteID}/reservas/`, `GET /reservas/`, `GET /reservas/{reservaID}`, `PUT /reservas/{reservaID}`, `POST /reservas/{reservaID}/cancelar`, `DELETE /reservas/{reservaID}` |
 | Viagens | Nao implementado |
 | Rotas dinamicas | Nao implementado |
 
@@ -446,22 +446,26 @@ reservas (
   turno,
   destino_id, -- faculdade/destino: desembarque na ida e embarque na volta
   rota_interna_id,
+  cidade,
   sentido, -- ida, volta
-  status, -- pendente, confirmada, alocada, cancelada
-  observacao,
+  status, -- confirmada, cancelada
   created_at,
   updated_at
 )
 ```
 
-Regras recomendadas:
+Essa estrutura foi implementada em `internal/db/migrations/00009_create_reservas.sql`. A coluna `cidade` tambem foi persistida como snapshot operacional da rota interna, para facilitar o agrupamento futuro do planejador por cidade.
+
+Regras implementadas/recomendadas:
 
 - Uma reserva deve copiar `destino_id`, `rota_interna_id`, `turno` e `sentido` no momento da criacao. Isso preserva o historico caso o aluno altere o cadastro depois.
+- A criacao da reserva e aninhada no vinculo: `POST /clientes/{clienteID}/vinculos/{vinculoID}/reservas/`. O body nao recebe `vinculo_id`.
 - `destino_id` e a faculdade/destino do aluno. Nao e a parada residencial.
 - A parada especifica onde o aluno embarca perto de casa nao fica persistida.
 - Deve existir uma restricao para evitar duas reservas ativas do mesmo vinculo no mesmo dia, turno e sentido.
-- A reserva comeca como `confirmada` ou `pendente`, dependendo da regra de negocio.
-- Quando o planejador alocar a reserva em uma viagem, ela passa para `alocada`.
+- A reserva nasce como `confirmada` pelo default do banco.
+- A reserva pode virar `cancelada`.
+- Quando o planejador alocar a reserva em uma viagem, isso deve aparecer em `viagem_reservas`, nao no status da reserva.
 
 ### 3. Rotas dinamicas
 
@@ -512,7 +516,9 @@ Duplicar rotas iguais em turnos ou horarios diferentes e aceitavel e ate recomen
 
 ### 4. Viagens
 
-Viagem e a execucao planejada ou realizada de uma rota dinamica por um veiculo e um motorista.
+Viagem nao e apenas historico ou log. Ela e o objeto operacional ativo durante a execucao. Enquanto o veiculo esta rodando, a viagem fica `em_andamento`, o motorista pode atualizar presencas pelo app, e o sistema consegue mostrar para aluno/admin o que esta acontecendo.
+
+Viagem e a execucao planejada ou realizada de uma rota dinamica por um veiculo e um motorista. A atribuicao de `veiculo_id` e `motorista_id` deve ser automatica, feita pelo planejador, nao escolhida manualmente pelo admin.
 
 Campos sugeridos:
 
@@ -532,6 +538,7 @@ viagens (
   qtd_passageiros_real,
   km_previsto,
   km_real,
+  alocada_em,
   expires_at,
   created_at,
   updated_at
@@ -546,9 +553,22 @@ viagem_reservas (
   viagem_id,
   reserva_id,
   status_presenca, -- aguardando, embarcou, faltou, cancelado
-  horario_confirmacao
+  horario_confirmacao,
+  created_at,
+  updated_at
 )
 ```
+
+Quando uma viagem e criada, o sistema deve criar automaticamente uma linha em `viagem_reservas` para cada reserva alocada naquela viagem, iniciando com `status_presenca = 'aguardando'`.
+
+Estados sugeridos de presenca:
+
+- `aguardando`: reserva alocada na viagem, mas o aluno ainda nao embarcou.
+- `embarcou`: motorista confirmou que o aluno embarcou.
+- `faltou`: aluno nao apareceu ou nao embarcou.
+- `cancelado`: reserva saiu da viagem antes ou durante a operacao.
+
+Essa tabela permite saber quantos alunos estavam previstos e quantos realmente foram. `viagens.qtd_passageiros_prevista` pode ser calculado pela quantidade de reservas alocadas; `viagens.qtd_passageiros_real` pode ser calculado pela quantidade de registros com `status_presenca = 'embarcou'`.
 
 Com essa relacao, o aluno consegue saber qual veiculo e motorista ira pegar fazendo o caminho:
 
@@ -636,6 +656,8 @@ Fluxo recomendado:
 5. Se nao cabem em um veiculo, divida as reservas em grupos.
 6. Evite dividir alunos da mesma rota interna ou do mesmo destino quando houver veiculo suficiente.
 7. Aloque motorista compativel com cidade e turno.
+8. Crie a viagem com o `veiculo_id` e `motorista_id` escolhidos automaticamente.
+9. Crie os registros em `viagem_reservas` para todas as reservas daquele grupo.
 
 Exemplos:
 
@@ -649,6 +671,29 @@ Para o MVP, um algoritmo `first-fit decreasing` ja resolve bem:
 2. Ordenar grupos do maior para o menor.
 3. Colocar cada grupo no menor veiculo que ainda tem capacidade.
 4. Se nao couber, abrir outro veiculo.
+
+### Alocacao automatica de motorista e veiculo
+
+O admin nao deve escolher manualmente o motorista nem a unidade especifica do veiculo para cada viagem. O papel do admin no MVP deve ser manter os cadastros corretos: veiculos ativos/inativos, capacidade, cidade base, motoristas ativos, cidade de trabalho e turno.
+
+Fluxo recomendado para veiculos:
+
+1. Filtrar por `veiculos.status = 'ativo'`.
+2. Filtrar por `veiculos.cidade_base = cidade` da rota/reservas.
+3. Remover veiculos ja alocados em outra viagem conflitante no mesmo dia, turno e janela de horario.
+4. Escolher o menor veiculo que comporta o grupo de reservas.
+5. Se houver empate entre veiculos equivalentes, escolher de forma deterministica, por exemplo menor `id`, ou por uma regra futura de rodizio. Escolha aleatoria tambem funciona no MVP, desde que o resultado seja persistido em `viagens.veiculo_id`.
+
+Fluxo recomendado para motoristas:
+
+1. Filtrar por turno compativel com a viagem.
+2. Filtrar por cidade operacional. Para o modelo atual, usar `cidade_trabalho`. Se o produto decidir que `residencia` e a cidade base real do motorista, documentar essa regra ou ajustar o nome da coluna depois.
+3. Remover motoristas ja alocados em outra viagem conflitante no mesmo dia, turno e janela de horario.
+4. Escolher um motorista disponivel. No MVP pode ser menor `id` ou aleatorio entre disponiveis; depois pode virar rodizio por quantidade de viagens.
+
+Nao recomendo filtrar motorista por destino/faculdade agora. Isso exigiria persistir uma relacao nova entre motorista e destinos atendidos, mas a regra principal da operacao parece ser cidade + turno + disponibilidade. Se no futuro alguns motoristas so puderem atender certas faculdades, ai faria sentido criar algo como `motorista_destinos`.
+
+Depois que o planejador escolhe veiculo e motorista, esses IDs ficam persistidos na viagem. Assim, mesmo que o algoritmo mude depois, aquela viagem continua dizendo exatamente qual unidade foi escalada e qual motorista foi atribuido.
 
 ### Ordem das paradas e destinos
 
@@ -723,7 +768,7 @@ Minha recomendacao e salvar:
 - geometria GeoJSON
 - distancia e duracao estimadas
 - reservas alocadas
-- motorista e veiculo
+- motorista e veiculo escolhidos automaticamente
 - horario previsto
 
 Limpeza:
@@ -758,12 +803,13 @@ Eu manteria `reservas` por mais tempo ou pelo menos avaliaria antes de apagar. R
 Reservas:
 
 ```text
-POST   /reservas/
+POST   /clientes/{clienteID}/vinculos/{vinculoID}/reservas/
+GET    /clientes/{clienteID}/vinculos/{vinculoID}/reservas/
+GET    /clientes/{clienteID}/reservas/
 GET    /reservas/
 GET    /reservas/{id}
 PUT    /reservas/{id}
 POST   /reservas/{id}/cancelar
-GET    /clientes/{clienteID}/reservas
 ```
 
 Rotas dinamicas:
@@ -786,6 +832,7 @@ POST   /viagens/{id}/iniciar
 POST   /viagens/{id}/concluir
 POST   /viagens/{id}/cancelar
 POST   /viagens/{id}/embarques/{reservaID}
+POST   /viagens/{id}/faltas/{reservaID}
 ```
 
 Para o aluno, um endpoint muito util:
@@ -794,14 +841,14 @@ Para o aluno, um endpoint muito util:
 GET /minhas-reservas?data=2026-06-05
 ```
 
-Esse endpoint deve retornar a reserva ja com dados da viagem quando ela estiver alocada:
+Esse endpoint deve retornar a reserva com dados da viagem quando existir uma relacao em `viagem_reservas`:
 
 ```json
 {
   "id": 10,
   "data_viagem": "2026-06-05",
   "turno": "NT",
-  "status": "alocada",
+  "status": "confirmada",
   "viagem": {
     "id": 3,
     "status": "programada",
@@ -823,22 +870,19 @@ Esse endpoint deve retornar a reserva ja com dados da viagem quando ela estiver 
 
 ## Proximos passos mapeados
 
-1. Formalizar no codigo e na documentacao que `destinos` sao faculdades ou locais finais, nao paradas de embarque residencial.
-2. Criar migrations de `reservas`, `rotas_dinamicas`, `rota_dinamica_paradas`, `viagens` e `viagem_reservas`.
-3. Fazer `reservas.destino_id` copiar a faculdade/destino do vinculo e `reservas.rota_interna_id` copiar a rota interna do vinculo.
-4. Definir enums de status para reservas, rotas dinamicas e viagens.
-5. Implementar repositories, services e handlers de reservas.
-6. Implementar repositories, services e handlers de viagens.
-7. Criar um `RoutePlannerService` separado para calcular rotas dinamicas.
-8. Criar cliente HTTP para OSRM com timeout, User-Agent proprio e tratamento de erro.
-9. Usar Nominatim somente no cadastro ou atualizacao de endereco, sempre com cache/persistencia da coordenada.
-10. Registrar os novos handlers em `cmd/dependencies.go` e `internal/server/server.go`.
-11. Implementar endpoint de calculo/publicacao de rotas por `data + turno + cidade + sentido`.
-12. Implementar worker de limpeza por `expires_at`.
-13. Adicionar testes unitarios para regras de capacidade, turno e validacao.
-14. Adicionar testes de integracao para o fluxo completo: cliente -> vinculo -> reserva -> rota dinamica -> viagem.
-15. Aplicar middleware JWT e regras de papel: admin planeja, motorista executa, cliente consulta suas reservas.
-16. Depois do MVP, avaliar OSRM self-hosted para nao depender do servidor publico.
+1. Criar migrations de `rotas_dinamicas`, `rota_dinamica_paradas`, `viagens` e `viagem_reservas`.
+2. Criar o modelo de `viagem_reservas` junto com viagens, porque ele e necessario para presenca dos alunos.
+3. Implementar repositories, services e handlers de viagens.
+4. Criar um `RoutePlannerService` separado para calcular rotas dinamicas e fazer alocacao automatica de veiculo/motorista.
+5. Criar cliente HTTP para OSRM com timeout, User-Agent proprio e tratamento de erro.
+6. Usar Nominatim somente no cadastro ou atualizacao de endereco, sempre com cache/persistencia da coordenada.
+7. Registrar os novos handlers em `cmd/dependencies.go` e `internal/server/server.go`.
+8. Implementar endpoint de calculo/publicacao de rotas por `data + turno + cidade + sentido`.
+9. Implementar worker de limpeza por `expires_at`.
+10. Adicionar testes unitarios para regras de capacidade, turno, disponibilidade de veiculo/motorista e validacao.
+11. Adicionar testes de integracao para o fluxo completo: cliente -> vinculo -> reserva -> rota dinamica -> viagem -> viagem_reservas.
+12. Aplicar regras de papel e propriedade: admin gerencia cadastros/planejamento, motorista executa viagens atribuidas, cliente consulta as proprias reservas.
+13. Depois do MVP, avaliar OSRM self-hosted para nao depender do servidor publico.
 
 ## Decisoes recomendadas
 
@@ -854,7 +898,11 @@ Criar uma tabela separada de faculdades antes de rotas dinamicas: nao para o MVP
 
 Calcular rota no momento exato da reserva: possivel, mas pode gerar recalculo demais. Melhor criar reserva e rodar um planejamento por data/turno, com recalculo quando entrar ou sair reserva antes do horario limite.
 
-Aluno saber veiculo/motorista: deve acontecer quando a reserva estiver `alocada`. Antes disso, a API pode retornar `aguardando alocacao`.
+Aluno saber veiculo/motorista: deve acontecer quando existir `viagem_reservas` ligando a reserva a uma viagem. Antes disso, a API pode retornar `aguardando alocacao`.
+
+Admin escolher motorista/veiculo manualmente: nao para o fluxo principal. O sistema deve alocar automaticamente. No futuro pode existir uma acao administrativa de override, mas ela deve ser excecao operacional, nao o comportamento padrao.
+
+Criar `motorista_destinos` agora: nao. Cidade, turno e disponibilidade resolvem o MVP com menos refatoracao.
 
 ## Fontes externas consultadas
 
