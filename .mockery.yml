@@ -8,6 +8,7 @@ packages:
       filename: adminmocks.go
     interfaces:
       AdminStore:
+      AdminService:
 
   github.com/fredsaggio/bondrota-api/internal/clientes:
     config:
@@ -25,6 +26,7 @@ packages:
       filename: motoristasmocks.go
     interfaces:
       MotoristaStore:
+      MotoristaService:
 
   github.com/fredsaggio/bondrota-api/internal/reservas:
     config:
