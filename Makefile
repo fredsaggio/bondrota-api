@@ -86,3 +86,13 @@ migration/down:
 .PHONY: migration/status
 migration/status:
 	@goose -dir internal/db/migrations postgres "$(DATABASE_URL)" status
+
+## test: run unit tests (no DB required)
+.PHONY: test
+test:
+	@go test ./... -count=1
+
+## test/integration: run integration tests (requires running DB)
+.PHONY: test/integration
+test/integration:
+	@go test ./... -tags integration -count=1 -v

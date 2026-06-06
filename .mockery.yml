@@ -1,0 +1,68 @@
+template: testify
+
+packages:
+  github.com/fredsaggio/bondrota-api/internal/admin:
+    config:
+      dir: internal/mocks
+      pkgname: mocks
+      filename: adminmocks.go
+    interfaces:
+      AdminStore:
+
+  github.com/fredsaggio/bondrota-api/internal/clientes:
+    config:
+      dir: internal/mocks
+      pkgname: mocks
+      filename: clientesmocks.go
+    interfaces:
+      ClienteStore:
+      VinculoStore:
+
+  github.com/fredsaggio/bondrota-api/internal/motoristas:
+    config:
+      dir: internal/mocks
+      pkgname: mocks
+      filename: motoristasmocks.go
+    interfaces:
+      MotoristaStore:
+
+  github.com/fredsaggio/bondrota-api/internal/reservas:
+    config:
+      dir: internal/mocks
+      pkgname: mocks
+      filename: reservasmocks.go
+    interfaces:
+      ReservaStore:
+      ReservaService:
+
+  github.com/fredsaggio/bondrota-api/internal/rotasinternas:
+    config:
+      dir: internal/mocks
+      pkgname: mocks
+      filename: rotasinternasmocks.go
+    interfaces:
+      RotaInternaStore:
+
+  github.com/fredsaggio/bondrota-api/internal/veiculos:
+    config:
+      dir: internal/mocks
+      pkgname: mocks
+      filename: veiculosmocks.go
+    interfaces:
+      VeiculoStore:
+
+  github.com/fredsaggio/bondrota-api/internal/paradas:
+    config:
+      dir: internal/mocks
+      pkgname: mocks
+      filename: paradasmocks.go
+    interfaces:
+      ParadaStore:
+
+  github.com/fredsaggio/bondrota-api/internal/destinos:
+    config:
+      dir: internal/mocks
+      pkgname: mocks
+      filename: destinosmocks.go
+    interfaces:
+      DestinoStore:
