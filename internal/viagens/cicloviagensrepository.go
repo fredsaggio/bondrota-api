@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/fredsaggio/bondrota-api/internal/brerror"
 	"github.com/fredsaggio/bondrota-api/internal/db"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type cicloViagemStore struct {
@@ -58,6 +60,57 @@ func (s *cicloViagemStore) CreateCiclo(ctx context.Context, input CicloViagemInp
 	}
 
 	return &ciclo, nil
+}
+
+func (s *cicloViagemStore) CreateCicloComViagens(ctx context.Context, input CicloViagemInput, partidas map[SentidoViagem]time.Time) (*CicloComViagens, error) {
+	const op = "db/cicloViagemStore.CreateCicloComViagens"
+
+	var ciclo CicloViagem
+	var viagemIda Viagem
+	var viagemVolta Viagem
+
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		var err error
+
+		ciclo, err = insertCicloViagem(ctx, tx, input)
+		if err != nil {
+			if isCicloAlreadyAllocated(err) {
+				return brerror.ErrAlreadyExists
+			}
+			return fmt.Errorf("insert ciclo viagem: %w", err)
+		}
+
+		viagemIda, err = insertViagemComPartida(ctx, tx, ViagemInput{
+			CicloViagemID:   ciclo.ID,
+			Sentido:         SentidoIda,
+			PartidaPrevista: partidas[SentidoIda],
+		})
+		if err != nil {
+			return fmt.Errorf("insert viagem ida: %w", err)
+		}
+
+		viagemVolta, err = insertViagemComPartida(ctx, tx, ViagemInput{
+			CicloViagemID:   ciclo.ID,
+			Sentido:         SentidoVolta,
+			PartidaPrevista: partidas[SentidoVolta],
+		})
+		if err != nil {
+			return fmt.Errorf("insert viagem volta: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return &CicloComViagens{
+		Ciclo: ciclo,
+		Viagens: []Viagem{
+			viagemIda,
+			viagemVolta,
+		},
+	}, nil
 }
 
 func (s *cicloViagemStore) GetCicloByID(ctx context.Context, cicloID int64) (*CicloViagem, error) {
@@ -200,6 +253,85 @@ func getCicloViagemByID(ctx context.Context, querier interface {
 	}
 
 	return &ciclo, nil
+}
+
+func insertCicloViagem(ctx context.Context, querier interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+}, input CicloViagemInput) (CicloViagem, error) {
+	const q = `
+		INSERT INTO ciclos_viagem (
+			data_viagem, turno, cidade, rota_interna_id, veiculo_id, motorista_id, expires_at
+		)
+		VALUES (
+			@data_viagem, @turno, @cidade, @rota_interna_id, @veiculo_id, @motorista_id, @expires_at
+		)
+		RETURNING
+			id, data_viagem, turno, cidade, rota_interna_id, veiculo_id, motorista_id,
+			status, expires_at, created_at, updated_at
+	`
+
+	rows, err := querier.Query(ctx, q, pgx.StrictNamedArgs{
+		"data_viagem":     input.DataViagem,
+		"turno":           input.Turno,
+		"cidade":          input.Cidade,
+		"rota_interna_id": input.RotaInternaID,
+		"veiculo_id":      input.VeiculoID,
+		"motorista_id":    input.MotoristaID,
+		"expires_at":      input.ExpiresAt,
+	})
+	if err != nil {
+		return CicloViagem{}, err
+	}
+
+	return pgx.CollectExactlyOneRow(rows, scanCicloViagem)
+}
+
+func insertViagemComPartida(ctx context.Context, querier interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
+}, input ViagemInput) (Viagem, error) {
+	const q = `
+		INSERT INTO viagens (ciclo_viagem_id, sentido)
+		VALUES (@ciclo_viagem_id, @sentido)
+		RETURNING id, ciclo_viagem_id, sentido, status, created_at, updated_at
+	`
+
+	rows, err := querier.Query(ctx, q, pgx.StrictNamedArgs{
+		"ciclo_viagem_id": input.CicloViagemID,
+		"sentido":         input.Sentido,
+	})
+	if err != nil {
+		if isViagemAlreadyCreated(err) {
+			return Viagem{}, brerror.ErrAlreadyExists
+		}
+		return Viagem{}, err
+	}
+
+	viagem, err := pgx.CollectExactlyOneRow(rows, scanViagem)
+	if err != nil {
+		if isViagemAlreadyCreated(err) {
+			return Viagem{}, brerror.ErrAlreadyExists
+		}
+		return Viagem{}, err
+	}
+
+	const horarioQ = `
+		INSERT INTO viagem_horarios (viagem_id, tipo, horario)
+		VALUES (@viagem_id, @tipo, @horario)
+	`
+
+	if _, err := querier.Exec(ctx, horarioQ, pgx.StrictNamedArgs{
+		"viagem_id": viagem.ID,
+		"tipo":      TipoHorarioPartidaPrevista,
+		"horario":   input.PartidaPrevista,
+	}); err != nil {
+		if isHorarioViagemAlreadyRegistered(err) {
+			return Viagem{}, brerror.ErrAlreadyExists
+		}
+		return Viagem{}, err
+	}
+
+	return viagem, nil
 }
 
 func scanCicloViagem(row pgx.CollectableRow) (CicloViagem, error) {
