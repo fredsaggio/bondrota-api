@@ -10,6 +10,7 @@ type SentidoViagem string
 type StatusCicloViagem string
 type StatusViagem string
 type StatusPresencaViagem string
+type TipoHorarioViagem string
 
 const (
 	TurnoMatutino   TurnoViagem = "MT"
@@ -33,6 +34,10 @@ const (
 	StatusPresencaEmbarcou   StatusPresencaViagem = "embarcou"
 	StatusPresencaFaltou     StatusPresencaViagem = "faltou"
 	StatusPresencaCancelado  StatusPresencaViagem = "cancelado"
+
+	TipoHorarioPartidaPrevista TipoHorarioViagem = "partida_prevista"
+	TipoHorarioInicioReal      TipoHorarioViagem = "inicio_real"
+	TipoHorarioFimReal         TipoHorarioViagem = "fim_real"
 )
 
 type CicloViagem struct {
@@ -50,25 +55,37 @@ type CicloViagem struct {
 }
 
 type Viagem struct {
-	ID              int64
-	CicloViagemID   int64
-	Sentido         SentidoViagem
-	Status          StatusViagem
-	PartidaPrevista time.Time
-	InicioReal      time.Time
-	FimReal         time.Time
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	ID            int64
+	CicloViagemID int64
+	Sentido       SentidoViagem
+	Status        StatusViagem
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
+type ViagemHorario struct {
+	ID        int64
+	ViagemID  int64
+	Tipo      TipoHorarioViagem
+	Horario   time.Time
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 type ViagemReserva struct {
-	ID                 int64
-	ViagemID           int64
-	ReservaID          int64
-	StatusPresenca     StatusPresencaViagem
-	HorarioConfirmacao time.Time
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+	ID             int64
+	ViagemID       int64
+	ReservaID      int64
+	StatusPresenca StatusPresencaViagem
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+type ViagemReservaConfirmacao struct {
+	ViagemReservaID  int64
+	RegistroPresenca time.Time
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 }
 
 type CicloViagemInput struct {
@@ -126,6 +143,8 @@ type ViagemStore interface {
 	GetViagemByID(ctx context.Context, viagemID int64) (*ViagemComCiclo, error)
 	ListViagens(ctx context.Context) ([]ViagemComCiclo, error)
 	ListViagensByCiclo(ctx context.Context, cicloID int64) ([]Viagem, error)
+	ListHorariosByViagem(ctx context.Context, viagemID int64) ([]ViagemHorario, error)
+	RegistrarHorarioViagem(ctx context.Context, viagemID int64, tipo TipoHorarioViagem, horario time.Time) (*ViagemHorario, error)
 	UpdateViagem(ctx context.Context, viagemID int64, updateFunc func(*Viagem) (bool, error)) (*Viagem, error)
 }
 
