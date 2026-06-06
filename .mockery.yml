@@ -44,6 +44,7 @@ packages:
       filename: rotasinternasmocks.go
     interfaces:
       RotaInternaStore:
+      RotaInternaService:
 
   github.com/fredsaggio/bondrota-api/internal/veiculos:
     config:
