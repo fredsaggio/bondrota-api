@@ -19,16 +19,17 @@ import (
 const reqBodyLimitBytes = 250 * 1024
 
 type Handlers struct {
-	AdminHandler       *admin.AdminHandler
-	VeiculoHandler     *veiculos.VeiculoHandler
-	DestinoHandler     *destinos.DestinoHandler
-	ParadaHandler      *paradas.ParadaHandler
-	RotaInternaHandler *rotasinternas.RotaInternaHandler
-	MotoristaHandler   *motoristas.MotoristaHandler
-	ClienteHandler     *clientes.ClienteHandler
-	VinculoHandler     *clientes.VinculoHandler
-	ReservaHandler     *reservas.ReservaHandler
-	ViagemHandler      *viagens.ViagemHandler
+	AdminHandler        *admin.AdminHandler
+	VeiculoHandler      *veiculos.VeiculoHandler
+	DestinoHandler      *destinos.DestinoHandler
+	ParadaHandler       *paradas.ParadaHandler
+	RotaInternaHandler  *rotasinternas.RotaInternaHandler
+	MotoristaHandler    *motoristas.MotoristaHandler
+	ClienteHandler      *clientes.ClienteHandler
+	VinculoHandler      *clientes.VinculoHandler
+	ReservaHandler      *reservas.ReservaHandler
+	ViagemHandler       *viagens.ViagemHandler
+	PlanejamentoHandler *viagens.PlanejamentoHandler
 }
 
 type Server struct {
@@ -143,6 +144,10 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 			r.Post("/{viagemID}/cancelar", srv.handlers.ViagemHandler.Cancelar)
 			r.Get("/{viagemID}/reservas/", srv.handlers.ViagemHandler.ListReservas)
 			r.Put("/{viagemID}/reservas/{reservaID}/presenca", srv.handlers.ViagemHandler.AtualizarPresenca)
+		})
+
+		r.Route("/planejamentos", func(r chi.Router) {
+			r.Post("/viagens", srv.handlers.PlanejamentoHandler.PlanejarViagens)
 		})
 	})
 }
