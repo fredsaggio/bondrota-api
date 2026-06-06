@@ -12,6 +12,7 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/reservas"
 	"github.com/fredsaggio/bondrota-api/internal/rotasinternas"
 	"github.com/fredsaggio/bondrota-api/internal/veiculos"
+	"github.com/fredsaggio/bondrota-api/internal/viagens"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -27,6 +28,7 @@ type Handlers struct {
 	ClienteHandler     *clientes.ClienteHandler
 	VinculoHandler     *clientes.VinculoHandler
 	ReservaHandler     *reservas.ReservaHandler
+	ViagemHandler      *viagens.ViagemHandler
 }
 
 type Server struct {
@@ -131,6 +133,16 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 			r.Put("/{reservaID}", srv.handlers.ReservaHandler.Update)
 			r.Post("/{reservaID}/cancelar", srv.handlers.ReservaHandler.Cancel)
 			r.Delete("/{reservaID}", srv.handlers.ReservaHandler.Delete)
+		})
+
+		r.Route("/viagens", func(r chi.Router) {
+			r.Get("/", srv.handlers.ViagemHandler.List)
+			r.Get("/{viagemID}", srv.handlers.ViagemHandler.GetByID)
+			r.Post("/{viagemID}/iniciar", srv.handlers.ViagemHandler.Iniciar)
+			r.Post("/{viagemID}/concluir", srv.handlers.ViagemHandler.Concluir)
+			r.Post("/{viagemID}/cancelar", srv.handlers.ViagemHandler.Cancelar)
+			r.Get("/{viagemID}/reservas/", srv.handlers.ViagemHandler.ListReservas)
+			r.Put("/{viagemID}/reservas/{reservaID}/presenca", srv.handlers.ViagemHandler.AtualizarPresenca)
 		})
 	})
 }
