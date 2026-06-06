@@ -133,6 +133,7 @@ type ViagemReservaComReserva struct {
 
 type CicloViagemStore interface {
 	CreateCiclo(ctx context.Context, input CicloViagemInput) (*CicloViagem, error)
+	CreateCicloComViagens(ctx context.Context, input CicloViagemInput, partidas map[SentidoViagem]time.Time) (*CicloComViagens, error)
 	GetCicloByID(ctx context.Context, cicloID int64) (*CicloViagem, error)
 	ListCiclos(ctx context.Context) ([]CicloViagem, error)
 	UpdateCiclo(ctx context.Context, cicloID int64, updateFunc func(*CicloViagem) (bool, error)) (*CicloViagem, error)
