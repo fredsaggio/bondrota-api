@@ -29,7 +29,7 @@ func (s *adminService) Login(ctx context.Context, email, password string) (strin
 		return "", auth.ErrInvalidCredentials
 	}
 
-	token, err := s.authSvc.GenerateToken(admin.ID, "admin")
+	token, err := s.authSvc.GenerateToken(admin.ID, auth.RoleAdmin)
 	if err != nil {
 		return "", err
 	}

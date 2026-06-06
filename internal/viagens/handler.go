@@ -7,25 +7,42 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/fredsaggio/bondrota-api/internal/auth"
 	"github.com/fredsaggio/bondrota-api/internal/brerror"
 	"github.com/fredsaggio/bondrota-api/internal/conv"
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
 )
 
 type ViagemHandler struct {
-	viagemSvc   ViagemService
-	presencaSvc PresencaService
+	viagemSvc      ViagemService
+	presencaSvc    PresencaService
+	localizacaoSvc ViagemLocalizacaoService
 }
 
-func NewViagemHandler(viagemSvc ViagemService, presencaSvc PresencaService) *ViagemHandler {
+func NewViagemHandler(viagemSvc ViagemService, presencaSvc PresencaService, localizacaoSvc ...ViagemLocalizacaoService) *ViagemHandler {
+	var locSvc ViagemLocalizacaoService
+	if len(localizacaoSvc) > 0 {
+		locSvc = localizacaoSvc[0]
+	}
+
 	return &ViagemHandler{
-		viagemSvc:   viagemSvc,
-		presencaSvc: presencaSvc,
+		viagemSvc:      viagemSvc,
+		presencaSvc:    presencaSvc,
+		localizacaoSvc: locSvc,
 	}
 }
 
 type AtualizarPresencaRequest struct {
 	StatusPresenca StatusPresencaViagem `json:"status_presenca"`
+}
+
+type AtualizarLocalizacaoRequest struct {
+	MotoristaID    int64   `json:"motorista_id"`
+	Latitude       float64 `json:"latitude"`
+	Longitude      float64 `json:"longitude"`
+	VelocidadeKmh  float64 `json:"velocidade_kmh"`
+	DirecaoGraus   float64 `json:"direcao_graus"`
+	PrecisaoMetros float64 `json:"precisao_metros"`
 }
 
 type ViagemResponse struct {
@@ -84,6 +101,19 @@ type ViagemReservaComReservaResponse struct {
 	RotaInternaID int64         `json:"rota_interna_id"`
 	Cidade        string        `json:"cidade"`
 	Sentido       SentidoViagem `json:"sentido"`
+}
+
+type ViagemLocalizacaoResponse struct {
+	ViagemID       int64   `json:"viagem_id"`
+	MotoristaID    int64   `json:"motorista_id"`
+	Latitude       float64 `json:"latitude"`
+	Longitude      float64 `json:"longitude"`
+	VelocidadeKmh  float64 `json:"velocidade_kmh"`
+	DirecaoGraus   float64 `json:"direcao_graus"`
+	PrecisaoMetros float64 `json:"precisao_metros"`
+	RegistradaEm   string  `json:"registrada_em"`
+	CreatedAt      string  `json:"created_at"`
+	UpdatedAt      string  `json:"updated_at"`
 }
 
 func (h *ViagemHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -215,7 +245,87 @@ func (h *ViagemHandler) AtualizarPresenca(w http.ResponseWriter, r *http.Request
 	httputils.Respond(w, http.StatusOK, toViagemReservaResponse(viagemReserva))
 }
 
+func (h *ViagemHandler) AtualizarLocalizacao(w http.ResponseWriter, r *http.Request) {
+	if h.localizacaoSvc == nil {
+		http.Error(w, "localizacao service not configured", http.StatusInternalServerError)
+		return
+	}
+
+	viagemID, err := conv.ParseInt(r, "viagemID")
+	if err != nil {
+		http.Error(w, "invalid viagem id", http.StatusBadRequest)
+		return
+	}
+
+	actor, err := actorFromRequest(r)
+	if err != nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req AtualizarLocalizacaoRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	localizacao, err := h.localizacaoSvc.Atualizar(r.Context(), actor, ViagemLocalizacaoInput{
+		ViagemID:       viagemID,
+		MotoristaID:    req.MotoristaID,
+		Latitude:       req.Latitude,
+		Longitude:      req.Longitude,
+		VelocidadeKmh:  req.VelocidadeKmh,
+		DirecaoGraus:   req.DirecaoGraus,
+		PrecisaoMetros: req.PrecisaoMetros,
+	})
+	if err != nil {
+		h.handleError(w, err, "failed to update viagem localizacao")
+		return
+	}
+
+	httputils.Respond(w, http.StatusOK, toViagemLocalizacaoResponse(localizacao))
+}
+
+func (h *ViagemHandler) GetLocalizacao(w http.ResponseWriter, r *http.Request) {
+	if h.localizacaoSvc == nil {
+		http.Error(w, "localizacao service not configured", http.StatusInternalServerError)
+		return
+	}
+
+	viagemID, err := conv.ParseInt(r, "viagemID")
+	if err != nil {
+		http.Error(w, "invalid viagem id", http.StatusBadRequest)
+		return
+	}
+
+	actor, err := actorFromRequest(r)
+	if err != nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	localizacao, err := h.localizacaoSvc.GetByViagem(r.Context(), actor, viagemID)
+	if err != nil {
+		h.handleError(w, err, "failed to get viagem localizacao")
+		return
+	}
+
+	httputils.Respond(w, http.StatusOK, toViagemLocalizacaoResponse(localizacao))
+}
+
 func (h *ViagemHandler) handleError(w http.ResponseWriter, err error, msg string) {
+	if errors.Is(err, brerror.ErrUnauthenticated) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if errors.Is(err, brerror.ErrForbidden) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	if errors.Is(err, brerror.ErrInvalidInput) {
+		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		return
+	}
 	if errors.Is(err, brerror.ErrNotFound) {
 		http.Error(w, "resource not found", http.StatusNotFound)
 		return
@@ -241,6 +351,18 @@ func parseViagemReservaIDs(r *http.Request) (int64, int64, error) {
 	}
 
 	return viagemID, reservaID, nil
+}
+
+func actorFromRequest(r *http.Request) (ViagemLocalizacaoActor, error) {
+	claims, ok := r.Context().Value(auth.ClaimsKey).(*auth.Claims)
+	if !ok || claims.UserID <= 0 {
+		return ViagemLocalizacaoActor{}, brerror.ErrUnauthenticated
+	}
+
+	return ViagemLocalizacaoActor{
+		UserID: claims.UserID,
+		Role:   claims.Role,
+	}, nil
 }
 
 func toViagemComCicloResponses(viagens []ViagemComCiclo) []ViagemComCicloResponse {
@@ -334,5 +456,20 @@ func toViagemReservaResponse(vr *ViagemReserva) ViagemReservaResponse {
 		StatusPresenca: vr.StatusPresenca,
 		CreatedAt:      vr.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:      vr.UpdatedAt.Format(time.RFC3339),
+	}
+}
+
+func toViagemLocalizacaoResponse(l *ViagemLocalizacao) ViagemLocalizacaoResponse {
+	return ViagemLocalizacaoResponse{
+		ViagemID:       l.ViagemID,
+		MotoristaID:    l.MotoristaID,
+		Latitude:       l.Latitude,
+		Longitude:      l.Longitude,
+		VelocidadeKmh:  l.VelocidadeKmh,
+		DirecaoGraus:   l.DirecaoGraus,
+		PrecisaoMetros: l.PrecisaoMetros,
+		RegistradaEm:   l.RegistradaEm.Format(time.RFC3339),
+		CreatedAt:      l.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:      l.UpdatedAt.Format(time.RFC3339),
 	}
 }

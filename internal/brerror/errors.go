@@ -13,6 +13,9 @@ var (
 	// but no valid credentials were provided.
 	ErrUnauthenticated = errors.New("unauthenticated")
 
+	// ErrForbidden indicates that the authenticated user is not allowed to perform the operation.
+	ErrForbidden = errors.New("forbidden")
+
 	// ErrInvalidInput indicates that the input failed application-level validation.
 	ErrInvalidInput = errors.New("invalid input")
 

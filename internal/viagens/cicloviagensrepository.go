@@ -119,6 +119,104 @@ func (s *cicloViagemStore) CreateCicloComViagens(ctx context.Context, input Cicl
 	}, nil
 }
 
+func (s *cicloViagemStore) CreateCiclosComViagens(ctx context.Context, inputs []CicloViagemComReservasInput, partidas map[SentidoViagem]time.Time) (*PlanejamentoViagens, error) {
+	const op = "db/cicloViagemStore.CreateCiclosComViagens"
+
+	ciclos := make([]CicloComViagens, 0, len(inputs))
+
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		for _, input := range inputs {
+			ciclo, err := insertCicloViagem(ctx, tx, input.Ciclo)
+			if err != nil {
+				if isCicloAlreadyAllocated(err) {
+					return brerror.ErrAlreadyExists
+				}
+				return fmt.Errorf("insert ciclo viagem: %w", err)
+			}
+
+			viagemIda, err := insertViagemComPartida(ctx, tx, ViagemInput{
+				CicloViagemID:   ciclo.ID,
+				Sentido:         SentidoIda,
+				PartidaPrevista: partidas[SentidoIda],
+			})
+			if err != nil {
+				return fmt.Errorf("insert viagem ida: %w", err)
+			}
+			if err := insertViagemReservasByIDs(ctx, tx, viagemIda.ID, input.ReservaIDsIda); err != nil {
+				return fmt.Errorf("insert reservas ida: %w", err)
+			}
+
+			viagemVolta, err := insertViagemComPartida(ctx, tx, ViagemInput{
+				CicloViagemID:   ciclo.ID,
+				Sentido:         SentidoVolta,
+				PartidaPrevista: partidas[SentidoVolta],
+			})
+			if err != nil {
+				return fmt.Errorf("insert viagem volta: %w", err)
+			}
+			if err := insertViagemReservasByIDs(ctx, tx, viagemVolta.ID, input.ReservaIDsVolta); err != nil {
+				return fmt.Errorf("insert reservas volta: %w", err)
+			}
+
+			ciclos = append(ciclos, CicloComViagens{
+				Ciclo: ciclo,
+				Viagens: []Viagem{
+					viagemIda,
+					viagemVolta,
+				},
+			})
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return &PlanejamentoViagens{Ciclos: ciclos}, nil
+}
+
+func (s *cicloViagemStore) ListReservasConfirmadasParaPlanejamento(ctx context.Context, filtro PlanejamentoReservasFiltro) ([]PlanejamentoReserva, error) {
+	const op = "db/cicloViagemStore.ListReservasConfirmadasParaPlanejamento"
+
+	const q = `
+		SELECT id, destino_id
+		FROM reservas
+		WHERE data_viagem = @data_viagem
+			AND turno = @turno
+			AND cidade = @cidade
+			AND rota_interna_id = @rota_interna_id
+			AND sentido = @sentido
+			AND status = 'confirmada'
+		ORDER BY id
+	`
+
+	rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{
+		"data_viagem":     filtro.DataViagem,
+		"turno":           filtro.Turno,
+		"cidade":          filtro.Cidade,
+		"rota_interna_id": filtro.RotaInternaID,
+		"sentido":         filtro.Sentido,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	reservas, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (PlanejamentoReserva, error) {
+		var reserva PlanejamentoReserva
+		err := row.Scan(&reserva.ID, &reserva.DestinoID)
+		return reserva, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	if reservas == nil {
+		return []PlanejamentoReserva{}, nil
+	}
+
+	return reservas, nil
+}
+
 func (s *cicloViagemStore) GetCicloByID(ctx context.Context, cicloID int64) (*CicloViagem, error) {
 	const op = "db/cicloViagemStore.GetCicloByID"
 
@@ -362,6 +460,31 @@ func insertViagemReservasConfirmadas(ctx context.Context, querier interface {
 		"cidade":          input.Cidade,
 		"rota_interna_id": input.RotaInternaID,
 		"sentido":         sentido,
+	}); err != nil {
+		if isViagemReservaAlreadyAllocated(err) {
+			return brerror.ErrAlreadyExists
+		}
+		return err
+	}
+
+	return nil
+}
+
+func insertViagemReservasByIDs(ctx context.Context, querier interface {
+	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
+}, viagemID int64, reservaIDs []int64) error {
+	if len(reservaIDs) == 0 {
+		return nil
+	}
+
+	const q = `
+		INSERT INTO viagem_reservas (viagem_id, reserva_id)
+		SELECT @viagem_id, UNNEST(@reserva_ids::BIGINT[])
+	`
+
+	if _, err := querier.Exec(ctx, q, pgx.StrictNamedArgs{
+		"viagem_id":   viagemID,
+		"reserva_ids": reservaIDs,
 	}); err != nil {
 		if isViagemReservaAlreadyAllocated(err) {
 			return brerror.ErrAlreadyExists

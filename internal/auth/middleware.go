@@ -10,6 +10,12 @@ type contextKey string
 
 const ClaimsKey contextKey = "claims"
 
+const (
+	RoleAdmin     = "admin"
+	RoleCliente   = "cliente"
+	RoleMotorista = "motorista"
+)
+
 func (s *AuthService) Authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
@@ -30,15 +36,24 @@ func (s *AuthService) Authenticate(next http.Handler) http.Handler {
 	})
 }
 
-func (s *AuthService) RequireRole(role string) func(http.Handler) http.Handler {
+func (s *AuthService) RequireRole(roles ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			claims, ok := r.Context().Value(ClaimsKey).(*Claims)
-			if !ok || claims.Role != role {
+			if !ok || !hasAllowedRole(claims.Role, roles) {
 				http.Error(w, "forbidden", http.StatusForbidden)
 				return
 			}
-			next.ServeHTTP(w, r.WithContext(r.Context()))
+			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func hasAllowedRole(userRole string, allowedRoles []string) bool {
+	for _, role := range allowedRoles {
+		if userRole == role {
+			return true
+		}
+	}
+	return false
 }

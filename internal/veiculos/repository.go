@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/fredsaggio/bondrota-api/internal/db"
 	"github.com/jackc/pgx/v5"
@@ -14,6 +15,10 @@ type veiculoStore struct {
 }
 
 func NewVeiculoStore(db db.DB) VeiculoStore {
+	return &veiculoStore{db: db}
+}
+
+func NewAlocacaoVeiculoStore(db db.DB) AlocacaoVeiculoStore {
 	return &veiculoStore{db: db}
 }
 
@@ -112,6 +117,62 @@ func (s *veiculoStore) List(ctx context.Context) ([]Veiculo, error) {
 	`
 
 	rows, err := s.db.Query(ctx, q)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	veiculos, err := pgx.CollectRows(rows, scanVeiculo)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return veiculos, nil
+}
+
+func (s *veiculoStore) ListDisponiveisParaAlocacao(ctx context.Context, filtro VeiculosDisponiveisFiltro) ([]Veiculo, error) {
+	const op = "db/veiculoStore.ListDisponiveisParaAlocacao"
+
+	if len(filtro.Categorias) == 0 {
+		return []Veiculo{}, nil
+	}
+
+	categorias := make([]string, 0, len(filtro.Categorias))
+	for _, categoria := range filtro.Categorias {
+		categorias = append(categorias, string(categoria))
+	}
+
+	const q = `
+		SELECT v.id, v.placa, v.modelo, v.categoria, v.capacidade, v.cidade_base, v.status,
+		       v.ar_condicionado, v.banheiro, v.persiana, v.luz_leitura, v.tomada
+		FROM veiculos v
+		WHERE v.status = 'ativo'
+		  AND LOWER(v.cidade_base) = LOWER(@cidade)
+		  AND v.categoria::text = ANY(@categorias)
+		  AND NOT EXISTS (
+		      SELECT 1
+		      FROM ciclos_viagem cv
+		      WHERE cv.veiculo_id = v.id
+		        AND cv.data_viagem = CAST(@data_viagem AS date)
+		        AND cv.turno = @turno
+		        AND cv.status <> 'cancelado'
+		  )
+		ORDER BY
+		  CASE v.categoria
+		    WHEN 'executivo' THEN 1
+		    WHEN 'escolar' THEN 2
+		    WHEN 'carro_7_lugares' THEN 3
+		    ELSE 4
+		  END,
+		  v.id
+	`
+	args := pgx.StrictNamedArgs{
+		"cidade":      strings.TrimSpace(filtro.Cidade),
+		"data_viagem": filtro.DataViagem,
+		"turno":       strings.TrimSpace(filtro.Turno),
+		"categorias":  categorias,
+	}
+
+	rows, err := s.db.Query(ctx, q, args)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}

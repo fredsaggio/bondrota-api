@@ -23,6 +23,8 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService) (server.Handlers, *rot
 	adminHandler := admin.NewAdminHandler(adminSvc)
 
 	veiculoStore := veiculos.NewVeiculoStore(pool)
+	alocacaoVeiculoStore := veiculos.NewAlocacaoVeiculoStore(pool)
+	alocacaoVeiculoSvc := veiculos.NewAlocacaoService(alocacaoVeiculoStore)
 	veiculoHandler := veiculos.NewVeiculoHandler(veiculoStore)
 
 	destinoStore := destinos.NewDestinoStore(pool)
@@ -36,6 +38,8 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService) (server.Handlers, *rot
 	rotaInternaHandler := rotasinternas.NewRotaInternaHandler(rotaInternaSvc)
 
 	motoristaStore := motoristas.NewMotoristaStore(pool)
+	alocacaoMotoristaStore := motoristas.NewAlocacaoMotoristaStore(pool)
+	alocacaoMotoristaSvc := motoristas.NewAlocacaoService(alocacaoMotoristaStore)
 	motoristaSvc := motoristas.NewMotoristaService(motoristaStore, authSvc)
 	motoristaHandler := motoristas.NewMotoristaHandler(motoristaSvc)
 
@@ -57,14 +61,19 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService) (server.Handlers, *rot
 	reservaHandler := reservas.NewReservaHandler(reservaSvc)
 
 	cicloViagemStore := viagens.NewCicloViagemStore(pool)
-	planejamentoSvc := viagens.NewPlanejamentoService(cicloViagemStore)
+	horarioTurnoStore := viagens.NewHorarioTurnoViagemStore(pool)
+	horarioTurnoSvc := viagens.NewHorarioTurnoViagemService(horarioTurnoStore)
+	horarioTurnoHandler := viagens.NewHorarioTurnoViagemHandler(horarioTurnoSvc)
+	planejamentoSvc := viagens.NewPlanejamentoService(cicloViagemStore, horarioTurnoStore, alocacaoVeiculoSvc, alocacaoMotoristaSvc)
 	planejamentoHandler := viagens.NewPlanejamentoHandler(planejamentoSvc)
 
 	viagemStore := viagens.NewViagemStore(pool)
 	viagemSvc := viagens.NewViagemService(viagemStore)
 	viagemReservaStore := viagens.NewViagemReservaStore(pool)
 	presencaSvc := viagens.NewPresencaService(viagemReservaStore)
-	viagemHandler := viagens.NewViagemHandler(viagemSvc, presencaSvc)
+	viagemLocalizacaoStore := viagens.NewViagemLocalizacaoStore(pool)
+	viagemLocalizacaoSvc := viagens.NewViagemLocalizacaoService(viagemLocalizacaoStore)
+	viagemHandler := viagens.NewViagemHandler(viagemSvc, presencaSvc, viagemLocalizacaoSvc)
 
 	rotaDinamicaStore := rotasdinamicas.NewRotaDinamicaStore(pool)
 	rotaDinamicaSvc := rotasdinamicas.NewRotaDinamicaService(rotaDinamicaStore)
@@ -95,6 +104,7 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService) (server.Handlers, *rot
 		ReservaHandler:      reservaHandler,
 		ViagemHandler:       viagemHandler,
 		PlanejamentoHandler: planejamentoHandler,
+		HorarioTurnoHandler: horarioTurnoHandler,
 		RotaDinamicaHandler: rotaDinamicaHandler,
 	}, rotaDinamicaWorker
 }
