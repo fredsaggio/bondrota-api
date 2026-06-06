@@ -62,7 +62,7 @@ type ReservaInput struct {
 	Sentido       SentidoReserva
 }
 
-type vinculoSnapshot struct {
+type VinculoSnapshot struct {
 	ClienteID     int64
 	Turno         TurnoReserva
 	DestinoID     int64
@@ -73,7 +73,7 @@ type vinculoSnapshot struct {
 type ReservaStore interface {
 	Create(ctx context.Context, input ReservaInput) (*Reserva, error)
 	GetByID(ctx context.Context, reservaID int64) (*Reserva, error)
-	GetVinculoSnapshot(ctx context.Context, vinculoID int64) (vinculoSnapshot, error)
+	GetVinculoSnapshot(ctx context.Context, vinculoID int64) (VinculoSnapshot, error)
 	List(ctx context.Context) ([]Reserva, error)
 	ListByCliente(ctx context.Context, clienteID int64) ([]Reserva, error)
 	ListByVinculo(ctx context.Context, clienteID, vinculoID int64) ([]Reserva, error)

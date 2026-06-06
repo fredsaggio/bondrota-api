@@ -216,12 +216,12 @@ func (s *reservaStore) Update(ctx context.Context, reservaID int64, updateFunc f
 	return &reserva, nil
 }
 
-func (s *reservaStore) GetVinculoSnapshot(ctx context.Context, vinculoID int64) (vinculoSnapshot, error) {
+func (s *reservaStore) GetVinculoSnapshot(ctx context.Context, vinculoID int64) (VinculoSnapshot, error) {
 	const op = "db/reservaStore.GetVinculoSnapshot"
 
 	snapshot, err := getVinculoSnapshot(ctx, s.db, vinculoID)
 	if err != nil {
-		return vinculoSnapshot{}, fmt.Errorf("%s: %w", op, err)
+		return VinculoSnapshot{}, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return snapshot, nil
@@ -272,7 +272,7 @@ func getReservaByID(ctx context.Context, querier interface {
 
 func getVinculoSnapshot(ctx context.Context, querier interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
-}, vinculoID int64) (vinculoSnapshot, error) {
+}, vinculoID int64) (VinculoSnapshot, error) {
 	const q = `
 		SELECT v.cliente_id, v.turno, v.destino_id, v.rota_interna_id, r.cidade
 		FROM cliente_vinculos v
@@ -282,19 +282,19 @@ func getVinculoSnapshot(ctx context.Context, querier interface {
 
 	rows, err := querier.Query(ctx, q, pgx.StrictNamedArgs{"vinculo_id": vinculoID})
 	if err != nil {
-		return vinculoSnapshot{}, fmt.Errorf("select vinculo snapshot: %w", err)
+		return VinculoSnapshot{}, fmt.Errorf("select vinculo snapshot: %w", err)
 	}
 
-	snapshot, err := pgx.CollectExactlyOneRow(rows, func(row pgx.CollectableRow) (vinculoSnapshot, error) {
-		var s vinculoSnapshot
+	snapshot, err := pgx.CollectExactlyOneRow(rows, func(row pgx.CollectableRow) (VinculoSnapshot, error) {
+		var s VinculoSnapshot
 		err := row.Scan(&s.ClienteID, &s.Turno, &s.DestinoID, &s.RotaInternaID, &s.Cidade)
 		return s, err
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return vinculoSnapshot{}, ErrVinculoNotFound
+			return VinculoSnapshot{}, ErrVinculoNotFound
 		}
-		return vinculoSnapshot{}, fmt.Errorf("select vinculo snapshot: %w", err)
+		return VinculoSnapshot{}, fmt.Errorf("select vinculo snapshot: %w", err)
 	}
 
 	return snapshot, nil
