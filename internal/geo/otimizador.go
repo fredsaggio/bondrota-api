@@ -12,6 +12,7 @@ const defaultLimiteForcaBruta = 8
 
 type PontoRoteirizacao struct {
 	ID         int64
+	Nome       string
 	Coordenada Coordenada
 }
 
