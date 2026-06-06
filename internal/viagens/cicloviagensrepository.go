@@ -88,6 +88,9 @@ func (s *cicloViagemStore) CreateCicloComViagens(ctx context.Context, input Cicl
 		if err != nil {
 			return fmt.Errorf("insert viagem ida: %w", err)
 		}
+		if err := insertViagemReservasConfirmadas(ctx, tx, viagemIda.ID, input, SentidoIda); err != nil {
+			return fmt.Errorf("insert reservas ida: %w", err)
+		}
 
 		viagemVolta, err = insertViagemComPartida(ctx, tx, ViagemInput{
 			CicloViagemID:   ciclo.ID,
@@ -96,6 +99,9 @@ func (s *cicloViagemStore) CreateCicloComViagens(ctx context.Context, input Cicl
 		})
 		if err != nil {
 			return fmt.Errorf("insert viagem volta: %w", err)
+		}
+		if err := insertViagemReservasConfirmadas(ctx, tx, viagemVolta.ID, input, SentidoVolta); err != nil {
+			return fmt.Errorf("insert reservas volta: %w", err)
 		}
 
 		return nil
@@ -332,6 +338,38 @@ func insertViagemComPartida(ctx context.Context, querier interface {
 	}
 
 	return viagem, nil
+}
+
+func insertViagemReservasConfirmadas(ctx context.Context, querier interface {
+	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
+}, viagemID int64, input CicloViagemInput, sentido SentidoViagem) error {
+	const q = `
+		INSERT INTO viagem_reservas (viagem_id, reserva_id)
+		SELECT @viagem_id, id
+		FROM reservas
+		WHERE data_viagem = @data_viagem
+			AND turno = @turno
+			AND cidade = @cidade
+			AND rota_interna_id = @rota_interna_id
+			AND sentido = @sentido
+			AND status = 'confirmada'
+	`
+
+	if _, err := querier.Exec(ctx, q, pgx.StrictNamedArgs{
+		"viagem_id":       viagemID,
+		"data_viagem":     input.DataViagem,
+		"turno":           input.Turno,
+		"cidade":          input.Cidade,
+		"rota_interna_id": input.RotaInternaID,
+		"sentido":         sentido,
+	}); err != nil {
+		if isViagemReservaAlreadyAllocated(err) {
+			return brerror.ErrAlreadyExists
+		}
+		return err
+	}
+
+	return nil
 }
 
 func scanCicloViagem(row pgx.CollectableRow) (CicloViagem, error) {
