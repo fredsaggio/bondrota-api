@@ -12,21 +12,24 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/reservas"
 	"github.com/fredsaggio/bondrota-api/internal/rotasinternas"
 	"github.com/fredsaggio/bondrota-api/internal/veiculos"
+	"github.com/fredsaggio/bondrota-api/internal/viagens"
 	"github.com/go-chi/chi/v5"
 )
 
 const reqBodyLimitBytes = 250 * 1024
 
 type Handlers struct {
-	AdminHandler       *admin.AdminHandler
-	VeiculoHandler     *veiculos.VeiculoHandler
-	DestinoHandler     *destinos.DestinoHandler
-	ParadaHandler      *paradas.ParadaHandler
-	RotaInternaHandler *rotasinternas.RotaInternaHandler
-	MotoristaHandler   *motoristas.MotoristaHandler
-	ClienteHandler     *clientes.ClienteHandler
-	VinculoHandler     *clientes.VinculoHandler
-	ReservaHandler     *reservas.ReservaHandler
+	AdminHandler        *admin.AdminHandler
+	VeiculoHandler      *veiculos.VeiculoHandler
+	DestinoHandler      *destinos.DestinoHandler
+	ParadaHandler       *paradas.ParadaHandler
+	RotaInternaHandler  *rotasinternas.RotaInternaHandler
+	MotoristaHandler    *motoristas.MotoristaHandler
+	ClienteHandler      *clientes.ClienteHandler
+	VinculoHandler      *clientes.VinculoHandler
+	ReservaHandler      *reservas.ReservaHandler
+	ViagemHandler       *viagens.ViagemHandler
+	PlanejamentoHandler *viagens.PlanejamentoHandler
 }
 
 type Server struct {
@@ -131,6 +134,20 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 			r.Put("/{reservaID}", srv.handlers.ReservaHandler.Update)
 			r.Post("/{reservaID}/cancelar", srv.handlers.ReservaHandler.Cancel)
 			r.Delete("/{reservaID}", srv.handlers.ReservaHandler.Delete)
+		})
+
+		r.Route("/viagens", func(r chi.Router) {
+			r.Get("/", srv.handlers.ViagemHandler.List)
+			r.Get("/{viagemID}", srv.handlers.ViagemHandler.GetByID)
+			r.Post("/{viagemID}/iniciar", srv.handlers.ViagemHandler.Iniciar)
+			r.Post("/{viagemID}/concluir", srv.handlers.ViagemHandler.Concluir)
+			r.Post("/{viagemID}/cancelar", srv.handlers.ViagemHandler.Cancelar)
+			r.Get("/{viagemID}/reservas/", srv.handlers.ViagemHandler.ListReservas)
+			r.Put("/{viagemID}/reservas/{reservaID}/presenca", srv.handlers.ViagemHandler.AtualizarPresenca)
+		})
+
+		r.Route("/planejamentos", func(r chi.Router) {
+			r.Post("/viagens", srv.handlers.PlanejamentoHandler.PlanejarViagens)
 		})
 	})
 }
