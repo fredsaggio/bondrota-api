@@ -23,8 +23,8 @@ func main() {
 }
 
 func run(ctx context.Context) error {
-	_ = godotenv.Load(".env.prod")
-	_ = godotenv.Overload(".env")
+	_ = godotenv.Load(".env")
+	_ = godotenv.Overload(".env.prod")
 
 	dbURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
 	email := strings.TrimSpace(os.Getenv("ADMIN_EMAIL"))
