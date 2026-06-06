@@ -200,6 +200,68 @@ func (s *viagemStore) RegistrarHorarioViagem(ctx context.Context, viagemID int64
 	return &viagemHorario, nil
 }
 
+func (s *viagemStore) AtualizarStatusERegistrarHorarioViagem(ctx context.Context, viagemID int64, from StatusViagem, to StatusViagem, tipo TipoHorarioViagem, horario time.Time) (*Viagem, error) {
+	const op = "db/viagemStore.AtualizarStatusERegistrarHorarioViagem"
+
+	var viagem Viagem
+
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		current, err := getViagemByID(ctx, tx, viagemID, true)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return brerror.ErrNotFound
+			}
+			return fmt.Errorf("select viagem: %w", err)
+		}
+		if current.Status != from {
+			return errors.New("status da viagem nao permite transicao")
+		}
+
+		const updateQ = `
+			UPDATE viagens
+			SET status = @status
+			WHERE id = @id
+			RETURNING id, ciclo_viagem_id, sentido, status, created_at, updated_at
+		`
+
+		rows, err := tx.Query(ctx, updateQ, pgx.StrictNamedArgs{
+			"id":     current.ID,
+			"status": to,
+		})
+		if err != nil {
+			return fmt.Errorf("update viagem: %w", err)
+		}
+
+		viagem, err = pgx.CollectExactlyOneRow(rows, scanViagem)
+		if err != nil {
+			return fmt.Errorf("update viagem: %w", err)
+		}
+
+		const horarioQ = `
+			INSERT INTO viagem_horarios (viagem_id, tipo, horario)
+			VALUES (@viagem_id, @tipo, @horario)
+		`
+
+		if _, err := tx.Exec(ctx, horarioQ, pgx.StrictNamedArgs{
+			"viagem_id": current.ID,
+			"tipo":      tipo,
+			"horario":   horario,
+		}); err != nil {
+			if isHorarioViagemAlreadyRegistered(err) {
+				return brerror.ErrAlreadyExists
+			}
+			return fmt.Errorf("insert horario viagem: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return &viagem, nil
+}
+
 func (s *viagemStore) UpdateViagem(ctx context.Context, viagemID int64, updateFunc func(*Viagem) (bool, error)) (*Viagem, error) {
 	const op = "db/viagemStore.UpdateViagem"
 

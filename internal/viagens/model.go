@@ -145,6 +145,7 @@ type ViagemStore interface {
 	ListViagensByCiclo(ctx context.Context, cicloID int64) ([]Viagem, error)
 	ListHorariosByViagem(ctx context.Context, viagemID int64) ([]ViagemHorario, error)
 	RegistrarHorarioViagem(ctx context.Context, viagemID int64, tipo TipoHorarioViagem, horario time.Time) (*ViagemHorario, error)
+	AtualizarStatusERegistrarHorarioViagem(ctx context.Context, viagemID int64, from StatusViagem, to StatusViagem, tipo TipoHorarioViagem, horario time.Time) (*Viagem, error)
 	UpdateViagem(ctx context.Context, viagemID int64, updateFunc func(*Viagem) (bool, error)) (*Viagem, error)
 }
 
