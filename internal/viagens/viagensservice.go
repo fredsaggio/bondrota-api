@@ -26,6 +26,14 @@ func (s *viagemService) List(ctx context.Context) ([]ViagemComCiclo, error) {
 	return s.store.ListViagens(ctx)
 }
 
+func (s *viagemService) ListHorariosByViagem(ctx context.Context, viagemID int64) ([]ViagemHorario, error) {
+	if viagemID <= 0 {
+		return nil, errors.New("viagem_id is required")
+	}
+
+	return s.store.ListHorariosByViagem(ctx, viagemID)
+}
+
 func (s *viagemService) Iniciar(ctx context.Context, viagemID int64) (*Viagem, error) {
 	if viagemID <= 0 {
 		return nil, errors.New("viagem_id is required")

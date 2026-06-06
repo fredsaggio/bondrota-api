@@ -81,6 +81,10 @@ type ReservaStore interface {
 	Delete(ctx context.Context, reservaID int64) error
 }
 
+type RotaDinamicaInvalidator interface {
+	InvalidarPorReserva(ctx context.Context, reservaID int64) error
+}
+
 type ReservaService interface {
 	Create(ctx context.Context, input ReservaInput) (*Reserva, error)
 	GetByID(ctx context.Context, reservaID int64) (*Reserva, error)
