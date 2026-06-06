@@ -16,6 +16,7 @@ import (
 type fakeViagemService struct {
 	getFn      func(ctx context.Context, viagemID int64) (*viagens.ViagemComCiclo, error)
 	listFn     func(ctx context.Context) ([]viagens.ViagemComCiclo, error)
+	horariosFn func(ctx context.Context, viagemID int64) ([]viagens.ViagemHorario, error)
 	iniciarFn  func(ctx context.Context, viagemID int64) (*viagens.Viagem, error)
 	concluirFn func(ctx context.Context, viagemID int64) (*viagens.Viagem, error)
 	cancelarFn func(ctx context.Context, viagemID int64) (*viagens.Viagem, error)
@@ -27,6 +28,10 @@ func (s fakeViagemService) GetByID(ctx context.Context, viagemID int64) (*viagen
 
 func (s fakeViagemService) List(ctx context.Context) ([]viagens.ViagemComCiclo, error) {
 	return s.listFn(ctx)
+}
+
+func (s fakeViagemService) ListHorariosByViagem(ctx context.Context, viagemID int64) ([]viagens.ViagemHorario, error) {
+	return s.horariosFn(ctx, viagemID)
 }
 
 func (s fakeViagemService) Iniciar(ctx context.Context, viagemID int64) (*viagens.Viagem, error) {
@@ -61,6 +66,7 @@ func newViagemRouter(h *viagens.ViagemHandler) http.Handler {
 	r.Post("/viagens/{viagemID}/iniciar", h.Iniciar)
 	r.Post("/viagens/{viagemID}/concluir", h.Concluir)
 	r.Post("/viagens/{viagemID}/cancelar", h.Cancelar)
+	r.Get("/viagens/{viagemID}/horarios", h.ListHorarios)
 	r.Get("/viagens/{viagemID}/reservas", h.ListReservas)
 	r.Put("/viagens/{viagemID}/reservas/{reservaID}/presenca", h.AtualizarPresenca)
 	return r
@@ -211,6 +217,68 @@ func TestViagemHandler_StatusActions(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			h := viagens.NewViagemHandler(tc.svc, fakePresencaService{})
 			req := httptest.NewRequest(tc.method, tc.path, nil)
+			rr := httptest.NewRecorder()
+
+			newViagemRouter(h).ServeHTTP(rr, req)
+
+			if rr.Code != tc.wantStatus {
+				t.Fatalf("want %d, got %d: %s", tc.wantStatus, rr.Code, rr.Body.String())
+			}
+		})
+	}
+}
+
+func TestViagemHandler_ListHorarios(t *testing.T) {
+	tests := []struct {
+		name       string
+		path       string
+		svc        fakeViagemService
+		wantStatus int
+	}{
+		{
+			name: "success",
+			path: "/viagens/10/horarios",
+			svc: fakeViagemService{
+				horariosFn: func(_ context.Context, viagemID int64) ([]viagens.ViagemHorario, error) {
+					if viagemID != 10 {
+						t.Fatalf("unexpected viagemID: %d", viagemID)
+					}
+					return []viagens.ViagemHorario{
+						{
+							ID:        1,
+							ViagemID:  10,
+							Tipo:      viagens.TipoHorarioPartidaPrevista,
+							Horario:   testTime(),
+							CreatedAt: testTime(),
+							UpdatedAt: testTime(),
+						},
+					}, nil
+				},
+			},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "invalid id",
+			path:       "/viagens/abc/horarios",
+			svc:        fakeViagemService{},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "internal error",
+			path: "/viagens/10/horarios",
+			svc: fakeViagemService{
+				horariosFn: func(_ context.Context, _ int64) ([]viagens.ViagemHorario, error) {
+					return nil, errors.New("db")
+				},
+			},
+			wantStatus: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			h := viagens.NewViagemHandler(tc.svc, fakePresencaService{})
+			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
 			rr := httptest.NewRecorder()
 
 			newViagemRouter(h).ServeHTTP(rr, req)

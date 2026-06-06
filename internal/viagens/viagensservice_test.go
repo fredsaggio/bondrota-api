@@ -92,6 +92,40 @@ func TestViagemService_GetAndList(t *testing.T) {
 	})
 }
 
+func TestViagemService_ListHorariosByViagem(t *testing.T) {
+	t.Run("requires valid id", func(t *testing.T) {
+		svc := viagens.NewViagemService(fakeViagemStore{})
+
+		_, err := svc.ListHorariosByViagem(context.Background(), 0)
+
+		if err == nil {
+			t.Fatal("expected validation error")
+		}
+	})
+
+	t.Run("delegates to store", func(t *testing.T) {
+		svc := viagens.NewViagemService(fakeViagemStore{
+			listHorariosByViagemFn: func(_ context.Context, viagemID int64) ([]viagens.ViagemHorario, error) {
+				if viagemID != 10 {
+					t.Fatalf("unexpected viagemID: %d", viagemID)
+				}
+				return []viagens.ViagemHorario{
+					{ID: 1, ViagemID: 10, Tipo: viagens.TipoHorarioPartidaPrevista, Horario: testTime()},
+				}, nil
+			},
+		})
+
+		horarios, err := svc.ListHorariosByViagem(context.Background(), 10)
+
+		if err != nil {
+			t.Fatalf("unexpected err: %v", err)
+		}
+		if len(horarios) != 1 {
+			t.Fatalf("expected 1 horario, got %d", len(horarios))
+		}
+	})
+}
+
 func TestViagemService_Iniciar(t *testing.T) {
 	t.Run("requires valid id", func(t *testing.T) {
 		svc := viagens.NewViagemService(fakeViagemStore{})
