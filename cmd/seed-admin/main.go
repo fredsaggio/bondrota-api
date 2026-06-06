@@ -26,12 +26,12 @@ func run(ctx context.Context) error {
 	_ = godotenv.Load(".env")
 	_ = godotenv.Overload(".env.prod")
 
-	dbURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
+	dbURL := strings.TrimSpace(os.Getenv("PROD_DATABASE_URL"))
 	email := strings.TrimSpace(os.Getenv("ADMIN_EMAIL"))
 	password := os.Getenv("ADMIN_PASSWORD")
 
 	if dbURL == "" {
-		return errors.New("DATABASE_URL is required")
+		return errors.New("PROD_DATABASE_URL is required")
 	}
 	if email == "" {
 		return errors.New("ADMIN_EMAIL is required")
