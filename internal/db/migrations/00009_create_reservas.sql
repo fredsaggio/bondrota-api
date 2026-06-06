@@ -2,7 +2,7 @@
 -- +goose StatementBegin
 
 CREATE TYPE reserva_sentido AS ENUM ('ida', 'volta');
-CREATE TYPE status_reserva AS ENUM ('pendente', 'confirmada', 'alocada', 'cancelada');
+CREATE TYPE status_reserva AS ENUM ('confirmada', 'cancelada');
 
 CREATE TABLE reservas (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -15,7 +15,6 @@ CREATE TABLE reservas (
     cidade TEXT NOT NULL,
     sentido reserva_sentido NOT NULL,
     status status_reserva NOT NULL DEFAULT 'confirmada',
-    observacao TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_reservas_turno_operacional CHECK (turno IN ('MT', 'VT', 'NT'))
