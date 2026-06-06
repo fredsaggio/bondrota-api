@@ -17,7 +17,7 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/viagens"
 )
 
-func buildHandlers(pool db.DB, authSvc *auth.AuthService) server.Handlers {
+func buildHandlers(pool db.DB, authSvc *auth.AuthService) (server.Handlers, *rotasdinamicas.RotaDinamicaWorker) {
 	adminStore := admin.NewAdminStore(pool)
 	adminSvc := admin.NewAdminService(adminStore, authSvc)
 	adminHandler := admin.NewAdminHandler(adminSvc)
@@ -46,8 +46,14 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService) server.Handlers {
 	clienteHandler := clientes.NewClienteHandler(clienteSvc)
 	vinculoHandler := clientes.NewVinculoHandler(vinculoSvc)
 
+	calculadorRotaDinamicaStore := rotasdinamicas.NewCalculadorRotaDinamicaStore(pool)
+	rotaDinamicaInvalidator := rotasdinamicas.NewInvalidadorRotaDinamicaService(
+		calculadorRotaDinamicaStore,
+		rotasdinamicas.DefaultJanelaBloqueioRotaDinamica,
+	)
+
 	reservaStore := reservas.NewReservaStore(pool)
-	reservaSvc := reservas.NewReservaService(reservaStore)
+	reservaSvc := reservas.NewReservaService(reservaStore, rotaDinamicaInvalidator)
 	reservaHandler := reservas.NewReservaHandler(reservaSvc)
 
 	cicloViagemStore := viagens.NewCicloViagemStore(pool)
@@ -62,7 +68,6 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService) server.Handlers {
 
 	rotaDinamicaStore := rotasdinamicas.NewRotaDinamicaStore(pool)
 	rotaDinamicaSvc := rotasdinamicas.NewRotaDinamicaService(rotaDinamicaStore)
-	calculadorRotaDinamicaStore := rotasdinamicas.NewCalculadorRotaDinamicaStore(pool)
 	roteador := geo.NewOSRMClient(nil, "")
 	otimizadorRota := geo.NewOtimizadorRota()
 	calculadorRotaDinamicaSvc := rotasdinamicas.NewCalculadorRotaDinamicaService(
@@ -72,6 +77,11 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService) server.Handlers {
 		otimizadorRota,
 	)
 	rotaDinamicaHandler := rotasdinamicas.NewRotaDinamicaHandler(rotaDinamicaSvc, calculadorRotaDinamicaSvc)
+	rotaDinamicaWorker := rotasdinamicas.NewRotaDinamicaWorker(
+		calculadorRotaDinamicaStore,
+		calculadorRotaDinamicaSvc,
+		rotasdinamicas.RotaDinamicaWorkerConfig{},
+	)
 
 	return server.Handlers{
 		AdminHandler:        adminHandler,
@@ -86,5 +96,5 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService) server.Handlers {
 		ViagemHandler:       viagemHandler,
 		PlanejamentoHandler: planejamentoHandler,
 		RotaDinamicaHandler: rotaDinamicaHandler,
-	}
+	}, rotaDinamicaWorker
 }
