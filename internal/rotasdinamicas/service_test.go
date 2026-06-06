@@ -58,6 +58,16 @@ func validRotaInput() rotasdinamicas.RotaDinamicaInput {
 }
 
 func sampleRota(input rotasdinamicas.RotaDinamicaInput) *rotasdinamicas.RotaDinamicaComDestinos {
+	destinos := make([]rotasdinamicas.RotaDinamicaDestino, 0, len(input.Destinos))
+	for i, destino := range input.Destinos {
+		destinos = append(destinos, rotasdinamicas.RotaDinamicaDestino{
+			ID:             int64(i + 1),
+			RotaDinamicaID: 1,
+			DestinoID:      destino.DestinoID,
+			Ordem:          destino.Ordem,
+		})
+	}
+
 	return &rotasdinamicas.RotaDinamicaComDestinos{
 		Rota: rotasdinamicas.RotaDinamica{
 			ID:                    1,
@@ -76,10 +86,7 @@ func sampleRota(input rotasdinamicas.RotaDinamicaInput) *rotasdinamicas.RotaDina
 			CreatedAt:             time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC),
 			UpdatedAt:             time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC),
 		},
-		Destinos: []rotasdinamicas.RotaDinamicaDestino{
-			{ID: 1, RotaDinamicaID: 1, DestinoID: input.Destinos[0].DestinoID, Ordem: input.Destinos[0].Ordem},
-			{ID: 2, RotaDinamicaID: 1, DestinoID: input.Destinos[1].DestinoID, Ordem: input.Destinos[1].Ordem},
-		},
+		Destinos: destinos,
 	}
 }
 

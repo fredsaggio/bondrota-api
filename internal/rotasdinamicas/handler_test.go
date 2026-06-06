@@ -34,8 +34,17 @@ func (s fakeRotaDinamicaService) DeleteByViagem(ctx context.Context, viagemID in
 	return s.deleteFn(ctx, viagemID)
 }
 
+type fakeCalculadorRotaDinamicaService struct {
+	calcularFn func(ctx context.Context, viagemID int64) (*rotasdinamicas.RotaDinamicaComDestinos, error)
+}
+
+func (s fakeCalculadorRotaDinamicaService) Calcular(ctx context.Context, viagemID int64) (*rotasdinamicas.RotaDinamicaComDestinos, error) {
+	return s.calcularFn(ctx, viagemID)
+}
+
 func newRotaDinamicaRouter(h *rotasdinamicas.RotaDinamicaHandler) http.Handler {
 	r := chi.NewRouter()
+	r.Post("/viagens/{viagemID}/rota-dinamica/calcular", h.Calcular)
 	r.Post("/viagens/{viagemID}/rota-dinamica", h.Create)
 	r.Get("/viagens/{viagemID}/rota-dinamica", h.GetByViagem)
 	r.Delete("/viagens/{viagemID}/rota-dinamica", h.DeleteByViagem)
@@ -226,6 +235,73 @@ func TestRotaDinamicaHandler_GetByViagem(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			h := rotasdinamicas.NewRotaDinamicaHandler(tc.svc)
 			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+			rr := httptest.NewRecorder()
+
+			newRotaDinamicaRouter(h).ServeHTTP(rr, req)
+
+			if rr.Code != tc.wantStatus {
+				t.Fatalf("want %d, got %d: %s", tc.wantStatus, rr.Code, rr.Body.String())
+			}
+		})
+	}
+}
+
+func TestRotaDinamicaHandler_Calcular(t *testing.T) {
+	tests := []struct {
+		name       string
+		path       string
+		svc        fakeCalculadorRotaDinamicaService
+		wantStatus int
+	}{
+		{
+			name: "success",
+			path: "/viagens/10/rota-dinamica/calcular",
+			svc: fakeCalculadorRotaDinamicaService{
+				calcularFn: func(_ context.Context, viagemID int64) (*rotasdinamicas.RotaDinamicaComDestinos, error) {
+					if viagemID != 10 {
+						t.Fatalf("unexpected viagemID: %d", viagemID)
+					}
+					input := validRotaInput()
+					input.Provider = "osrm"
+					input.Destinos[0].Ordem = 1
+					input.Destinos[1].Ordem = 2
+					return sampleRota(input), nil
+				},
+			},
+			wantStatus: http.StatusCreated,
+		},
+		{
+			name:       "invalid id",
+			path:       "/viagens/abc/rota-dinamica/calcular",
+			svc:        fakeCalculadorRotaDinamicaService{},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "validation error",
+			path: "/viagens/10/rota-dinamica/calcular",
+			svc: fakeCalculadorRotaDinamicaService{
+				calcularFn: func(_ context.Context, _ int64) (*rotasdinamicas.RotaDinamicaComDestinos, error) {
+					return nil, errors.Join(brerror.ErrInvalidInput, errors.New("viagem precisa ter reservas com destinos"))
+				},
+			},
+			wantStatus: http.StatusUnprocessableEntity,
+		},
+		{
+			name: "not found",
+			path: "/viagens/99/rota-dinamica/calcular",
+			svc: fakeCalculadorRotaDinamicaService{
+				calcularFn: func(_ context.Context, _ int64) (*rotasdinamicas.RotaDinamicaComDestinos, error) {
+					return nil, brerror.ErrNotFound
+				},
+			},
+			wantStatus: http.StatusNotFound,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			h := rotasdinamicas.NewRotaDinamicaHandler(fakeRotaDinamicaService{}, tc.svc)
+			req := httptest.NewRequest(http.MethodPost, tc.path, nil)
 			rr := httptest.NewRecorder()
 
 			newRotaDinamicaRouter(h).ServeHTTP(rr, req)
