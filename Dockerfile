@@ -14,7 +14,7 @@ COPY ./internal ./internal
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     LDFLAGS="-s -w -X github.com/fredsaggio/bondrota-api/internal/version.Commit=${GIT_COMMIT} -X github.com/fredsaggio/bondrota-api/internal/version.BuildTime=${BUILD_TIME}" && \
-    CGO_ENABLED=0 GOOS=linux go build -ldflags="$LDFLAGS" -o /app/bin/api ./cmd/main.go
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="$LDFLAGS" -o /app/bin/api ./cmd/...
 
 FROM gcr.io/distroless/static-debian13:nonroot
 WORKDIR /
