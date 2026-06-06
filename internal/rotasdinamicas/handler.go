@@ -13,11 +13,16 @@ import (
 )
 
 type RotaDinamicaHandler struct {
-	svc RotaDinamicaService
+	svc           RotaDinamicaService
+	calculadorSvc CalculadorRotaDinamicaService
 }
 
-func NewRotaDinamicaHandler(svc RotaDinamicaService) *RotaDinamicaHandler {
-	return &RotaDinamicaHandler{svc: svc}
+func NewRotaDinamicaHandler(svc RotaDinamicaService, calculadorSvc ...CalculadorRotaDinamicaService) *RotaDinamicaHandler {
+	h := &RotaDinamicaHandler{svc: svc}
+	if len(calculadorSvc) > 0 {
+		h.calculadorSvc = calculadorSvc[0]
+	}
+	return h
 }
 
 type PontoRotaRequest struct {
@@ -116,6 +121,26 @@ func (h *RotaDinamicaHandler) GetByViagem(w http.ResponseWriter, r *http.Request
 	}
 
 	httputils.Respond(w, http.StatusOK, toRotaDinamicaComDestinosResponse(rota))
+}
+
+func (h *RotaDinamicaHandler) Calcular(w http.ResponseWriter, r *http.Request) {
+	viagemID, err := conv.ParseInt(r, "viagemID")
+	if err != nil {
+		http.Error(w, "invalid viagem id", http.StatusBadRequest)
+		return
+	}
+	if h.calculadorSvc == nil {
+		http.Error(w, "calculation service unavailable", http.StatusInternalServerError)
+		return
+	}
+
+	rota, err := h.calculadorSvc.Calcular(r.Context(), viagemID)
+	if err != nil {
+		h.handleError(w, err, "failed to calculate rota dinamica")
+		return
+	}
+
+	httputils.Respond(w, http.StatusCreated, toRotaDinamicaComDestinosResponse(rota))
 }
 
 func (h *RotaDinamicaHandler) DeleteByViagem(w http.ResponseWriter, r *http.Request) {

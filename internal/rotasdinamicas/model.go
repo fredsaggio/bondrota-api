@@ -60,6 +60,29 @@ type RotaDinamicaComDestinos struct {
 	Destinos []RotaDinamicaDestino
 }
 
+type PontoCalculoRota struct {
+	ID        int64
+	Nome      string
+	Latitude  float64
+	Longitude float64
+	Ordem     int
+}
+
+type DestinoCalculoRota struct {
+	ID        int64
+	Nome      string
+	Latitude  float64
+	Longitude float64
+}
+
+type DadosCalculoRota struct {
+	ViagemID  int64
+	Sentido   string
+	ExpiresAt time.Time
+	Paradas   []PontoCalculoRota
+	Destinos  []DestinoCalculoRota
+}
+
 type RotaDinamicaStore interface {
 	Create(ctx context.Context, input RotaDinamicaInput) (*RotaDinamicaComDestinos, error)
 	GetByViagem(ctx context.Context, viagemID int64) (*RotaDinamicaComDestinos, error)
@@ -67,8 +90,16 @@ type RotaDinamicaStore interface {
 	DeleteByViagem(ctx context.Context, viagemID int64) error
 }
 
+type CalculadorRotaDinamicaStore interface {
+	GetDadosCalculo(ctx context.Context, viagemID int64) (*DadosCalculoRota, error)
+}
+
 type RotaDinamicaService interface {
 	Create(ctx context.Context, input RotaDinamicaInput) (*RotaDinamicaComDestinos, error)
 	GetByViagem(ctx context.Context, viagemID int64) (*RotaDinamicaComDestinos, error)
 	DeleteByViagem(ctx context.Context, viagemID int64) error
+}
+
+type CalculadorRotaDinamicaService interface {
+	Calcular(ctx context.Context, viagemID int64) (*RotaDinamicaComDestinos, error)
 }
