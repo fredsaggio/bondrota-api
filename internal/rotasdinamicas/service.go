@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
+
+	"github.com/fredsaggio/bondrota-api/internal/brerror"
 )
 
 const defaultProvider = "osrm"
@@ -28,7 +31,7 @@ func (s *rotaDinamicaService) Create(ctx context.Context, input RotaDinamicaInpu
 
 func (s *rotaDinamicaService) GetByViagem(ctx context.Context, viagemID int64) (*RotaDinamicaComDestinos, error) {
 	if viagemID <= 0 {
-		return nil, errors.New("viagem_id is required")
+		return nil, invalidInput("viagem_id is required")
 	}
 
 	return s.store.GetByViagem(ctx, viagemID)
@@ -36,7 +39,7 @@ func (s *rotaDinamicaService) GetByViagem(ctx context.Context, viagemID int64) (
 
 func (s *rotaDinamicaService) DeleteByViagem(ctx context.Context, viagemID int64) error {
 	if viagemID <= 0 {
-		return errors.New("viagem_id is required")
+		return invalidInput("viagem_id is required")
 	}
 
 	return s.store.DeleteByViagem(ctx, viagemID)
@@ -52,17 +55,17 @@ func normalizeRotaDinamicaInput(input RotaDinamicaInput) (RotaDinamicaInput, err
 	input.DestinoFinal.Nome = strings.TrimSpace(input.DestinoFinal.Nome)
 
 	if err := validateRotaDinamicaInput(input); err != nil {
-		return RotaDinamicaInput{}, err
+		return RotaDinamicaInput{}, wrapInvalidInput(err)
 	}
 
 	destinos := make([]RotaDinamicaDestinoInput, 0, len(input.Destinos))
 	seenDestino := make(map[int64]struct{}, len(input.Destinos))
 	for i, destino := range input.Destinos {
 		if destino.DestinoID <= 0 {
-			return RotaDinamicaInput{}, errors.New("destino_id is required")
+			return RotaDinamicaInput{}, invalidInput("destino_id is required")
 		}
 		if _, ok := seenDestino[destino.DestinoID]; ok {
-			return RotaDinamicaInput{}, errors.New("destino_id duplicated")
+			return RotaDinamicaInput{}, invalidInput("destino_id duplicated")
 		}
 		seenDestino[destino.DestinoID] = struct{}{}
 
@@ -106,6 +109,14 @@ func validateRotaDinamicaInput(input RotaDinamicaInput) error {
 	}
 
 	return nil
+}
+
+func invalidInput(message string) error {
+	return fmt.Errorf("%w: %s", brerror.ErrInvalidInput, message)
+}
+
+func wrapInvalidInput(err error) error {
+	return fmt.Errorf("%w: %v", brerror.ErrInvalidInput, err)
 }
 
 func validatePontoRota(field string, ponto PontoRota) error {
