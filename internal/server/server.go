@@ -147,6 +147,16 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 			r.Delete("/{reservaID}", srv.handlers.ReservaHandler.Delete)
 		})
 
+		r.Group(func(r chi.Router) {
+			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin, auth.RoleMotorista, auth.RoleCliente))
+			r.Get("/viagens/{viagemID}/localizacao", srv.handlers.ViagemHandler.GetLocalizacao)
+		})
+
+		r.Group(func(r chi.Router) {
+			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin, auth.RoleMotorista))
+			r.Put("/viagens/{viagemID}/localizacao", srv.handlers.ViagemHandler.AtualizarLocalizacao)
+		})
+
 		r.Route("/viagens", func(r chi.Router) {
 			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin, auth.RoleMotorista))
 			r.Get("/", srv.handlers.ViagemHandler.List)

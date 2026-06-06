@@ -71,7 +71,9 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService) (server.Handlers, *rot
 	viagemSvc := viagens.NewViagemService(viagemStore)
 	viagemReservaStore := viagens.NewViagemReservaStore(pool)
 	presencaSvc := viagens.NewPresencaService(viagemReservaStore)
-	viagemHandler := viagens.NewViagemHandler(viagemSvc, presencaSvc)
+	viagemLocalizacaoStore := viagens.NewViagemLocalizacaoStore(pool)
+	viagemLocalizacaoSvc := viagens.NewViagemLocalizacaoService(viagemLocalizacaoStore)
+	viagemHandler := viagens.NewViagemHandler(viagemSvc, presencaSvc, viagemLocalizacaoSvc)
 
 	rotaDinamicaStore := rotasdinamicas.NewRotaDinamicaStore(pool)
 	rotaDinamicaSvc := rotasdinamicas.NewRotaDinamicaService(rotaDinamicaStore)
