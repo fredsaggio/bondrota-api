@@ -94,6 +94,14 @@ type CalculadorRotaDinamicaStore interface {
 	GetDadosCalculo(ctx context.Context, viagemID int64) (*DadosCalculoRota, error)
 }
 
+type AgendadorRotaDinamicaStore interface {
+	ListViagensPendentesCalculo(ctx context.Context, now time.Time, janelaCalculo, janelaBloqueio time.Duration) ([]int64, error)
+}
+
+type InvalidadorRotaDinamicaStore interface {
+	DeleteRotasPorReservaAntesDoBloqueio(ctx context.Context, reservaID int64, now time.Time, janelaBloqueio time.Duration) error
+}
+
 type RotaDinamicaService interface {
 	Create(ctx context.Context, input RotaDinamicaInput) (*RotaDinamicaComDestinos, error)
 	GetByViagem(ctx context.Context, viagemID int64) (*RotaDinamicaComDestinos, error)
@@ -102,4 +110,8 @@ type RotaDinamicaService interface {
 
 type CalculadorRotaDinamicaService interface {
 	Calcular(ctx context.Context, viagemID int64) (*RotaDinamicaComDestinos, error)
+}
+
+type InvalidadorRotaDinamicaService interface {
+	InvalidarPorReserva(ctx context.Context, reservaID int64) error
 }
