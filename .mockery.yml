@@ -69,3 +69,21 @@ packages:
       filename: destinosmocks.go
     interfaces:
       DestinoStore:
+
+  github.com/fredsaggio/bondrota-api/internal/viagens:
+    config:
+      dir: internal/mocks
+      pkgname: mocks
+      filename: viagensmocks.go
+    interfaces:
+      ViagemStore:
+      ViagemService:
+
+  github.com/fredsaggio/bondrota-api/internal/rotasdinamicas:
+    config:
+      dir: internal/mocks
+      pkgname: mocks
+      filename: rotasdinamicasmocks.go
+    interfaces:
+      RotaDinamicaStore:
+      RotaDinamicaService:
