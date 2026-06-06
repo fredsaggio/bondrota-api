@@ -25,8 +25,6 @@ type PlanejarViagensRequest struct {
 	Cidade        string      `json:"cidade"`
 	RotaInternaID int64       `json:"rota_interna_id"`
 	ExpiresAt     string      `json:"expires_at"`
-	PartidaIda    string      `json:"partida_ida"`
-	PartidaVolta  string      `json:"partida_volta"`
 }
 
 type PlanejamentoViagensResponse struct {
@@ -48,17 +46,17 @@ func (h *PlanejamentoHandler) PlanejarViagens(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	input, partidas, err := toPlanejamentoInput(req)
+	input, err := toPlanejamentoInput(req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if err := validatePlanejamentoInput(input, partidas); err != nil {
+	if err := validatePlanejamentoInput(input); err != nil {
 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 
-	ciclo, err := h.svc.Planejar(r.Context(), input, partidas)
+	ciclo, err := h.svc.Planejar(r.Context(), input)
 	if err != nil {
 		h.handleError(w, err, "failed to plan viagens")
 		return
@@ -85,37 +83,24 @@ func (h *PlanejamentoHandler) handleError(w http.ResponseWriter, err error, msg 
 	http.Error(w, "internal server error", http.StatusInternalServerError)
 }
 
-func toPlanejamentoInput(req PlanejarViagensRequest) (PlanejamentoViagensInput, map[SentidoViagem]time.Time, error) {
+func toPlanejamentoInput(req PlanejarViagensRequest) (PlanejamentoViagensInput, error) {
 	dataViagem, err := parseDate(req.DataViagem, "data_viagem")
 	if err != nil {
-		return PlanejamentoViagensInput{}, nil, err
+		return PlanejamentoViagensInput{}, err
 	}
 
 	expiresAt, err := parseTimestamp(req.ExpiresAt, "expires_at")
 	if err != nil {
-		return PlanejamentoViagensInput{}, nil, err
-	}
-
-	partidaIda, err := parseTimestamp(req.PartidaIda, "partida_ida")
-	if err != nil {
-		return PlanejamentoViagensInput{}, nil, err
-	}
-
-	partidaVolta, err := parseTimestamp(req.PartidaVolta, "partida_volta")
-	if err != nil {
-		return PlanejamentoViagensInput{}, nil, err
+		return PlanejamentoViagensInput{}, err
 	}
 
 	return PlanejamentoViagensInput{
-			DataViagem:    dataViagem,
-			Turno:         req.Turno,
-			Cidade:        req.Cidade,
-			RotaInternaID: req.RotaInternaID,
-			ExpiresAt:     expiresAt,
-		}, map[SentidoViagem]time.Time{
-			SentidoIda:   partidaIda,
-			SentidoVolta: partidaVolta,
-		}, nil
+		DataViagem:    dataViagem,
+		Turno:         req.Turno,
+		Cidade:        req.Cidade,
+		RotaInternaID: req.RotaInternaID,
+		ExpiresAt:     expiresAt,
+	}, nil
 }
 
 func parseDate(value, field string) (time.Time, error) {

@@ -91,6 +91,23 @@ type ViagemReservaConfirmacao struct {
 	UpdatedAt        time.Time
 }
 
+type HorarioTurnoViagem struct {
+	ID           int64
+	Cidade       string
+	Turno        TurnoViagem
+	HorarioIda   time.Duration
+	HorarioVolta time.Duration
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+type HorarioTurnoViagemInput struct {
+	Cidade       string
+	Turno        TurnoViagem
+	HorarioIda   time.Duration
+	HorarioVolta time.Duration
+}
+
 type CicloViagemInput struct {
 	DataViagem    time.Time
 	Turno         TurnoViagem
@@ -115,6 +132,11 @@ type PlanejamentoReservasFiltro struct {
 	Cidade        string
 	RotaInternaID int64
 	Sentido       SentidoViagem
+}
+
+type PlanejamentoReserva struct {
+	ID        int64
+	DestinoID int64
 }
 
 type CicloViagemComReservasInput struct {
@@ -167,10 +189,19 @@ type CicloViagemStore interface {
 	CreateCiclo(ctx context.Context, input CicloViagemInput) (*CicloViagem, error)
 	CreateCicloComViagens(ctx context.Context, input CicloViagemInput, partidas map[SentidoViagem]time.Time) (*CicloComViagens, error)
 	CreateCiclosComViagens(ctx context.Context, inputs []CicloViagemComReservasInput, partidas map[SentidoViagem]time.Time) (*PlanejamentoViagens, error)
-	ListReservaIDsConfirmadasParaPlanejamento(ctx context.Context, filtro PlanejamentoReservasFiltro) ([]int64, error)
+	ListReservasConfirmadasParaPlanejamento(ctx context.Context, filtro PlanejamentoReservasFiltro) ([]PlanejamentoReserva, error)
 	GetCicloByID(ctx context.Context, cicloID int64) (*CicloViagem, error)
 	ListCiclos(ctx context.Context) ([]CicloViagem, error)
 	UpdateCiclo(ctx context.Context, cicloID int64, updateFunc func(*CicloViagem) (bool, error)) (*CicloViagem, error)
+}
+
+type HorarioTurnoViagemStore interface {
+	Create(ctx context.Context, input HorarioTurnoViagemInput) (*HorarioTurnoViagem, error)
+	GetByID(ctx context.Context, id int64) (*HorarioTurnoViagem, error)
+	GetByCidadeTurno(ctx context.Context, cidade string, turno TurnoViagem) (*HorarioTurnoViagem, error)
+	List(ctx context.Context) ([]HorarioTurnoViagem, error)
+	Update(ctx context.Context, id int64, updateFunc func(*HorarioTurnoViagem) (bool, error)) (*HorarioTurnoViagem, error)
+	Delete(ctx context.Context, id int64) error
 }
 
 type ViagemStore interface {
@@ -191,7 +222,15 @@ type ViagemReservaStore interface {
 }
 
 type PlanejamentoService interface {
-	Planejar(ctx context.Context, input PlanejamentoViagensInput, partidas map[SentidoViagem]time.Time) (*PlanejamentoViagens, error)
+	Planejar(ctx context.Context, input PlanejamentoViagensInput) (*PlanejamentoViagens, error)
+}
+
+type HorarioTurnoViagemService interface {
+	Create(ctx context.Context, input HorarioTurnoViagemInput) (*HorarioTurnoViagem, error)
+	GetByID(ctx context.Context, id int64) (*HorarioTurnoViagem, error)
+	List(ctx context.Context) ([]HorarioTurnoViagem, error)
+	Update(ctx context.Context, id int64, updateFunc func(*HorarioTurnoViagem) (bool, error)) (*HorarioTurnoViagem, error)
+	Delete(ctx context.Context, id int64) error
 }
 
 type VeiculoAlocador interface {
