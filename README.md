@@ -1,0 +1,147 @@
+# BondRota API
+
+API REST para gerenciamento de transporte universitário em cidades do interior do Brasil. Permite o controle de rotas, motoristas, clientes, reservas e viagens, com suporte a planejamento automático de veículos e rota dinâmica via OSRM.
+
+## Funcionalidades
+
+- Autenticação JWT com roles (`admin`, `motorista`, `cliente`)
+- Gestão de veículos, motoristas, clientes e destinos
+- Reservas de ida e volta por turno
+- Planejamento automático de viagens com alocação de veículos e motoristas
+- Rota dinâmica calculada via OSRM com worker de atualização automática
+- Rastreamento de localização do motorista em tempo real
+- Upload e download de arquivos via Supabase Storage (URLs assinadas)
+
+## Stack
+
+- **Go 1.26** com [Chi](https://github.com/go-chi/chi)
+- **PostgreSQL** via [pgx/v5](https://github.com/jackc/pgx)
+- **Goose** para migrations
+- **Docker** para ambiente local
+- **Air** para hot reload em desenvolvimento
+
+## Pré-requisitos
+
+- Go 1.26+
+- Docker e Docker Compose
+- [Air](https://github.com/air-verse/air) (`go install github.com/air-verse/air@latest`)
+- [Goose](https://github.com/pressly/goose) (`go install github.com/pressly/goose/v3/cmd/goose@latest`)
+
+## Configuração
+
+Crie um arquivo `.env` na raiz do projeto:
+
+```env
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/bondrota_db?sslmode=disable
+PORT=8080
+ALLOWED_ORIGINS=http://localhost:3000
+JWT_SECRET=seu_jwt_secret
+SUPABASE_URL=https://<project>.supabase.co
+SUPABASE_SERVICE_KEY=sua_service_key
+```
+
+## Rodando localmente
+
+```bash
+# Inicia o banco, roda as migrations e sobe a API com hot reload
+make start
+```
+
+Ou passo a passo:
+
+```bash
+# Sobe apenas o banco
+make infra/up
+
+# Roda as migrations
+make migration/up
+
+# Sobe a API com hot reload
+air
+```
+
+A API estará disponível em `http://localhost:8080/api/v1`.
+
+## Comandos disponíveis
+
+```bash
+make help           # Lista todos os comandos
+make start          # Inicia banco + migrations + API
+make infra/up       # Sobe apenas o banco Docker
+make infra/down     # Para o banco Docker
+make reset          # Para containers e remove volumes
+make build          # Compila o binário
+make test           # Roda testes unitários
+make test/integration  # Roda testes de integração (requer banco)
+make db             # Abre psql no banco local
+make logs           # Tail dos logs da API
+```
+
+### Migrations
+
+```bash
+make migration/new name=nome_da_migration   # Cria nova migration
+make migration/up                           # Aplica migrations localmente
+make migration/down                         # Reverte última migration
+make migration/status                       # Status das migrations locais
+make migration/up/prod                      # Aplica migrations em produção
+make migration/status/prod                  # Status das migrations em produção
+make migration/fix                          # Converte timestamps para sequencial
+```
+
+## Seed de administrador
+
+Para criar o primeiro administrador, configure as variáveis `ADMIN_EMAIL` e `ADMIN_PASSWORD` no `.env` e execute:
+
+```bash
+go run ./cmd/seed-admin
+```
+
+## Estrutura do projeto
+
+```
+.
+├── cmd/
+│   ├── main.go              # Entrypoint
+│   ├── dependencies.go      # Wiring de dependências
+│   └── seed-admin/          # Comando para criar admin inicial
+├── internal/
+│   ├── admin/               # Domínio de administradores
+│   ├── auth/                # JWT, middleware e roles
+│   ├── clientes/            # Domínio de clientes e vínculos
+│   ├── destinos/            # Destinos (faculdades/locais)
+│   ├── geo/                 # Cliente OSRM e otimizador de rota
+│   ├── motoristas/          # Domínio de motoristas
+│   ├── paradas/             # Paradas intermediárias
+│   ├── reservas/            # Reservas de clientes
+│   ├── rotasdinamicas/      # Cálculo e persistência de rotas dinâmicas
+│   ├── rotasinternas/       # Rotas fixas com paradas ordenadas
+│   ├── server/              # Registro de rotas HTTP
+│   ├── storage/             # Integração com Supabase Storage
+│   ├── veiculos/            # Domínio de veículos e alocação
+│   └── viagens/             # Viagens, planejamento, presença e localização
+│       └── db/migrations/   # Migrations SQL (Goose)
+└── docs/                    # Documentação
+```
+
+## Documentação da API
+
+Consulte [`docs/api-reference.md`](docs/api-reference.md) para a referência completa de endpoints, exemplos de request/response, regras de negócio e fluxo da aplicação.
+
+## Deploy
+
+A API é containerizada via Docker e pode ser deployada em qualquer plataforma que suporte containers. O `Dockerfile` usa build multi-stage com imagem final `distroless` para manter o binário mínimo e seguro.
+
+Variáveis de ambiente necessárias em produção: `DATABASE_URL`, `PORT`, `ALLOWED_ORIGINS`, `JWT_SECRET`, `SUPABASE_URL` e `SUPABASE_SERVICE_KEY`.
+
+## Testes
+
+```bash
+# Testes unitários (sem banco)
+make test
+
+```
+
+## Licença
+
+Projeto acadêmico. Todos os direitos reservados.
