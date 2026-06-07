@@ -1,0 +1,709 @@
+package tests
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/fredsaggio/bondrota-api/internal/admin"
+	"github.com/fredsaggio/bondrota-api/internal/auth"
+	"github.com/fredsaggio/bondrota-api/internal/clientes"
+	"github.com/fredsaggio/bondrota-api/internal/crypto"
+	"github.com/fredsaggio/bondrota-api/internal/db"
+	"github.com/fredsaggio/bondrota-api/internal/destinos"
+	"github.com/fredsaggio/bondrota-api/internal/geo"
+	"github.com/fredsaggio/bondrota-api/internal/motoristas"
+	"github.com/fredsaggio/bondrota-api/internal/paradas"
+	"github.com/fredsaggio/bondrota-api/internal/reservas"
+	"github.com/fredsaggio/bondrota-api/internal/rotasdinamicas"
+	"github.com/fredsaggio/bondrota-api/internal/rotasinternas"
+	"github.com/fredsaggio/bondrota-api/internal/server"
+	"github.com/fredsaggio/bondrota-api/internal/storage"
+	"github.com/fredsaggio/bondrota-api/internal/veiculos"
+	"github.com/fredsaggio/bondrota-api/internal/viagens"
+	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+func TestEndToEndPlanejamentoViagem(t *testing.T) {
+	dbURL := strings.TrimSpace(os.Getenv("E2E_DATABASE_URL"))
+	if dbURL == "" {
+		t.Skip("set E2E_DATABASE_URL to run end-to-end tests")
+	}
+
+	ctx := context.Background()
+	pool, err := db.Connect(ctx, dbURL)
+	if err != nil {
+		t.Fatalf("connect e2e database: %v", err)
+	}
+	t.Cleanup(pool.Close)
+
+	jwtSecret := "e2e-secret"
+	authSvc := auth.NewAuthService(crypto.NewBcryptHasher(crypto.DefaultCost), jwtSecret)
+	osrmServer := newFakeOSRMServer(t)
+	defer osrmServer.Close()
+	router := buildE2ERouter(pool, authSvc, e2eRouterOptions{OSRMBaseURL: osrmServer.URL})
+
+	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
+	adminEmail := "admin-e2e-" + suffix + "@bondrota.test"
+	adminPassword := "admin123"
+	motoristaCPF := "900" + suffix[len(suffix)-8:]
+	clienteCPF := "800" + suffix[len(suffix)-8:]
+	placa := "E2E" + suffix[len(suffix)-4:]
+	cidade := "e2e-cidade-" + suffix
+	destinoNome := "UFAL E2E " + suffix
+
+	t.Cleanup(func() {
+		cleanupE2EData(context.Background(), t, pool, e2eCleanupData{
+			AdminEmail:   adminEmail,
+			MotoristaCPF: motoristaCPF,
+			ClienteCPF:   clienteCPF,
+			Placa:        placa,
+			Cidade:       cidade,
+			DestinoNome:  destinoNome,
+		})
+	})
+
+	seedAdmin(t, ctx, pool, adminEmail, adminPassword)
+
+	adminToken := loginAdmin(t, router, adminEmail, adminPassword)
+
+	destinoID := createDestino(t, router, adminToken, map[string]any{
+		"nome":      destinoNome,
+		"rua":       "Av. Teste",
+		"cidade":    "maceio",
+		"latitude":  -9.5584,
+		"longitude": -35.7777,
+	})
+	paradaID := createParada(t, router, adminToken, map[string]any{
+		"nome":      "Praca E2E",
+		"latitude":  -9.7812,
+		"longitude": -36.3501,
+		"cidade":    cidade,
+	})
+	rotaInternaID := createRotaInterna(t, router, adminToken, map[string]any{
+		"cidade": cidade,
+		"paradas": []map[string]any{
+			{"parada_id": paradaID, "ordem": 1},
+		},
+	})
+	createVeiculo(t, router, adminToken, map[string]any{
+		"placa":           placa,
+		"modelo":          "Van E2E",
+		"categoria":       "carro_7_lugares",
+		"capacidade":      7,
+		"cidade_base":     cidade,
+		"status":          "ativo",
+		"ar_condicionado": false,
+		"banheiro":        false,
+		"persiana":        false,
+		"luz_leitura":     false,
+		"tomada":          false,
+	})
+	motoristaID := createMotorista(t, router, adminToken, map[string]any{
+		"nome":            "Motorista E2E",
+		"cpf":             motoristaCPF,
+		"senha":           "senha123",
+		"telefone":        "82999990000",
+		"data_nasc":       "1980-05-20",
+		"turno":           "NT",
+		"cidade_trabalho": cidade,
+		"residencia":      cidade,
+		"foto":            "",
+	})
+	clienteID := createCliente(t, router, adminToken, map[string]any{
+		"nome":      "Cliente E2E",
+		"cpf":       clienteCPF,
+		"senha":     "senha123",
+		"telefone":  "82999991111",
+		"data_nasc": "2002-08-10",
+		"foto":      "",
+	})
+	vinculoID := createVinculo(t, router, adminToken, clienteID, map[string]any{
+		"tipo":            "estudante",
+		"turno":           "NT",
+		"destino_id":      destinoID,
+		"rota_interna_id": rotaInternaID,
+		"curso":           "Sistemas",
+		"comprovante":     "clientes/1/vinculos/1/comprovante.pdf",
+		"validade":        "2027-12-31",
+		"horarios_fixos":  []int{1, 2, 3, 4, 5},
+	})
+
+	dataViagem := time.Now().AddDate(0, 0, 1).Format("2006-01-02")
+	createReserva(t, router, adminToken, clienteID, vinculoID, map[string]any{
+		"data_viagem": dataViagem,
+		"turno":       "NT",
+		"sentido":     "ida",
+	})
+	createReserva(t, router, adminToken, clienteID, vinculoID, map[string]any{
+		"data_viagem": dataViagem,
+		"turno":       "NT",
+		"sentido":     "volta",
+	})
+	createHorarioTurno(t, router, adminToken, map[string]any{
+		"cidade":        cidade,
+		"turno":         "NT",
+		"horario_ida":   "17:00",
+		"horario_volta": "22:00",
+	})
+
+	planejamento := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/planejamentos/viagens", adminToken, map[string]any{
+		"data_viagem":     dataViagem,
+		"turno":           "NT",
+		"cidade":          cidade,
+		"rota_interna_id": rotaInternaID,
+		"expires_at":      time.Now().AddDate(0, 3, 0).Format(time.RFC3339),
+	}, http.StatusCreated)
+
+	ciclos := planejamento["ciclos"].([]any)
+	if len(ciclos) != 1 {
+		t.Fatalf("expected 1 ciclo, got %d", len(ciclos))
+	}
+	ciclo := ciclos[0].(map[string]any)
+	viagensResp := ciclo["viagens"].([]any)
+	if len(viagensResp) != 2 {
+		t.Fatalf("expected ida and volta viagens, got %d", len(viagensResp))
+	}
+
+	viagemID := int64(viagensResp[0].(map[string]any)["id"].(float64))
+	motoristaToken := loginMotorista(t, router, motoristaCPF, "senha123")
+
+	rota := doJSON[map[string]any](t, router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/rota-dinamica/calcular", viagemID), motoristaToken, nil, http.StatusCreated)
+	rotaData := rota["rota"].(map[string]any)
+	if int64(rotaData["distancia_metros"].(float64)) != 12346 {
+		t.Fatalf("unexpected dynamic route distance: %v", rotaData["distancia_metros"])
+	}
+	if osrmServer.Requests() != 1 {
+		t.Fatalf("expected 1 OSRM request, got %d", osrmServer.Requests())
+	}
+
+	doJSON[map[string]any](t, router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/iniciar", viagemID), motoristaToken, nil, http.StatusOK)
+
+	reservasViagem := doJSON[[]map[string]any](t, router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%d/reservas/", viagemID), motoristaToken, nil, http.StatusOK)
+	if len(reservasViagem) != 1 {
+		t.Fatalf("expected 1 reserva on selected viagem, got %d", len(reservasViagem))
+	}
+	reservaID := int64(reservasViagem[0]["reserva_id"].(float64))
+
+	doJSON[map[string]any](t, router, http.MethodPut, fmt.Sprintf("/api/v1/viagens/%d/reservas/%d/presenca", viagemID, reservaID), motoristaToken, map[string]any{
+		"status_presenca": "embarcou",
+	}, http.StatusOK)
+
+	localizacao := doJSON[map[string]any](t, router, http.MethodPut, fmt.Sprintf("/api/v1/viagens/%d/localizacao", viagemID), motoristaToken, map[string]any{
+		"motorista_id":    motoristaID,
+		"latitude":        -9.7812,
+		"longitude":       -36.3501,
+		"velocidade_kmh":  42.5,
+		"direcao_graus":   180,
+		"precisao_metros": 8,
+	}, http.StatusOK)
+	if int64(localizacao["motorista_id"].(float64)) != motoristaID {
+		t.Fatalf("unexpected motorista_id in localizacao: %v", localizacao["motorista_id"])
+	}
+
+	clienteToken := loginCliente(t, router, clienteCPF, "senha123")
+	doJSON[map[string]any](t, router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%d/localizacao", viagemID), clienteToken, nil, http.StatusOK)
+
+	doJSON[map[string]any](t, router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/concluir", viagemID), motoristaToken, nil, http.StatusOK)
+}
+
+func TestEndToEndSupabaseStorageSignedURLs(t *testing.T) {
+	dbURL := strings.TrimSpace(os.Getenv("E2E_DATABASE_URL"))
+	if dbURL == "" {
+		t.Skip("set E2E_DATABASE_URL to run end-to-end tests")
+	}
+
+	ctx := context.Background()
+	pool, err := db.Connect(ctx, dbURL)
+	if err != nil {
+		t.Fatalf("connect e2e database: %v", err)
+	}
+	t.Cleanup(pool.Close)
+
+	supabase := newFakeSupabaseStorageServer(t)
+	defer supabase.Close()
+
+	authSvc := auth.NewAuthService(crypto.NewBcryptHasher(crypto.DefaultCost), "e2e-secret")
+	router := buildE2ERouter(pool, authSvc, e2eRouterOptions{
+		StorageConfig: storage.SupabaseConfig{
+			URL:        supabase.URL,
+			ServiceKey: "service-key",
+		},
+	})
+
+	clienteToken, err := authSvc.GenerateToken(1, auth.RoleCliente)
+	if err != nil {
+		t.Fatalf("generate cliente token: %v", err)
+	}
+
+	upload := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/storage/signed-upload-url", clienteToken, map[string]any{
+		"bucket":       "fotos",
+		"path":         "clientes/1/foto.png",
+		"content_type": "image/png",
+		"upsert":       true,
+	}, http.StatusCreated)
+	if upload["path"] != "clientes/1/foto.png" {
+		t.Fatalf("unexpected signed upload path: %v", upload["path"])
+	}
+
+	req, err := http.NewRequest(http.MethodPut, upload["signed_url"].(string), strings.NewReader("fake-image"))
+	if err != nil {
+		t.Fatalf("create fake upload request: %v", err)
+	}
+	req.Header.Set("Content-Type", "image/png")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("send fake upload: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("fake upload: want 200, got %d", resp.StatusCode)
+	}
+
+	download := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/storage/signed-download-url", clienteToken, map[string]any{
+		"bucket":             "fotos",
+		"path":               "clientes/1/foto.png",
+		"expires_in_seconds": 900,
+	}, http.StatusOK)
+	if download["signed_url"] == "" {
+		t.Fatalf("expected signed download url")
+	}
+
+	doStatus(t, router, http.MethodPost, "/api/v1/storage/signed-upload-url", clienteToken, map[string]any{
+		"bucket":       "fotos",
+		"path":         "clientes/2/foto.png",
+		"content_type": "image/png",
+	}, http.StatusForbidden)
+
+	if supabase.SignUploadRequests() != 1 {
+		t.Fatalf("expected 1 signed upload request, got %d", supabase.SignUploadRequests())
+	}
+	if supabase.UploadRequests() != 1 {
+		t.Fatalf("expected 1 direct upload request, got %d", supabase.UploadRequests())
+	}
+	if supabase.SignDownloadRequests() != 1 {
+		t.Fatalf("expected 1 signed download request, got %d", supabase.SignDownloadRequests())
+	}
+}
+
+func TestEndToEndAutorizacaoRoles(t *testing.T) {
+	dbURL := strings.TrimSpace(os.Getenv("E2E_DATABASE_URL"))
+	if dbURL == "" {
+		t.Skip("set E2E_DATABASE_URL to run end-to-end tests")
+	}
+
+	ctx := context.Background()
+	pool, err := db.Connect(ctx, dbURL)
+	if err != nil {
+		t.Fatalf("connect e2e database: %v", err)
+	}
+	t.Cleanup(pool.Close)
+
+	authSvc := auth.NewAuthService(crypto.NewBcryptHasher(crypto.DefaultCost), "e2e-secret")
+	router := buildE2ERouter(pool, authSvc, e2eRouterOptions{})
+
+	clienteToken, err := authSvc.GenerateToken(1, auth.RoleCliente)
+	if err != nil {
+		t.Fatalf("generate cliente token: %v", err)
+	}
+	motoristaToken, err := authSvc.GenerateToken(1, auth.RoleMotorista)
+	if err != nil {
+		t.Fatalf("generate motorista token: %v", err)
+	}
+
+	doStatus(t, router, http.MethodGet, "/api/v1/veiculos/", "", nil, http.StatusUnauthorized)
+	doStatus(t, router, http.MethodPost, "/api/v1/veiculos/", clienteToken, map[string]any{}, http.StatusForbidden)
+	doStatus(t, router, http.MethodPost, "/api/v1/clientes/1/vinculos/", motoristaToken, map[string]any{}, http.StatusForbidden)
+	doStatus(t, router, http.MethodPut, "/api/v1/viagens/1/localizacao", clienteToken, map[string]any{}, http.StatusForbidden)
+}
+
+type e2eRouterOptions struct {
+	OSRMBaseURL   string
+	StorageConfig storage.SupabaseConfig
+}
+
+func buildE2ERouter(pool *pgxpool.Pool, authSvc *auth.AuthService, options e2eRouterOptions) http.Handler {
+	adminStore := admin.NewAdminStore(pool)
+	adminSvc := admin.NewAdminService(adminStore, authSvc)
+
+	veiculoStore := veiculos.NewVeiculoStore(pool)
+	alocacaoVeiculoStore := veiculos.NewAlocacaoVeiculoStore(pool)
+	alocacaoVeiculoSvc := veiculos.NewAlocacaoService(alocacaoVeiculoStore)
+
+	destinoStore := destinos.NewDestinoStore(pool)
+	paradaStore := paradas.NewParadaStore(pool)
+
+	rotaInternaStore := rotasinternas.NewRotaInternaStore(pool)
+	rotaInternaSvc := rotasinternas.NewRotaInternaService(rotaInternaStore)
+
+	motoristaStore := motoristas.NewMotoristaStore(pool)
+	alocacaoMotoristaStore := motoristas.NewAlocacaoMotoristaStore(pool)
+	alocacaoMotoristaSvc := motoristas.NewAlocacaoService(alocacaoMotoristaStore)
+	motoristaSvc := motoristas.NewMotoristaService(motoristaStore, authSvc)
+
+	clienteStore := clientes.NewClienteStore(pool)
+	clienteSvc := clientes.NewClienteService(clienteStore, authSvc)
+	vinculoStore := clientes.NewVinculoStore(pool)
+	vinculoSvc := clientes.NewVinculoService(vinculoStore)
+
+	calculadorRotaDinamicaStore := rotasdinamicas.NewCalculadorRotaDinamicaStore(pool)
+	rotaDinamicaInvalidator := rotasdinamicas.NewInvalidadorRotaDinamicaService(calculadorRotaDinamicaStore, rotasdinamicas.DefaultJanelaBloqueioRotaDinamica)
+
+	reservaStore := reservas.NewReservaStore(pool)
+	reservaSvc := reservas.NewReservaService(reservaStore, rotaDinamicaInvalidator)
+
+	cicloViagemStore := viagens.NewCicloViagemStore(pool)
+	horarioTurnoStore := viagens.NewHorarioTurnoViagemStore(pool)
+	horarioTurnoSvc := viagens.NewHorarioTurnoViagemService(horarioTurnoStore)
+	planejamentoSvc := viagens.NewPlanejamentoService(cicloViagemStore, horarioTurnoStore, alocacaoVeiculoSvc, alocacaoMotoristaSvc)
+
+	viagemStore := viagens.NewViagemStore(pool)
+	viagemSvc := viagens.NewViagemService(viagemStore)
+	viagemReservaStore := viagens.NewViagemReservaStore(pool)
+	presencaSvc := viagens.NewPresencaService(viagemReservaStore)
+	viagemLocalizacaoStore := viagens.NewViagemLocalizacaoStore(pool)
+	viagemLocalizacaoSvc := viagens.NewViagemLocalizacaoService(viagemLocalizacaoStore)
+
+	rotaDinamicaStore := rotasdinamicas.NewRotaDinamicaStore(pool)
+	rotaDinamicaSvc := rotasdinamicas.NewRotaDinamicaService(rotaDinamicaStore)
+	calculadorRotaDinamicaSvc := rotasdinamicas.NewCalculadorRotaDinamicaService(
+		calculadorRotaDinamicaStore,
+		rotaDinamicaSvc,
+		geo.NewOSRMClient(nil, options.OSRMBaseURL),
+		geo.NewOtimizadorRota(),
+	)
+
+	storageHandler := storage.NewHandler(storage.NewService(storage.NewSupabaseClient(options.StorageConfig, nil)))
+
+	handlers := server.Handlers{
+		AdminHandler:        admin.NewAdminHandler(adminSvc),
+		VeiculoHandler:      veiculos.NewVeiculoHandler(veiculoStore),
+		DestinoHandler:      destinos.NewDestinoHandler(destinoStore),
+		ParadaHandler:       paradas.NewParadaHandler(paradaStore),
+		RotaInternaHandler:  rotasinternas.NewRotaInternaHandler(rotaInternaSvc),
+		MotoristaHandler:    motoristas.NewMotoristaHandler(motoristaSvc),
+		ClienteHandler:      clientes.NewClienteHandler(clienteSvc),
+		VinculoHandler:      clientes.NewVinculoHandler(vinculoSvc),
+		ReservaHandler:      reservas.NewReservaHandler(reservaSvc),
+		ViagemHandler:       viagens.NewViagemHandler(viagemSvc, presencaSvc, viagemLocalizacaoSvc),
+		PlanejamentoHandler: viagens.NewPlanejamentoHandler(planejamentoSvc),
+		HorarioTurnoHandler: viagens.NewHorarioTurnoViagemHandler(horarioTurnoSvc),
+		RotaDinamicaHandler: rotasdinamicas.NewRotaDinamicaHandler(rotaDinamicaSvc, calculadorRotaDinamicaSvc),
+		StorageHandler:      storageHandler,
+	}
+
+	apiRouter := chi.NewRouter()
+	server.NewServer(handlers, authSvc).RegisterRoutes(apiRouter)
+
+	root := chi.NewRouter()
+	root.Mount("/api/v1", apiRouter)
+	return root
+}
+
+func seedAdmin(t *testing.T, ctx context.Context, pool *pgxpool.Pool, email, password string) {
+	t.Helper()
+	hash, err := crypto.NewBcryptHasher(crypto.DefaultCost).Hash(password)
+	if err != nil {
+		t.Fatalf("hash admin password: %v", err)
+	}
+	_, err = pool.Exec(ctx, `
+		INSERT INTO administrador (email, senha)
+		VALUES ($1, $2)
+		ON CONFLICT (email) DO UPDATE SET senha = EXCLUDED.senha
+	`, email, hash)
+	if err != nil {
+		t.Fatalf("seed admin: %v", err)
+	}
+}
+
+type e2eCleanupData struct {
+	AdminEmail   string
+	MotoristaCPF string
+	ClienteCPF   string
+	Placa        string
+	Cidade       string
+	DestinoNome  string
+}
+
+func cleanupE2EData(ctx context.Context, t *testing.T, pool *pgxpool.Pool, data e2eCleanupData) {
+	t.Helper()
+
+	statements := []struct {
+		query string
+		args  []any
+	}{
+		{query: `DELETE FROM ciclos_viagem WHERE cidade = $1`, args: []any{data.Cidade}},
+		{query: `DELETE FROM reservas WHERE cidade = $1`, args: []any{data.Cidade}},
+		{query: `DELETE FROM cliente_vinculos WHERE cliente_id IN (SELECT id FROM clientes WHERE cpf = $1)`, args: []any{data.ClienteCPF}},
+		{query: `DELETE FROM clientes WHERE cpf = $1`, args: []any{data.ClienteCPF}},
+		{query: `DELETE FROM horarios_turno_viagem WHERE cidade = $1`, args: []any{data.Cidade}},
+		{query: `DELETE FROM rotas_internas WHERE cidade = $1`, args: []any{data.Cidade}},
+		{query: `DELETE FROM paradas WHERE cidade = $1`, args: []any{data.Cidade}},
+		{query: `DELETE FROM destinos WHERE nome = $1`, args: []any{data.DestinoNome}},
+		{query: `DELETE FROM veiculos WHERE placa = $1`, args: []any{data.Placa}},
+		{query: `DELETE FROM motoristas WHERE cpf = $1`, args: []any{data.MotoristaCPF}},
+		{query: `DELETE FROM administrador WHERE email = $1`, args: []any{data.AdminEmail}},
+	}
+
+	for _, statement := range statements {
+		if _, err := pool.Exec(ctx, statement.query, statement.args...); err != nil {
+			t.Logf("cleanup failed for %q: %v", statement.query, err)
+		}
+	}
+}
+
+func loginAdmin(t *testing.T, router http.Handler, email, senha string) string {
+	t.Helper()
+	resp := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/admin/login", "", map[string]any{
+		"email": email,
+		"senha": senha,
+	}, http.StatusOK)
+	return resp["token"].(string)
+}
+
+func loginMotorista(t *testing.T, router http.Handler, cpf, senha string) string {
+	t.Helper()
+	resp := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/motoristas/login", "", map[string]any{
+		"cpf":   cpf,
+		"senha": senha,
+	}, http.StatusOK)
+	return resp["token"].(string)
+}
+
+func loginCliente(t *testing.T, router http.Handler, cpf, senha string) string {
+	t.Helper()
+	resp := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/clientes/login", "", map[string]any{
+		"cpf":   cpf,
+		"senha": senha,
+	}, http.StatusOK)
+	return resp["token"].(string)
+}
+
+func createDestino(t *testing.T, router http.Handler, token string, body map[string]any) int64 {
+	t.Helper()
+	resp := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/destinos/", token, body, http.StatusCreated)
+	return int64(resp["id"].(float64))
+}
+
+func createParada(t *testing.T, router http.Handler, token string, body map[string]any) int64 {
+	t.Helper()
+	resp := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/paradas/", token, body, http.StatusCreated)
+	return int64(resp["id"].(float64))
+}
+
+func createRotaInterna(t *testing.T, router http.Handler, token string, body map[string]any) int64 {
+	t.Helper()
+	resp := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/rotas-internas/", token, body, http.StatusCreated)
+	return int64(resp["id"].(float64))
+}
+
+func createVeiculo(t *testing.T, router http.Handler, token string, body map[string]any) int64 {
+	t.Helper()
+	resp := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/veiculos/", token, body, http.StatusCreated)
+	return int64(resp["id"].(float64))
+}
+
+func createMotorista(t *testing.T, router http.Handler, token string, body map[string]any) int64 {
+	t.Helper()
+	resp := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/motoristas/", token, body, http.StatusCreated)
+	return int64(resp["id"].(float64))
+}
+
+func createCliente(t *testing.T, router http.Handler, token string, body map[string]any) int64 {
+	t.Helper()
+	resp := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/clientes/", token, body, http.StatusCreated)
+	return int64(resp["id"].(float64))
+}
+
+func createVinculo(t *testing.T, router http.Handler, token string, clienteID int64, body map[string]any) int64 {
+	t.Helper()
+	resp := doJSON[map[string]any](t, router, http.MethodPost, fmt.Sprintf("/api/v1/clientes/%d/vinculos/", clienteID), token, body, http.StatusCreated)
+	return int64(resp["id"].(float64))
+}
+
+func createReserva(t *testing.T, router http.Handler, token string, clienteID, vinculoID int64, body map[string]any) int64 {
+	t.Helper()
+	resp := doJSON[map[string]any](t, router, http.MethodPost, fmt.Sprintf("/api/v1/clientes/%d/vinculos/%d/reservas/", clienteID, vinculoID), token, body, http.StatusCreated)
+	return int64(resp["id"].(float64))
+}
+
+func createHorarioTurno(t *testing.T, router http.Handler, token string, body map[string]any) int64 {
+	t.Helper()
+	resp := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/horarios-turno-viagem/", token, body, http.StatusCreated)
+	return int64(resp["id"].(float64))
+}
+
+func doStatus(t *testing.T, router http.Handler, method, path, token string, body any, wantStatus int) {
+	t.Helper()
+
+	var reader *bytes.Reader
+	if body == nil {
+		reader = bytes.NewReader(nil)
+	} else {
+		data, err := json.Marshal(body)
+		if err != nil {
+			t.Fatalf("marshal request body: %v", err)
+		}
+		reader = bytes.NewReader(data)
+	}
+
+	req := httptest.NewRequest(method, path, reader)
+	req.Header.Set("Content-Type", "application/json")
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+	if rr.Code != wantStatus {
+		t.Fatalf("%s %s: want status %d, got %d: %s", method, path, wantStatus, rr.Code, rr.Body.String())
+	}
+}
+
+func doJSON[T any](t *testing.T, router http.Handler, method, path, token string, body any, wantStatus int) T {
+	t.Helper()
+
+	var reader *bytes.Reader
+	if body == nil {
+		reader = bytes.NewReader(nil)
+	} else {
+		data, err := json.Marshal(body)
+		if err != nil {
+			t.Fatalf("marshal request body: %v", err)
+		}
+		reader = bytes.NewReader(data)
+	}
+
+	req := httptest.NewRequest(method, path, reader)
+	req.Header.Set("Content-Type", "application/json")
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != wantStatus {
+		t.Fatalf("%s %s: want status %d, got %d: %s", method, path, wantStatus, rr.Code, rr.Body.String())
+	}
+
+	var out T
+	if rr.Body.Len() == 0 {
+		return out
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+		t.Fatalf("%s %s: decode response: %v\nbody: %s", method, path, err, rr.Body.String())
+	}
+	return out
+}
+
+type fakeOSRMServer struct {
+	*httptest.Server
+	requests int
+}
+
+func newFakeOSRMServer(t *testing.T) *fakeOSRMServer {
+	t.Helper()
+	fake := &fakeOSRMServer{}
+	fake.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("unexpected OSRM method: %s", r.Method)
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		if !strings.HasPrefix(r.URL.Path, "/route/v1/driving/") {
+			t.Errorf("unexpected OSRM path: %s", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		fake.requests++
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{
+			"code": "Ok",
+			"routes": [
+				{
+					"distance": 12345.6,
+					"duration": 789.1,
+					"geometry": {
+						"type": "LineString",
+						"coordinates": [
+							[-36.3501, -9.7812],
+							[-35.7777, -9.5584]
+						]
+					}
+				}
+			]
+		}`)
+	}))
+	return fake
+}
+
+func (s *fakeOSRMServer) Requests() int {
+	return s.requests
+}
+
+type fakeSupabaseStorageServer struct {
+	*httptest.Server
+	signUploadRequests   int
+	uploadRequests       int
+	signDownloadRequests int
+}
+
+func newFakeSupabaseStorageServer(t *testing.T) *fakeSupabaseStorageServer {
+	t.Helper()
+	fake := &fakeSupabaseStorageServer{}
+	var baseURL string
+	fake.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/storage/v1/object/upload/sign/fotos/clientes/1/foto.png"):
+			fake.signUploadRequests++
+			if r.Header.Get("Authorization") != "Bearer service-key" {
+				t.Errorf("missing service key authorization header")
+			}
+			w.Header().Set("Content-Type", "application/json")
+			io.WriteString(w, fmt.Sprintf(`{
+				"signedURL": %q,
+				"path": "clientes/1/foto.png",
+				"token": "upload-token"
+			}`, baseURL+"/upload-target"))
+		case r.Method == http.MethodPut && r.URL.Path == "/upload-target":
+			fake.uploadRequests++
+			if r.Header.Get("Content-Type") != "image/png" {
+				t.Errorf("unexpected upload content type: %s", r.Header.Get("Content-Type"))
+			}
+			w.WriteHeader(http.StatusOK)
+		case r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/storage/v1/object/sign/fotos/clientes/1/foto.png"):
+			fake.signDownloadRequests++
+			w.Header().Set("Content-Type", "application/json")
+			io.WriteString(w, fmt.Sprintf(`{
+				"signedURL": %q
+			}`, baseURL+"/download-target"))
+		default:
+			t.Errorf("unexpected Supabase storage request: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	baseURL = fake.URL
+	return fake
+}
+
+func (s *fakeSupabaseStorageServer) SignUploadRequests() int {
+	return s.signUploadRequests
+}
+
+func (s *fakeSupabaseStorageServer) UploadRequests() int {
+	return s.uploadRequests
+}
+
+func (s *fakeSupabaseStorageServer) SignDownloadRequests() int {
+	return s.signDownloadRequests
+}
