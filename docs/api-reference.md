@@ -621,6 +621,13 @@ Turnos operacionais validos: `MT`, `VT`, `NT`. Se o vinculo for `IN`, o frontend
 | `POST` | `BASE_URL/reservas/{reservaID}/cancelar` | Cancela reserva. | nenhum | `200 ReservaResponse` | `400`, `401`, `403`, `404`, `422`, `500` |
 | `DELETE` | `BASE_URL/reservas/{reservaID}` | Remove reserva. | nenhum | `204` | `400`, `401`, `403`, `404`, `500` |
 
+Regras de cancelamento:
+
+- `admin`: pode cancelar qualquer reserva.
+- `cliente`: pode cancelar apenas a propria reserva. Tentar cancelar reserva de outro cliente retorna `403`.
+- Reservas canceladas nao entram no planejamento de viagens.
+- Se a reserva estiver vinculada a uma viagem com rota dinamica e for cancelada antes da janela de bloqueio, a rota dinamica pode ser invalidada para recalculo automatico.
+
 Create via vinculo:
 
 ```json
@@ -1471,7 +1478,7 @@ POST /planejamentos/viagens
 
 O backend:
 
-1. Busca reservas confirmadas de ida e volta.
+1. Busca reservas confirmadas de ida e volta. Reservas canceladas sao ignoradas.
 2. Busca horarios de ida/volta em `horarios_turno_viagem`.
 3. Calcula veiculos por capacidade.
 4. Aloca veiculos disponiveis.
@@ -1483,6 +1490,20 @@ O backend:
 
 Para o frontend, o retorno ja informa quais `viagem_id`, `veiculo_id` e `motorista_id` foram definidos.
 
+**Regras de alocacao de veiculos:**
+
+O backend tenta alocar o veiculo ideal para a quantidade de alunos. Se nao existir o ideal disponivel, usa fallback para veiculo maior:
+
+- `carro_7_lugares` → `escolar` → `executivo`
+- `escolar` → `executivo`
+
+Veiculos com status `inativo` ou `manutencao` nao sao alocados. Veiculos ja alocados em outro ciclo no mesmo dia e turno tambem nao entram.
+
+**Regras de alocacao de motoristas:**
+
+- Motorista de outro turno ou cidade nao e alocado.
+- Motorista ja alocado em outro ciclo no mesmo dia e turno nao e reutilizado.
+
 ### 5. Rota dinamica
 
 Depois que a viagem existe, a rota dinamica pode ser gerada:
@@ -1492,6 +1513,8 @@ POST /viagens/{viagemID}/rota-dinamica/calcular
 ```
 
 Tambem existe worker automatico que processa viagens dentro da janela de calculo. Mesmo assim, para apresentacao ou painel admin, o endpoint manual e util para forcar o calculo.
+
+**Comportamento em caso de falha:** se o servico de roteamento (OSRM) falhar, a API nao persiste rota parcial. O frontend deve tratar ausencia de rota dinamica como estado valido e permitir nova tentativa.
 
 Para renderizar no frontend:
 
