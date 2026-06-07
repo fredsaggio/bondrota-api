@@ -244,6 +244,10 @@ func TestEndToEndSupabaseStorageSignedURLs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generate cliente token: %v", err)
 	}
+	motoristaToken, err := authSvc.GenerateToken(1, auth.RoleMotorista)
+	if err != nil {
+		t.Fatalf("generate motorista token: %v", err)
+	}
 
 	upload := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/storage/signed-upload-url", clienteToken, map[string]any{
 		"bucket":       "fotos",
@@ -282,6 +286,21 @@ func TestEndToEndSupabaseStorageSignedURLs(t *testing.T) {
 		"bucket":       "fotos",
 		"path":         "clientes/2/foto.png",
 		"content_type": "image/png",
+	}, http.StatusForbidden)
+	doStatus(t, router, http.MethodPost, "/api/v1/storage/signed-upload-url", clienteToken, map[string]any{
+		"bucket":       "arquivos",
+		"path":         "clientes/1/foto.png",
+		"content_type": "image/png",
+	}, http.StatusUnprocessableEntity)
+	doStatus(t, router, http.MethodPost, "/api/v1/storage/signed-upload-url", clienteToken, map[string]any{
+		"bucket":       "fotos",
+		"path":         "clientes/1/foto.exe",
+		"content_type": "image/png",
+	}, http.StatusUnprocessableEntity)
+	doStatus(t, router, http.MethodPost, "/api/v1/storage/signed-upload-url", motoristaToken, map[string]any{
+		"bucket":       "documentos",
+		"path":         "motoristas/1/cnh.pdf",
+		"content_type": "application/pdf",
 	}, http.StatusForbidden)
 
 	if supabase.SignUploadRequests() != 1 {
@@ -565,6 +584,11 @@ func TestEndToEndRotaDinamicaMultiplosDestinos(t *testing.T) {
 	if osrmServer.Requests() != 1 {
 		t.Fatalf("expected 1 OSRM request, got %d", osrmServer.Requests())
 	}
+
+	doStatus(t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/rota-dinamica/calcular", viagemID), h.AdminToken, nil, http.StatusConflict)
+	if osrmServer.Requests() != 2 {
+		t.Fatalf("expected duplicate calculation to reach OSRM once more, got %d requests", osrmServer.Requests())
+	}
 }
 
 func TestEndToEndAutorizacaoPorDono(t *testing.T) {
@@ -679,6 +703,13 @@ func TestEndToEndAutorizacaoPorDono(t *testing.T) {
 	outroMotoristaToken := loginMotorista(t, h.Router, outroMotoristaCPF, "senha123")
 	outroClienteToken := loginCliente(t, h.Router, "83"+suffix[len(suffix)-6:]+"01", "senha123")
 
+	doStatus(t, h.Router, http.MethodPut, fmt.Sprintf("/api/v1/viagens/%d/localizacao", viagemID), motoristaToken, map[string]any{
+		"latitude":        -9.7812,
+		"longitude":       -36.3501,
+		"velocidade_kmh":  42.5,
+		"direcao_graus":   180,
+		"precisao_metros": 8,
+	}, http.StatusForbidden)
 	doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/iniciar", viagemID), motoristaToken, nil, http.StatusOK)
 	doStatus(t, h.Router, http.MethodPut, fmt.Sprintf("/api/v1/viagens/%d/localizacao", viagemID), outroMotoristaToken, map[string]any{
 		"latitude":        -9.7812,
@@ -766,6 +797,234 @@ func TestEndToEndReservaDuplicadaECancelada(t *testing.T) {
 	if nova["status"] != "confirmada" {
 		t.Fatalf("expected recreated reserva confirmada, got %v", nova["status"])
 	}
+}
+
+func TestEndToEndPlanejamentoErrosSemRecursos(t *testing.T) {
+	t.Run("sem horario configurado", func(t *testing.T) {
+		h := newE2EHarness(t, e2eRouterOptions{})
+		suffix := h.Suffix
+		cidade := "e2e-sem-horario-" + suffix
+		h.Cleanup(e2eCleanupData{
+			AdminEmail:      h.AdminEmail,
+			MotoristaPrefix: "95" + suffix[len(suffix)-6:],
+			ClientePrefix:   "85" + suffix[len(suffix)-6:],
+			PlacaPrefix:     "H" + suffix[len(suffix)-5:],
+			Cidade:          cidade,
+			DestinoPrefix:   "Destino Base E2E " + suffix,
+		})
+
+		rotaInternaID, dataViagem := setupPlanejamentoBase(t, h, planejamentoBaseOptions{
+			Cidade:          cidade,
+			Prefixo:         suffix,
+			MotoristaPrefix: "95" + suffix[len(suffix)-6:],
+			ClientePrefix:   "85" + suffix[len(suffix)-6:],
+			PlacaPrefix:     "H" + suffix[len(suffix)-5:],
+			CriarVeiculo:    true,
+			CriarMotorista:  true,
+		})
+
+		doStatus(t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
+			"data_viagem":     dataViagem,
+			"turno":           "NT",
+			"cidade":          cidade,
+			"rota_interna_id": rotaInternaID,
+			"expires_at":      time.Now().AddDate(0, 3, 0).Format(time.RFC3339),
+		}, http.StatusNotFound)
+	})
+
+	t.Run("sem veiculo disponivel", func(t *testing.T) {
+		h := newE2EHarness(t, e2eRouterOptions{})
+		suffix := h.Suffix
+		cidade := "e2e-sem-veiculo-" + suffix
+		h.Cleanup(e2eCleanupData{
+			AdminEmail:      h.AdminEmail,
+			MotoristaPrefix: "96" + suffix[len(suffix)-6:],
+			ClientePrefix:   "86" + suffix[len(suffix)-6:],
+			Cidade:          cidade,
+			DestinoPrefix:   "Destino Base E2E " + suffix,
+		})
+
+		rotaInternaID, dataViagem := setupPlanejamentoBase(t, h, planejamentoBaseOptions{
+			Cidade:          cidade,
+			Prefixo:         suffix,
+			MotoristaPrefix: "96" + suffix[len(suffix)-6:],
+			ClientePrefix:   "86" + suffix[len(suffix)-6:],
+			CriarMotorista:  true,
+			CriarHorario:    true,
+		})
+
+		doStatus(t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
+			"data_viagem":     dataViagem,
+			"turno":           "NT",
+			"cidade":          cidade,
+			"rota_interna_id": rotaInternaID,
+			"expires_at":      time.Now().AddDate(0, 3, 0).Format(time.RFC3339),
+		}, http.StatusNotFound)
+	})
+
+	t.Run("sem motorista disponivel", func(t *testing.T) {
+		h := newE2EHarness(t, e2eRouterOptions{})
+		suffix := h.Suffix
+		cidade := "e2e-sem-motorista-" + suffix
+		h.Cleanup(e2eCleanupData{
+			AdminEmail:    h.AdminEmail,
+			ClientePrefix: "87" + suffix[len(suffix)-6:],
+			PlacaPrefix:   "S" + suffix[len(suffix)-5:],
+			Cidade:        cidade,
+			DestinoPrefix: "Destino Base E2E " + suffix,
+		})
+
+		rotaInternaID, dataViagem := setupPlanejamentoBase(t, h, planejamentoBaseOptions{
+			Cidade:        cidade,
+			Prefixo:       suffix,
+			ClientePrefix: "87" + suffix[len(suffix)-6:],
+			PlacaPrefix:   "S" + suffix[len(suffix)-5:],
+			CriarVeiculo:  true,
+			CriarHorario:  true,
+		})
+
+		doStatus(t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
+			"data_viagem":     dataViagem,
+			"turno":           "NT",
+			"cidade":          cidade,
+			"rota_interna_id": rotaInternaID,
+			"expires_at":      time.Now().AddDate(0, 3, 0).Format(time.RFC3339),
+		}, http.StatusNotFound)
+	})
+}
+
+func TestEndToEndViagemCanceladaNaoInicia(t *testing.T) {
+	h := newE2EHarness(t, e2eRouterOptions{})
+	suffix := h.Suffix
+	cidade := "e2e-cancelar-viagem-" + suffix
+	h.Cleanup(e2eCleanupData{
+		AdminEmail:      h.AdminEmail,
+		MotoristaPrefix: "98" + suffix[len(suffix)-6:],
+		ClientePrefix:   "88" + suffix[len(suffix)-6:],
+		PlacaPrefix:     "V" + suffix[len(suffix)-5:],
+		Cidade:          cidade,
+		DestinoPrefix:   "Destino Base E2E " + suffix,
+	})
+
+	rotaInternaID, dataViagem := setupPlanejamentoBase(t, h, planejamentoBaseOptions{
+		Cidade:          cidade,
+		Prefixo:         suffix,
+		MotoristaPrefix: "98" + suffix[len(suffix)-6:],
+		ClientePrefix:   "88" + suffix[len(suffix)-6:],
+		PlacaPrefix:     "V" + suffix[len(suffix)-5:],
+		CriarVeiculo:    true,
+		CriarMotorista:  true,
+		CriarHorario:    true,
+	})
+
+	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
+		"data_viagem":     dataViagem,
+		"turno":           "NT",
+		"cidade":          cidade,
+		"rota_interna_id": rotaInternaID,
+		"expires_at":      time.Now().AddDate(0, 3, 0).Format(time.RFC3339),
+	}, http.StatusCreated)
+	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
+
+	cancelada := doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/cancelar", viagemID), h.AdminToken, nil, http.StatusOK)
+	if cancelada["status"] != "cancelada" {
+		t.Fatalf("expected viagem cancelada, got %v", cancelada["status"])
+	}
+
+	doStatus(t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/iniciar", viagemID), h.AdminToken, nil, http.StatusConflict)
+}
+
+type planejamentoBaseOptions struct {
+	Cidade          string
+	Prefixo         string
+	MotoristaPrefix string
+	ClientePrefix   string
+	PlacaPrefix     string
+	CriarVeiculo    bool
+	CriarMotorista  bool
+	CriarHorario    bool
+}
+
+func setupPlanejamentoBase(t *testing.T, h *e2eHarness, options planejamentoBaseOptions) (int64, string) {
+	t.Helper()
+
+	destinoID := createDestino(t, h.Router, h.AdminToken, map[string]any{
+		"nome":      "Destino Base E2E " + options.Prefixo,
+		"rua":       "Av. Teste",
+		"cidade":    "maceio",
+		"latitude":  -9.5584,
+		"longitude": -35.7777,
+	})
+	paradaID := createParada(t, h.Router, h.AdminToken, map[string]any{
+		"nome":      "Parada Base E2E",
+		"latitude":  -9.7812,
+		"longitude": -36.3501,
+		"cidade":    options.Cidade,
+	})
+	rotaInternaID := createRotaInterna(t, h.Router, h.AdminToken, map[string]any{
+		"cidade":  options.Cidade,
+		"paradas": []map[string]any{{"parada_id": paradaID, "ordem": 1}},
+	})
+
+	if options.CriarVeiculo {
+		createVeiculo(t, h.Router, h.AdminToken, map[string]any{
+			"placa":       options.PlacaPrefix + "7",
+			"modelo":      "Carro Base E2E",
+			"categoria":   "carro_7_lugares",
+			"capacidade":  7,
+			"cidade_base": options.Cidade,
+			"status":      "ativo",
+		})
+	}
+	if options.CriarMotorista {
+		createMotorista(t, h.Router, h.AdminToken, map[string]any{
+			"nome":            "Motorista Base E2E",
+			"cpf":             options.MotoristaPrefix + "00",
+			"senha":           "senha123",
+			"telefone":        "82999990000",
+			"data_nasc":       "1980-05-20",
+			"turno":           "NT",
+			"cidade_trabalho": options.Cidade,
+			"residencia":      options.Cidade,
+			"foto":            "",
+		})
+	}
+
+	clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
+		"nome":      "Cliente Base E2E",
+		"cpf":       options.ClientePrefix + "00",
+		"senha":     "senha123",
+		"telefone":  "82999991111",
+		"data_nasc": "2002-08-10",
+		"foto":      "",
+	})
+	vinculoID := createVinculo(t, h.Router, h.AdminToken, clienteID, map[string]any{
+		"tipo":            "estudante",
+		"turno":           "NT",
+		"destino_id":      destinoID,
+		"rota_interna_id": rotaInternaID,
+		"curso":           "Sistemas",
+		"comprovante":     fmt.Sprintf("clientes/%d/e2e/comprovante.pdf", clienteID),
+		"validade":        "2027-12-31",
+		"horarios_fixos":  []int{1, 2, 3, 4, 5},
+	})
+
+	dataViagem := time.Now().AddDate(0, 0, 6).Format("2006-01-02")
+	createReserva(t, h.Router, h.AdminToken, clienteID, vinculoID, map[string]any{
+		"data_viagem": dataViagem,
+		"turno":       "NT",
+		"sentido":     "ida",
+	})
+	if options.CriarHorario {
+		createHorarioTurno(t, h.Router, h.AdminToken, map[string]any{
+			"cidade":        options.Cidade,
+			"turno":         "NT",
+			"horario_ida":   "17:00",
+			"horario_volta": "22:00",
+		})
+	}
+
+	return rotaInternaID, dataViagem
 }
 
 type e2eRouterOptions struct {

@@ -214,7 +214,7 @@ func (s *viagemStore) AtualizarStatusERegistrarHorarioViagem(ctx context.Context
 			return fmt.Errorf("select viagem: %w", err)
 		}
 		if current.Status != from {
-			return errors.New("status da viagem nao permite transicao")
+			return fmt.Errorf("%w: status da viagem nao permite transicao", brerror.ErrAlreadyExists)
 		}
 
 		const updateQ = `
