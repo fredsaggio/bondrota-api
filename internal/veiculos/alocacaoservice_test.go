@@ -36,6 +36,7 @@ func TestAlocacaoService_Alocar(t *testing.T) {
 				assertCategorias(t, filtro.Categorias, []veiculos.CategoriaVeiculo{
 					veiculos.CategoriaExecutivo,
 					veiculos.CategoriaCarroSeteLugares,
+					veiculos.CategoriaEscolar,
 				})
 				return []veiculos.Veiculo{
 					{ID: 1, Categoria: veiculos.CategoriaExecutivo, Capacidade: veiculos.CapacidadeExecutivo},
@@ -65,6 +66,42 @@ func TestAlocacaoService_Alocar(t *testing.T) {
 		}
 		if alocacao.Veiculos[1].Categoria != veiculos.CategoriaCarroSeteLugares {
 			t.Fatalf("expected second vehicle carro, got %s", alocacao.Veiculos[1].Categoria)
+		}
+	})
+
+	t.Run("fallbacks to smallest larger vehicle when ideal category is unavailable", func(t *testing.T) {
+		svc := veiculos.NewAlocacaoService(fakeAlocacaoVeiculoStore{
+			listDisponiveisFn: func(_ context.Context, filtro veiculos.VeiculosDisponiveisFiltro) ([]veiculos.Veiculo, error) {
+				assertCategorias(t, filtro.Categorias, []veiculos.CategoriaVeiculo{
+					veiculos.CategoriaCarroSeteLugares,
+					veiculos.CategoriaEscolar,
+					veiculos.CategoriaExecutivo,
+				})
+				return []veiculos.Veiculo{
+					{ID: 10, Categoria: veiculos.CategoriaExecutivo, Capacidade: veiculos.CapacidadeExecutivo},
+					{ID: 11, Categoria: veiculos.CategoriaEscolar, Capacidade: veiculos.CapacidadeEscolar},
+				}, nil
+			},
+		})
+
+		alocacao, err := svc.Alocar(context.Background(), veiculos.AlocarVeiculosInput{
+			Cidade:           "Campo Alegre",
+			DataViagem:       dataViagem,
+			Turno:            "NT",
+			QuantidadeAlunos: 1,
+		})
+
+		if err != nil {
+			t.Fatalf("unexpected err: %v", err)
+		}
+		if len(alocacao.Veiculos) != 1 {
+			t.Fatalf("expected 1 vehicle, got %d", len(alocacao.Veiculos))
+		}
+		if alocacao.Veiculos[0].ID != 11 {
+			t.Fatalf("expected escolar fallback vehicle 11, got %+v", alocacao.Veiculos[0])
+		}
+		if alocacao.CapacidadeTotal != int(veiculos.CapacidadeEscolar) {
+			t.Fatalf("expected escolar capacity, got %d", alocacao.CapacidadeTotal)
 		}
 	})
 

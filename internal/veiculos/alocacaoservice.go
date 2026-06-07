@@ -30,7 +30,7 @@ func (s *AlocacaoService) Alocar(ctx context.Context, input AlocarVeiculosInput)
 		Cidade:     input.Cidade,
 		DataViagem: input.DataViagem,
 		Turno:      input.Turno,
-		Categorias: categoriasDoPlano(plano),
+		Categorias: categoriasParaBusca(plano),
 	})
 	if err != nil {
 		return nil, err
@@ -73,10 +73,17 @@ func isTurnoOperacional(turno string) bool {
 	}
 }
 
-func categoriasDoPlano(plano []PlanoCategoriaVeiculo) []CategoriaVeiculo {
-	categorias := make([]CategoriaVeiculo, 0, len(plano))
+func categoriasParaBusca(plano []PlanoCategoriaVeiculo) []CategoriaVeiculo {
+	seen := make(map[CategoriaVeiculo]bool)
+	categorias := make([]CategoriaVeiculo, 0, 3)
 	for _, item := range plano {
-		categorias = append(categorias, item.Categoria)
+		for _, categoria := range categoriasComFallback(item.Categoria) {
+			if seen[categoria] {
+				continue
+			}
+			seen[categoria] = true
+			categorias = append(categorias, categoria)
+		}
 	}
 	return categorias
 }
@@ -87,15 +94,20 @@ func selecionarVeiculosDoPlano(plano []PlanoCategoriaVeiculo, disponiveis []Veic
 
 	for _, item := range plano {
 		quantidadeSelecionada := 0
-		for _, veiculo := range disponiveis {
-			if usados[veiculo.ID] || veiculo.Categoria != item.Categoria {
-				continue
+		for _, categoria := range categoriasComFallback(item.Categoria) {
+			for _, veiculo := range disponiveis {
+				if usados[veiculo.ID] || veiculo.Categoria != categoria {
+					continue
+				}
+
+				selecionados = append(selecionados, veiculo)
+				usados[veiculo.ID] = true
+				quantidadeSelecionada++
+
+				if quantidadeSelecionada == item.Quantidade {
+					break
+				}
 			}
-
-			selecionados = append(selecionados, veiculo)
-			usados[veiculo.ID] = true
-			quantidadeSelecionada++
-
 			if quantidadeSelecionada == item.Quantidade {
 				break
 			}
@@ -107,6 +119,19 @@ func selecionarVeiculosDoPlano(plano []PlanoCategoriaVeiculo, disponiveis []Veic
 	}
 
 	return selecionados, nil
+}
+
+func categoriasComFallback(categoria CategoriaVeiculo) []CategoriaVeiculo {
+	switch categoria {
+	case CategoriaCarroSeteLugares:
+		return []CategoriaVeiculo{CategoriaCarroSeteLugares, CategoriaEscolar, CategoriaExecutivo}
+	case CategoriaEscolar:
+		return []CategoriaVeiculo{CategoriaEscolar, CategoriaExecutivo}
+	case CategoriaExecutivo:
+		return []CategoriaVeiculo{CategoriaExecutivo}
+	default:
+		return []CategoriaVeiculo{categoria}
+	}
 }
 
 func calcularCapacidadeTotal(veiculos []Veiculo) int {
