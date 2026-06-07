@@ -326,9 +326,507 @@ func TestEndToEndAutorizacaoRoles(t *testing.T) {
 	doStatus(t, router, http.MethodPut, "/api/v1/viagens/1/localizacao", clienteToken, map[string]any{}, http.StatusForbidden)
 }
 
+func TestEndToEndPlanejamentoMultiplosVeiculosPorCapacidade(t *testing.T) {
+	h := newE2EHarness(t, e2eRouterOptions{})
+	suffix := h.Suffix
+	cidade := "e2e-capacidade-" + suffix
+	h.Cleanup(e2eCleanupData{
+		AdminEmail:      h.AdminEmail,
+		MotoristaPrefix: "91" + suffix[len(suffix)-6:],
+		ClientePrefix:   "81" + suffix[len(suffix)-6:],
+		PlacaPrefix:     "C" + suffix[len(suffix)-5:],
+		Cidade:          cidade,
+		DestinoPrefix:   "Destino Capacidade E2E " + suffix,
+	})
+
+	destinoID := createDestino(t, h.Router, h.AdminToken, map[string]any{
+		"nome":      "Destino Capacidade E2E " + suffix,
+		"rua":       "Av. Teste",
+		"cidade":    "maceio",
+		"latitude":  -9.5584,
+		"longitude": -35.7777,
+	})
+	paradaID := createParada(t, h.Router, h.AdminToken, map[string]any{
+		"nome":      "Parada Capacidade E2E",
+		"latitude":  -9.7812,
+		"longitude": -36.3501,
+		"cidade":    cidade,
+	})
+	rotaInternaID := createRotaInterna(t, h.Router, h.AdminToken, map[string]any{
+		"cidade":  cidade,
+		"paradas": []map[string]any{{"parada_id": paradaID, "ordem": 1}},
+	})
+
+	createVeiculo(t, h.Router, h.AdminToken, map[string]any{
+		"placa":       "C" + suffix[len(suffix)-5:] + "E",
+		"modelo":      "Executivo E2E",
+		"categoria":   "executivo",
+		"capacidade":  46,
+		"cidade_base": cidade,
+		"status":      "ativo",
+	})
+	createVeiculo(t, h.Router, h.AdminToken, map[string]any{
+		"placa":       "C" + suffix[len(suffix)-5:] + "7",
+		"modelo":      "Carro E2E",
+		"categoria":   "carro_7_lugares",
+		"capacidade":  7,
+		"cidade_base": cidade,
+		"status":      "ativo",
+	})
+	for i := 0; i < 2; i++ {
+		createMotorista(t, h.Router, h.AdminToken, map[string]any{
+			"nome":            fmt.Sprintf("Motorista Capacidade %d", i),
+			"cpf":             fmt.Sprintf("91%s%02d", suffix[len(suffix)-6:], i),
+			"senha":           "senha123",
+			"telefone":        "82999990000",
+			"data_nasc":       "1980-05-20",
+			"turno":           "NT",
+			"cidade_trabalho": cidade,
+			"residencia":      cidade,
+			"foto":            "",
+		})
+	}
+
+	dataViagem := time.Now().AddDate(0, 0, 2).Format("2006-01-02")
+	for i := 0; i < 48; i++ {
+		clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
+			"nome":      fmt.Sprintf("Cliente Capacidade %02d", i),
+			"cpf":       fmt.Sprintf("81%s%02d", suffix[len(suffix)-6:], i),
+			"senha":     "senha123",
+			"telefone":  "82999991111",
+			"data_nasc": "2002-08-10",
+			"foto":      "",
+		})
+		vinculoID := createVinculo(t, h.Router, h.AdminToken, clienteID, map[string]any{
+			"tipo":            "estudante",
+			"turno":           "NT",
+			"destino_id":      destinoID,
+			"rota_interna_id": rotaInternaID,
+			"curso":           "Sistemas",
+			"comprovante":     fmt.Sprintf("clientes/%d/e2e/comprovante.pdf", clienteID),
+			"validade":        "2027-12-31",
+			"horarios_fixos":  []int{1, 2, 3, 4, 5},
+		})
+		createReserva(t, h.Router, h.AdminToken, clienteID, vinculoID, map[string]any{
+			"data_viagem": dataViagem,
+			"turno":       "NT",
+			"sentido":     "ida",
+		})
+	}
+	createHorarioTurno(t, h.Router, h.AdminToken, map[string]any{
+		"cidade":        cidade,
+		"turno":         "NT",
+		"horario_ida":   "17:00",
+		"horario_volta": "22:00",
+	})
+
+	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
+		"data_viagem":     dataViagem,
+		"turno":           "NT",
+		"cidade":          cidade,
+		"rota_interna_id": rotaInternaID,
+		"expires_at":      time.Now().AddDate(0, 3, 0).Format(time.RFC3339),
+	}, http.StatusCreated)
+
+	ciclos := planejamento["ciclos"].([]any)
+	if len(ciclos) != 2 {
+		t.Fatalf("expected 2 ciclos for 48 students, got %d", len(ciclos))
+	}
+	if int(planejamento["quantidade_reservas_ida"].(float64)) != 48 {
+		t.Fatalf("unexpected ida reservation count: %v", planejamento["quantidade_reservas_ida"])
+	}
+	if int(planejamento["capacidade_total"].(float64)) != 53 {
+		t.Fatalf("expected capacity 53, got %v", planejamento["capacidade_total"])
+	}
+}
+
+func TestEndToEndRotaDinamicaMultiplosDestinos(t *testing.T) {
+	if strings.TrimSpace(os.Getenv("E2E_DATABASE_URL")) == "" {
+		t.Skip("set E2E_DATABASE_URL to run end-to-end tests")
+	}
+
+	osrmServer := newFakeOSRMServer(t)
+	defer osrmServer.Close()
+	h := newE2EHarness(t, e2eRouterOptions{OSRMBaseURL: osrmServer.URL})
+	suffix := h.Suffix
+	cidade := "e2e-multidestino-" + suffix
+	h.Cleanup(e2eCleanupData{
+		AdminEmail:      h.AdminEmail,
+		MotoristaPrefix: "92" + suffix[len(suffix)-6:],
+		ClientePrefix:   "82" + suffix[len(suffix)-6:],
+		PlacaPrefix:     "M" + suffix[len(suffix)-5:],
+		Cidade:          cidade,
+		DestinoPrefix:   "Destino Multi E2E " + suffix,
+	})
+
+	destinosIDs := make([]int64, 0, 3)
+	for i, coords := range []struct {
+		lat float64
+		lon float64
+	}{
+		{-9.5584, -35.7777},
+		{-9.6481, -35.7089},
+		{-9.6658, -35.7353},
+	} {
+		destinosIDs = append(destinosIDs, createDestino(t, h.Router, h.AdminToken, map[string]any{
+			"nome":      fmt.Sprintf("Destino Multi E2E %s %d", suffix, i),
+			"rua":       "Av. Teste",
+			"cidade":    "maceio",
+			"latitude":  coords.lat,
+			"longitude": coords.lon,
+		}))
+	}
+	paradaID := createParada(t, h.Router, h.AdminToken, map[string]any{
+		"nome":      "Parada Multi E2E",
+		"latitude":  -9.7812,
+		"longitude": -36.3501,
+		"cidade":    cidade,
+	})
+	rotaInternaID := createRotaInterna(t, h.Router, h.AdminToken, map[string]any{
+		"cidade":  cidade,
+		"paradas": []map[string]any{{"parada_id": paradaID, "ordem": 1}},
+	})
+	createVeiculo(t, h.Router, h.AdminToken, map[string]any{
+		"placa":       "M" + suffix[len(suffix)-5:] + "7",
+		"modelo":      "Carro Multi E2E",
+		"categoria":   "carro_7_lugares",
+		"capacidade":  7,
+		"cidade_base": cidade,
+		"status":      "ativo",
+	})
+	createMotorista(t, h.Router, h.AdminToken, map[string]any{
+		"nome":            "Motorista Multi E2E",
+		"cpf":             "92" + suffix[len(suffix)-6:] + "00",
+		"senha":           "senha123",
+		"telefone":        "82999990000",
+		"data_nasc":       "1980-05-20",
+		"turno":           "NT",
+		"cidade_trabalho": cidade,
+		"residencia":      cidade,
+		"foto":            "",
+	})
+
+	dataViagem := time.Now().AddDate(0, 0, 3).Format("2006-01-02")
+	for i, destinoID := range destinosIDs {
+		clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
+			"nome":      fmt.Sprintf("Cliente Multi %d", i),
+			"cpf":       fmt.Sprintf("82%s%02d", suffix[len(suffix)-6:], i),
+			"senha":     "senha123",
+			"telefone":  "82999991111",
+			"data_nasc": "2002-08-10",
+			"foto":      "",
+		})
+		vinculoID := createVinculo(t, h.Router, h.AdminToken, clienteID, map[string]any{
+			"tipo":            "estudante",
+			"turno":           "NT",
+			"destino_id":      destinoID,
+			"rota_interna_id": rotaInternaID,
+			"curso":           "Sistemas",
+			"comprovante":     fmt.Sprintf("clientes/%d/e2e/comprovante.pdf", clienteID),
+			"validade":        "2027-12-31",
+			"horarios_fixos":  []int{1, 2, 3, 4, 5},
+		})
+		createReserva(t, h.Router, h.AdminToken, clienteID, vinculoID, map[string]any{
+			"data_viagem": dataViagem,
+			"turno":       "NT",
+			"sentido":     "ida",
+		})
+	}
+	createHorarioTurno(t, h.Router, h.AdminToken, map[string]any{
+		"cidade":        cidade,
+		"turno":         "NT",
+		"horario_ida":   "17:00",
+		"horario_volta": "22:00",
+	})
+	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
+		"data_viagem":     dataViagem,
+		"turno":           "NT",
+		"cidade":          cidade,
+		"rota_interna_id": rotaInternaID,
+		"expires_at":      time.Now().AddDate(0, 3, 0).Format(time.RFC3339),
+	}, http.StatusCreated)
+	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
+
+	rota := doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/rota-dinamica/calcular", viagemID), h.AdminToken, nil, http.StatusCreated)
+	destinos := rota["destinos"].([]any)
+	if len(destinos) != 3 {
+		t.Fatalf("expected 3 route destinations, got %d", len(destinos))
+	}
+	ordens := map[int]bool{}
+	for _, item := range destinos {
+		ordem := int(item.(map[string]any)["ordem"].(float64))
+		ordens[ordem] = true
+	}
+	for i := 1; i <= 3; i++ {
+		if !ordens[i] {
+			t.Fatalf("expected route destination order %d in %+v", i, destinos)
+		}
+	}
+	if osrmServer.Requests() != 1 {
+		t.Fatalf("expected 1 OSRM request, got %d", osrmServer.Requests())
+	}
+}
+
+func TestEndToEndAutorizacaoPorDono(t *testing.T) {
+	h := newE2EHarness(t, e2eRouterOptions{})
+	suffix := h.Suffix
+	cidade := "e2e-dono-" + suffix
+	h.Cleanup(e2eCleanupData{
+		AdminEmail:      h.AdminEmail,
+		MotoristaPrefix: "93" + suffix[len(suffix)-6:],
+		ClientePrefix:   "83" + suffix[len(suffix)-6:],
+		PlacaPrefix:     "D" + suffix[len(suffix)-5:],
+		Cidade:          cidade,
+		DestinoPrefix:   "Destino Dono E2E " + suffix,
+	})
+
+	destinoID := createDestino(t, h.Router, h.AdminToken, map[string]any{
+		"nome":      "Destino Dono E2E " + suffix,
+		"rua":       "Av. Teste",
+		"cidade":    "maceio",
+		"latitude":  -9.5584,
+		"longitude": -35.7777,
+	})
+	paradaID := createParada(t, h.Router, h.AdminToken, map[string]any{
+		"nome":      "Parada Dono E2E",
+		"latitude":  -9.7812,
+		"longitude": -36.3501,
+		"cidade":    cidade,
+	})
+	rotaInternaID := createRotaInterna(t, h.Router, h.AdminToken, map[string]any{
+		"cidade":  cidade,
+		"paradas": []map[string]any{{"parada_id": paradaID, "ordem": 1}},
+	})
+	createVeiculo(t, h.Router, h.AdminToken, map[string]any{
+		"placa":       "D" + suffix[len(suffix)-5:] + "7",
+		"modelo":      "Carro Dono E2E",
+		"categoria":   "carro_7_lugares",
+		"capacidade":  7,
+		"cidade_base": cidade,
+		"status":      "ativo",
+	})
+	motoristaCPF := "93" + suffix[len(suffix)-6:] + "00"
+	outroMotoristaCPF := "93" + suffix[len(suffix)-6:] + "01"
+	createMotorista(t, h.Router, h.AdminToken, map[string]any{
+		"nome":            "Motorista Dono E2E",
+		"cpf":             motoristaCPF,
+		"senha":           "senha123",
+		"telefone":        "82999990000",
+		"data_nasc":       "1980-05-20",
+		"turno":           "NT",
+		"cidade_trabalho": cidade,
+		"residencia":      cidade,
+		"foto":            "",
+	})
+	createMotorista(t, h.Router, h.AdminToken, map[string]any{
+		"nome":            "Outro Motorista Dono E2E",
+		"cpf":             outroMotoristaCPF,
+		"senha":           "senha123",
+		"telefone":        "82999990001",
+		"data_nasc":       "1980-05-20",
+		"turno":           "NT",
+		"cidade_trabalho": cidade + "-fora",
+		"residencia":      cidade + "-fora",
+		"foto":            "",
+	})
+	clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
+		"nome":      "Cliente Dono E2E",
+		"cpf":       "83" + suffix[len(suffix)-6:] + "00",
+		"senha":     "senha123",
+		"telefone":  "82999991111",
+		"data_nasc": "2002-08-10",
+		"foto":      "",
+	})
+	outroClienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
+		"nome":      "Outro Cliente Dono E2E",
+		"cpf":       "83" + suffix[len(suffix)-6:] + "01",
+		"senha":     "senha123",
+		"telefone":  "82999991112",
+		"data_nasc": "2002-08-10",
+		"foto":      "",
+	})
+	vinculoID := createVinculo(t, h.Router, h.AdminToken, clienteID, map[string]any{
+		"tipo":            "estudante",
+		"turno":           "NT",
+		"destino_id":      destinoID,
+		"rota_interna_id": rotaInternaID,
+		"curso":           "Sistemas",
+		"comprovante":     fmt.Sprintf("clientes/%d/e2e/comprovante.pdf", clienteID),
+		"validade":        "2027-12-31",
+		"horarios_fixos":  []int{1, 2, 3, 4, 5},
+	})
+	dataViagem := time.Now().AddDate(0, 0, 4).Format("2006-01-02")
+	createReserva(t, h.Router, h.AdminToken, clienteID, vinculoID, map[string]any{
+		"data_viagem": dataViagem,
+		"turno":       "NT",
+		"sentido":     "ida",
+	})
+	createHorarioTurno(t, h.Router, h.AdminToken, map[string]any{
+		"cidade":        cidade,
+		"turno":         "NT",
+		"horario_ida":   "17:00",
+		"horario_volta": "22:00",
+	})
+	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
+		"data_viagem":     dataViagem,
+		"turno":           "NT",
+		"cidade":          cidade,
+		"rota_interna_id": rotaInternaID,
+		"expires_at":      time.Now().AddDate(0, 3, 0).Format(time.RFC3339),
+	}, http.StatusCreated)
+	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
+	motoristaToken := loginMotorista(t, h.Router, motoristaCPF, "senha123")
+	outroMotoristaToken := loginMotorista(t, h.Router, outroMotoristaCPF, "senha123")
+	outroClienteToken := loginCliente(t, h.Router, "83"+suffix[len(suffix)-6:]+"01", "senha123")
+
+	doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/iniciar", viagemID), motoristaToken, nil, http.StatusOK)
+	doStatus(t, h.Router, http.MethodPut, fmt.Sprintf("/api/v1/viagens/%d/localizacao", viagemID), outroMotoristaToken, map[string]any{
+		"latitude":        -9.7812,
+		"longitude":       -36.3501,
+		"velocidade_kmh":  42.5,
+		"direcao_graus":   180,
+		"precisao_metros": 8,
+	}, http.StatusForbidden)
+
+	doJSON[map[string]any](t, h.Router, http.MethodPut, fmt.Sprintf("/api/v1/viagens/%d/localizacao", viagemID), motoristaToken, map[string]any{
+		"latitude":        -9.7812,
+		"longitude":       -36.3501,
+		"velocidade_kmh":  42.5,
+		"direcao_graus":   180,
+		"precisao_metros": 8,
+	}, http.StatusOK)
+	doStatus(t, h.Router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%d/localizacao", viagemID), outroClienteToken, nil, http.StatusForbidden)
+
+	if outroClienteID <= 0 {
+		t.Fatalf("expected other cliente to be created")
+	}
+}
+
+func TestEndToEndReservaDuplicadaECancelada(t *testing.T) {
+	h := newE2EHarness(t, e2eRouterOptions{})
+	suffix := h.Suffix
+	cidade := "e2e-reserva-" + suffix
+	h.Cleanup(e2eCleanupData{
+		AdminEmail:    h.AdminEmail,
+		ClientePrefix: "84" + suffix[len(suffix)-6:],
+		Cidade:        cidade,
+		DestinoPrefix: "Destino Reserva E2E " + suffix,
+	})
+
+	destinoID := createDestino(t, h.Router, h.AdminToken, map[string]any{
+		"nome":      "Destino Reserva E2E " + suffix,
+		"rua":       "Av. Teste",
+		"cidade":    "maceio",
+		"latitude":  -9.5584,
+		"longitude": -35.7777,
+	})
+	paradaID := createParada(t, h.Router, h.AdminToken, map[string]any{
+		"nome":      "Parada Reserva E2E",
+		"latitude":  -9.7812,
+		"longitude": -36.3501,
+		"cidade":    cidade,
+	})
+	rotaInternaID := createRotaInterna(t, h.Router, h.AdminToken, map[string]any{
+		"cidade":  cidade,
+		"paradas": []map[string]any{{"parada_id": paradaID, "ordem": 1}},
+	})
+	clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
+		"nome":      "Cliente Reserva E2E",
+		"cpf":       "84" + suffix[len(suffix)-6:] + "00",
+		"senha":     "senha123",
+		"telefone":  "82999991111",
+		"data_nasc": "2002-08-10",
+		"foto":      "",
+	})
+	vinculoID := createVinculo(t, h.Router, h.AdminToken, clienteID, map[string]any{
+		"tipo":            "estudante",
+		"turno":           "NT",
+		"destino_id":      destinoID,
+		"rota_interna_id": rotaInternaID,
+		"curso":           "Sistemas",
+		"comprovante":     fmt.Sprintf("clientes/%d/e2e/comprovante.pdf", clienteID),
+		"validade":        "2027-12-31",
+		"horarios_fixos":  []int{1, 2, 3, 4, 5},
+	})
+	body := map[string]any{
+		"data_viagem": time.Now().AddDate(0, 0, 5).Format("2006-01-02"),
+		"turno":       "NT",
+		"sentido":     "ida",
+	}
+
+	reservaID := createReserva(t, h.Router, h.AdminToken, clienteID, vinculoID, body)
+	doStatus(t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/clientes/%d/vinculos/%d/reservas/", clienteID, vinculoID), h.AdminToken, body, http.StatusConflict)
+
+	cancelada := doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/reservas/%d/cancelar", reservaID), h.AdminToken, nil, http.StatusOK)
+	if cancelada["status"] != "cancelada" {
+		t.Fatalf("expected reserva cancelada, got %v", cancelada["status"])
+	}
+
+	nova := doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/clientes/%d/vinculos/%d/reservas/", clienteID, vinculoID), h.AdminToken, body, http.StatusCreated)
+	if nova["status"] != "confirmada" {
+		t.Fatalf("expected recreated reserva confirmada, got %v", nova["status"])
+	}
+}
+
 type e2eRouterOptions struct {
 	OSRMBaseURL   string
 	StorageConfig storage.SupabaseConfig
+}
+
+type e2eHarness struct {
+	T          *testing.T
+	Pool       *pgxpool.Pool
+	Router     http.Handler
+	AuthSvc    *auth.AuthService
+	Suffix     string
+	AdminEmail string
+	AdminToken string
+}
+
+func newE2EHarness(t *testing.T, options e2eRouterOptions) *e2eHarness {
+	t.Helper()
+
+	dbURL := strings.TrimSpace(os.Getenv("E2E_DATABASE_URL"))
+	if dbURL == "" {
+		t.Skip("set E2E_DATABASE_URL to run end-to-end tests")
+	}
+
+	ctx := context.Background()
+	pool, err := db.Connect(ctx, dbURL)
+	if err != nil {
+		t.Fatalf("connect e2e database: %v", err)
+	}
+	t.Cleanup(pool.Close)
+
+	authSvc := auth.NewAuthService(crypto.NewBcryptHasher(crypto.DefaultCost), "e2e-secret")
+	router := buildE2ERouter(pool, authSvc, options)
+	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
+	adminEmail := "admin-e2e-" + suffix + "@bondrota.test"
+	adminPassword := "admin123"
+	seedAdmin(t, ctx, pool, adminEmail, adminPassword)
+
+	h := &e2eHarness{
+		T:          t,
+		Pool:       pool,
+		Router:     router,
+		AuthSvc:    authSvc,
+		Suffix:     suffix,
+		AdminEmail: adminEmail,
+		AdminToken: loginAdmin(t, router, adminEmail, adminPassword),
+	}
+	t.Cleanup(func() {
+		cleanupE2EData(context.Background(), t, pool, e2eCleanupData{
+			AdminEmail: adminEmail,
+		})
+	})
+	return h
+}
+
+func (h *e2eHarness) Cleanup(data e2eCleanupData) {
+	h.T.Helper()
+	h.T.Cleanup(func() {
+		cleanupE2EData(context.Background(), h.T, h.Pool, data)
+	})
 }
 
 func buildE2ERouter(pool *pgxpool.Pool, authSvc *auth.AuthService, options e2eRouterOptions) http.Handler {
@@ -426,12 +924,16 @@ func seedAdmin(t *testing.T, ctx context.Context, pool *pgxpool.Pool, email, pas
 }
 
 type e2eCleanupData struct {
-	AdminEmail   string
-	MotoristaCPF string
-	ClienteCPF   string
-	Placa        string
-	Cidade       string
-	DestinoNome  string
+	AdminEmail      string
+	MotoristaCPF    string
+	MotoristaPrefix string
+	ClienteCPF      string
+	ClientePrefix   string
+	Placa           string
+	PlacaPrefix     string
+	Cidade          string
+	DestinoNome     string
+	DestinoPrefix   string
 }
 
 func cleanupE2EData(ctx context.Context, t *testing.T, pool *pgxpool.Pool, data e2eCleanupData) {
@@ -444,17 +946,27 @@ func cleanupE2EData(ctx context.Context, t *testing.T, pool *pgxpool.Pool, data 
 		{query: `DELETE FROM ciclos_viagem WHERE cidade = $1`, args: []any{data.Cidade}},
 		{query: `DELETE FROM reservas WHERE cidade = $1`, args: []any{data.Cidade}},
 		{query: `DELETE FROM cliente_vinculos WHERE cliente_id IN (SELECT id FROM clientes WHERE cpf = $1)`, args: []any{data.ClienteCPF}},
+		{query: `DELETE FROM cliente_vinculos WHERE cliente_id IN (SELECT id FROM clientes WHERE cpf LIKE $1 || '%')`, args: []any{data.ClientePrefix}},
 		{query: `DELETE FROM clientes WHERE cpf = $1`, args: []any{data.ClienteCPF}},
+		{query: `DELETE FROM clientes WHERE cpf LIKE $1 || '%'`, args: []any{data.ClientePrefix}},
 		{query: `DELETE FROM horarios_turno_viagem WHERE cidade = $1`, args: []any{data.Cidade}},
 		{query: `DELETE FROM rotas_internas WHERE cidade = $1`, args: []any{data.Cidade}},
 		{query: `DELETE FROM paradas WHERE cidade = $1`, args: []any{data.Cidade}},
 		{query: `DELETE FROM destinos WHERE nome = $1`, args: []any{data.DestinoNome}},
+		{query: `DELETE FROM destinos WHERE nome LIKE $1 || '%'`, args: []any{data.DestinoPrefix}},
 		{query: `DELETE FROM veiculos WHERE placa = $1`, args: []any{data.Placa}},
+		{query: `DELETE FROM veiculos WHERE placa LIKE $1 || '%'`, args: []any{data.PlacaPrefix}},
 		{query: `DELETE FROM motoristas WHERE cpf = $1`, args: []any{data.MotoristaCPF}},
+		{query: `DELETE FROM motoristas WHERE cpf LIKE $1 || '%'`, args: []any{data.MotoristaPrefix}},
 		{query: `DELETE FROM administrador WHERE email = $1`, args: []any{data.AdminEmail}},
 	}
 
 	for _, statement := range statements {
+		if len(statement.args) > 0 {
+			if value, ok := statement.args[0].(string); ok && value == "" {
+				continue
+			}
+		}
 		if _, err := pool.Exec(ctx, statement.query, statement.args...); err != nil {
 			t.Logf("cleanup failed for %q: %v", statement.query, err)
 		}
