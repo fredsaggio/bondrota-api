@@ -1,0 +1,2731 @@
+openapi: 3.0.3
+info:
+  title: BondRota API
+  description: Documentação completa da API BondRota para consumo do frontend, extraída
+    de `docs/api-reference.md`.
+  version: 1.0.0
+servers:
+- url: https://bondrota-api.onrender.com/api/v1
+  description: Servidor de Produção
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    LoginRequestEmail:
+      type: object
+      required:
+      - email
+      - senha
+      properties:
+        email:
+          type: string
+          example: admin@bondrota.com
+        senha:
+          type: string
+          example: admin123
+    LoginRequestCPF:
+      type: object
+      required:
+      - cpf
+      - senha
+      properties:
+        cpf:
+          type: string
+          example: '00000000000'
+        senha:
+          type: string
+          example: senha123
+    TokenResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIs...
+    AdminCreateRequest:
+      type: object
+      required:
+      - email
+      - senha
+      properties:
+        email:
+          type: string
+          example: admin@bondrota.com
+        senha:
+          type: string
+          example: admin123
+    AdminUpdateRequest:
+      type: object
+      required:
+      - email
+      properties:
+        email:
+          type: string
+          example: novo-admin@bondrota.com
+    AdminCreateResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+    AdminResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        email:
+          type: string
+          example: admin@bondrota.com
+    VeiculoCreateRequest:
+      type: object
+      required:
+      - placa
+      - modelo
+      - categoria
+      - capacidade
+      - cidade_base
+      - status
+      properties:
+        placa:
+          type: string
+          example: ABC1D23
+        modelo:
+          type: string
+          example: Volare Escolar
+        categoria:
+          type: string
+          enum:
+          - executivo
+          - escolar
+          - carro_7_lugares
+          example: escolar
+        capacidade:
+          type: integer
+          example: 24
+        cidade_base:
+          type: string
+          example: campo alegre
+        status:
+          type: string
+          enum:
+          - ativo
+          - inativo
+          - manutencao
+          example: ativo
+        ar_condicionado:
+          type: boolean
+          example: true
+        banheiro:
+          type: boolean
+          example: false
+        persiana:
+          type: boolean
+          example: false
+        luz_leitura:
+          type: boolean
+          example: false
+        tomada:
+          type: boolean
+          example: true
+    VeiculoUpdateRequest:
+      type: object
+      properties:
+        placa:
+          type: string
+          example: ABC1D23
+        modelo:
+          type: string
+          example: Volare Escolar
+        categoria:
+          type: string
+          enum:
+          - executivo
+          - escolar
+          - carro_7_lugares
+          example: escolar
+        capacidade:
+          type: integer
+          example: 24
+        cidade_base:
+          type: string
+          example: campo alegre
+        status:
+          type: string
+          enum:
+          - ativo
+          - inativo
+          - manutencao
+          example: ativo
+        ar_condicionado:
+          type: boolean
+          example: true
+        banheiro:
+          type: boolean
+          example: false
+        persiana:
+          type: boolean
+          example: false
+        luz_leitura:
+          type: boolean
+          example: false
+        tomada:
+          type: boolean
+          example: true
+    VeiculoIDResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+    VeiculoResponse:
+      allOf:
+      - $ref: '#/components/schemas/VeiculoIDResponse'
+      - $ref: '#/components/schemas/VeiculoCreateRequest'
+    DestinoRequest:
+      type: object
+      required:
+      - nome
+      - rua
+      - cidade
+      - latitude
+      - longitude
+      properties:
+        nome:
+          type: string
+          example: Universidade Federal de Alagoas
+        rua:
+          type: string
+          example: Av. Lourival Melo Mota
+        cidade:
+          type: string
+          example: maceio
+        latitude:
+          type: number
+          example: -9.5584
+        longitude:
+          type: number
+          example: -35.7777
+    DestinoIDResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+    DestinoResponse:
+      allOf:
+      - $ref: '#/components/schemas/DestinoIDResponse'
+      - $ref: '#/components/schemas/DestinoRequest'
+    ParadaRequest:
+      type: object
+      required:
+      - nome
+      - latitude
+      - longitude
+      - cidade
+      properties:
+        nome:
+          type: string
+          example: Praca Central
+        latitude:
+          type: number
+          example: -9.7812
+        longitude:
+          type: number
+          example: -36.3501
+        cidade:
+          type: string
+          example: campo alegre
+    ParadaIDResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+    ParadaResponse:
+      allOf:
+      - $ref: '#/components/schemas/ParadaIDResponse'
+      - $ref: '#/components/schemas/ParadaRequest'
+    CreateRotaInternaRequest:
+      type: object
+      required:
+      - cidade
+      - paradas
+      properties:
+        cidade:
+          type: string
+          example: campo alegre
+        paradas:
+          type: array
+          items:
+            type: object
+            required:
+            - parada_id
+            - ordem
+            properties:
+              parada_id:
+                type: integer
+                example: 1
+              ordem:
+                type: integer
+                example: 1
+    UpdateParadasRequest:
+      type: object
+      required:
+      - paradas
+      properties:
+        paradas:
+          type: array
+          items:
+            type: object
+            required:
+            - parada_id
+            - ordem
+            properties:
+              parada_id:
+                type: integer
+                example: 1
+              ordem:
+                type: integer
+                example: 1
+    RotaInternaParada:
+      allOf:
+      - $ref: '#/components/schemas/ParadaResponse'
+      - type: object
+        properties:
+          ordem:
+            type: integer
+            example: 1
+    RotaInternaResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        cidade:
+          type: string
+          example: campo alegre
+        paradas:
+          type: array
+          items:
+            $ref: '#/components/schemas/RotaInternaParada'
+    CreateMotoristaRequest:
+      type: object
+      required:
+      - nome
+      - cpf
+      - senha
+      - data_nasc
+      - turno
+      - cidade_trabalho
+      - residencia
+      properties:
+        nome:
+          type: string
+          example: Joao Motorista
+        cpf:
+          type: string
+          example: '00000000000'
+        senha:
+          type: string
+          example: senha123
+        telefone:
+          type: string
+          example: '82999990000'
+        data_nasc:
+          type: string
+          format: date
+          example: '1980-05-20'
+        turno:
+          type: string
+          enum:
+          - MT
+          - VT
+          - NT
+          - IN
+          example: NT
+        cidade_trabalho:
+          type: string
+          example: campo alegre
+        residencia:
+          type: string
+          example: campo alegre
+        foto:
+          type: string
+          example: https://...
+    UpdateMotoristaRequest:
+      type: object
+      properties:
+        nome:
+          type: string
+          example: Joao Motorista
+        cpf:
+          type: string
+          example: '00000000000'
+        senha:
+          type: string
+          example: senha123
+        telefone:
+          type: string
+          example: '82999990000'
+        data_nasc:
+          type: string
+          format: date
+          example: '1980-05-20'
+        turno:
+          type: string
+          enum:
+          - MT
+          - VT
+          - NT
+          - IN
+          example: NT
+        cidade_trabalho:
+          type: string
+          example: campo alegre
+        residencia:
+          type: string
+          example: campo alegre
+        foto:
+          type: string
+          example: https://...
+    MotoristaResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        nome:
+          type: string
+          example: Joao Motorista
+        cpf:
+          type: string
+          example: '00000000000'
+        telefone:
+          type: string
+          example: '82999990000'
+        data_nasc:
+          type: string
+          format: date
+          example: '1980-05-20'
+        turno:
+          type: string
+          enum:
+          - MT
+          - VT
+          - NT
+          - IN
+          example: NT
+        cidade_trabalho:
+          type: string
+          example: campo alegre
+        residencia:
+          type: string
+          example: campo alegre
+        foto:
+          type: string
+          example: https://...
+    CreateClienteRequest:
+      type: object
+      required:
+      - nome
+      - cpf
+      - senha
+      - data_nasc
+      properties:
+        nome:
+          type: string
+          example: Maria Cliente
+        cpf:
+          type: string
+          example: '11111111111'
+        senha:
+          type: string
+          example: senha123
+        telefone:
+          type: string
+          example: '82999991111'
+        data_nasc:
+          type: string
+          format: date
+          example: '2002-08-10'
+        foto:
+          type: string
+          example: https://...
+    UpdateClienteRequest:
+      type: object
+      properties:
+        nome:
+          type: string
+          example: Maria Cliente
+        cpf:
+          type: string
+          example: '11111111111'
+        senha:
+          type: string
+          example: senha123
+        telefone:
+          type: string
+          example: '82999991111'
+        data_nasc:
+          type: string
+          format: date
+          example: '2002-08-10'
+        foto:
+          type: string
+          example: https://...
+    ClienteResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        nome:
+          type: string
+          example: Maria Cliente
+        cpf:
+          type: string
+          example: '11111111111'
+        telefone:
+          type: string
+          example: '82999991111'
+        data_nasc:
+          type: string
+          format: date
+          example: '2002-08-10'
+        foto:
+          type: string
+          example: https://...
+    VinculoRequest:
+      type: object
+      required:
+      - tipo
+      - turno
+      - destino_id
+      - rota_interna_id
+      - curso
+      - validade
+      properties:
+        tipo:
+          type: string
+          enum:
+          - estudante
+          - estagio
+          example: estudante
+        turno:
+          type: string
+          enum:
+          - MT
+          - VT
+          - NT
+          - IN
+          example: NT
+        destino_id:
+          type: integer
+          example: 1
+        rota_interna_id:
+          type: integer
+          example: 1
+        curso:
+          type: string
+          example: Sistemas de Informacao
+        comprovante:
+          type: string
+          example: https://...
+        validade:
+          type: string
+          format: date
+          example: '2026-12-31'
+        horarios_fixos:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+            maximum: 5
+          example:
+          - 1
+          - 2
+          - 3
+          - 4
+          - 5
+    VinculoHorarioFixo:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        vinculo_id:
+          type: integer
+          example: 10
+        dia_semana:
+          type: integer
+          example: 1
+    VinculoResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 10
+        cliente_id:
+          type: integer
+          example: 1
+        tipo:
+          type: string
+          enum:
+          - estudante
+          - estagio
+          example: estudante
+        turno:
+          type: string
+          enum:
+          - MT
+          - VT
+          - NT
+          - IN
+          example: NT
+        destino_id:
+          type: integer
+          example: 1
+        rota_interna_id:
+          type: integer
+          example: 1
+        curso:
+          type: string
+          example: Sistemas de Informacao
+        comprovante:
+          type: string
+          example: https://...
+        validade:
+          type: string
+          format: date
+          example: '2026-12-31'
+        horarios_fixos:
+          type: array
+          items:
+            $ref: '#/components/schemas/VinculoHorarioFixo'
+    ClienteComVinculosResponse:
+      allOf:
+      - $ref: '#/components/schemas/ClienteResponse'
+      - type: object
+        properties:
+          vinculos:
+            type: array
+            items:
+              $ref: '#/components/schemas/VinculoResponse'
+    CreateReservaRequest:
+      type: object
+      required:
+      - data_viagem
+      - turno
+      - sentido
+      properties:
+        data_viagem:
+          type: string
+          format: date
+          example: '2026-06-10'
+        turno:
+          type: string
+          enum:
+          - MT
+          - VT
+          - NT
+          example: NT
+        sentido:
+          type: string
+          enum:
+          - ida
+          - volta
+          example: ida
+    UpdateReservaRequest:
+      type: object
+      properties:
+        data_viagem:
+          type: string
+          format: date
+          example: '2026-06-11'
+        turno:
+          type: string
+          enum:
+          - MT
+          - VT
+          - NT
+          example: NT
+        sentido:
+          type: string
+          enum:
+          - ida
+          - volta
+          example: volta
+        status:
+          type: string
+          enum:
+          - confirmada
+          - cancelada
+          example: confirmada
+    ReservaResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        cliente_id:
+          type: integer
+          example: 1
+        vinculo_id:
+          type: integer
+          example: 10
+        data_viagem:
+          type: string
+          format: date
+          example: '2026-06-10'
+        turno:
+          type: string
+          enum:
+          - MT
+          - VT
+          - NT
+          example: NT
+        destino_id:
+          type: integer
+          example: 1
+        rota_interna_id:
+          type: integer
+          example: 1
+        cidade:
+          type: string
+          example: campo alegre
+        sentido:
+          type: string
+          enum:
+          - ida
+          - volta
+          example: ida
+        status:
+          type: string
+          enum:
+          - confirmada
+          - cancelada
+          example: confirmada
+        created_at:
+          type: string
+          format: date-time
+          example: '2026-06-06T20:00:00Z'
+        updated_at:
+          type: string
+          format: date-time
+          example: '2026-06-06T20:00:00Z'
+    HorarioTurnoViagemRequest:
+      type: object
+      required:
+      - cidade
+      - turno
+      - horario_ida
+      - horario_volta
+      properties:
+        cidade:
+          type: string
+          example: campo alegre
+        turno:
+          type: string
+          enum:
+          - MT
+          - VT
+          - NT
+          example: NT
+        horario_ida:
+          type: string
+          example: '17:00'
+        horario_volta:
+          type: string
+          example: '22:00'
+    HorarioTurnoViagemResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        cidade:
+          type: string
+          example: campo alegre
+        turno:
+          type: string
+          enum:
+          - MT
+          - VT
+          - NT
+          example: NT
+        horario_ida:
+          type: string
+          example: '17:00:00'
+        horario_volta:
+          type: string
+          example: '22:00:00'
+        created_at:
+          type: string
+          format: date-time
+          example: '2026-06-06T20:00:00Z'
+        updated_at:
+          type: string
+          format: date-time
+          example: '2026-06-06T20:00:00Z'
+    PlanejarViagensRequest:
+      type: object
+      required:
+      - data_viagem
+      - turno
+      - cidade
+      - rota_interna_id
+      properties:
+        data_viagem:
+          type: string
+          format: date
+          example: '2026-06-10'
+        turno:
+          type: string
+          enum:
+          - MT
+          - VT
+          - NT
+          example: NT
+        cidade:
+          type: string
+          example: campo alegre
+        rota_interna_id:
+          type: integer
+          example: 1
+    CicloViagemResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        data_viagem:
+          type: string
+          format: date
+          example: '2026-06-10'
+        turno:
+          type: string
+          enum:
+          - MT
+          - VT
+          - NT
+          example: NT
+        cidade:
+          type: string
+          example: campo alegre
+        rota_interna_id:
+          type: integer
+          example: 1
+        veiculo_id:
+          type: integer
+          example: 1
+        motorista_id:
+          type: integer
+          example: 1
+        status:
+          type: string
+          enum:
+          - planejado
+          - em_andamento
+          - concluido
+          - cancelado
+          example: planejado
+        expires_at:
+          type: string
+          format: date-time
+          example: '2026-09-10T00:00:00Z'
+        created_at:
+          type: string
+          format: date-time
+          example: '2026-06-06T20:00:00Z'
+        updated_at:
+          type: string
+          format: date-time
+          example: '2026-06-06T20:00:00Z'
+    ViagemResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        ciclo_viagem_id:
+          type: integer
+          example: 1
+        sentido:
+          type: string
+          enum:
+          - ida
+          - volta
+          example: ida
+        status:
+          type: string
+          enum:
+          - programada
+          - em_andamento
+          - concluida
+          - cancelada
+          example: programada
+        created_at:
+          type: string
+          format: date-time
+          example: '2026-06-06T20:00:00Z'
+        updated_at:
+          type: string
+          format: date-time
+          example: '2026-06-06T20:00:00Z'
+    ViagemComCicloResponse:
+      type: object
+      properties:
+        viagem:
+          $ref: '#/components/schemas/ViagemResponse'
+        ciclo:
+          $ref: '#/components/schemas/CicloViagemResponse'
+    PlanejamentoViagensResponse:
+      type: object
+      properties:
+        ciclos:
+          type: array
+          items:
+            type: object
+            properties:
+              ciclo:
+                $ref: '#/components/schemas/CicloViagemResponse'
+              viagens:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ViagemResponse'
+        quantidade_reservas_ida:
+          type: integer
+          example: 25
+        quantidade_reservas_volta:
+          type: integer
+          example: 20
+        capacidade_total:
+          type: integer
+          example: 46
+    ViagemHorarioResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        viagem_id:
+          type: integer
+          example: 1
+        tipo:
+          type: string
+          enum:
+          - partida_prevista
+          - inicio_real
+          - fim_real
+          example: partida_prevista
+        horario:
+          type: string
+          format: date-time
+          example: '2026-06-10T17:00:00Z'
+        created_at:
+          type: string
+          format: date-time
+          example: '2026-06-06T20:00:00Z'
+        updated_at:
+          type: string
+          format: date-time
+          example: '2026-06-06T20:00:00Z'
+    AtualizarPresencaRequest:
+      type: object
+      required:
+      - status_presenca
+      properties:
+        status_presenca:
+          type: string
+          enum:
+          - embarcou
+          - faltou
+          - cancelado
+          example: embarcou
+    ViagemReservaResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        viagem_id:
+          type: integer
+          example: 1
+        reserva_id:
+          type: integer
+          example: 1
+        status_presenca:
+          type: string
+          enum:
+          - aguardando
+          - embarcou
+          - faltou
+          - cancelado
+          example: embarcou
+        created_at:
+          type: string
+          format: date-time
+          example: '2026-06-06T20:00:00Z'
+        updated_at:
+          type: string
+          format: date-time
+          example: '2026-06-06T20:10:00Z'
+    ViagemReservaComReservaResponse:
+      allOf:
+      - $ref: '#/components/schemas/ViagemReservaResponse'
+      - type: object
+        properties:
+          cliente_id:
+            type: integer
+            example: 1
+          vinculo_id:
+            type: integer
+            example: 10
+          data_viagem:
+            type: string
+            format: date
+            example: '2026-06-10'
+          turno:
+            type: string
+            enum:
+            - MT
+            - VT
+            - NT
+            example: NT
+          destino_id:
+            type: integer
+            example: 1
+          rota_interna_id:
+            type: integer
+            example: 1
+          cidade:
+            type: string
+            example: campo alegre
+          sentido:
+            type: string
+            enum:
+            - ida
+            - volta
+            example: ida
+    AtualizarLocalizacaoRequest:
+      type: object
+      required:
+      - motorista_id
+      - latitude
+      - longitude
+      - velocidade_kmh
+      - direcao_graus
+      - precisao_metros
+      properties:
+        motorista_id:
+          type: integer
+          example: 1
+        latitude:
+          type: number
+          example: -9.7812
+        longitude:
+          type: number
+          example: -36.3501
+        velocidade_kmh:
+          type: number
+          example: 52.4
+        direcao_graus:
+          type: number
+          example: 180
+        precisao_metros:
+          type: number
+          example: 8
+    ViagemLocalizacaoResponse:
+      type: object
+      properties:
+        viagem_id:
+          type: integer
+          example: 1
+        motorista_id:
+          type: integer
+          example: 1
+        latitude:
+          type: number
+          example: -9.7812
+        longitude:
+          type: number
+          example: -36.3501
+        velocidade_kmh:
+          type: number
+          example: 52.4
+        direcao_graus:
+          type: number
+          example: 180
+        precisao_metros:
+          type: number
+          example: 8
+        registrada_em:
+          type: string
+          format: date-time
+          example: '2026-06-10T17:15:00Z'
+        created_at:
+          type: string
+          format: date-time
+          example: '2026-06-10T17:15:00Z'
+        updated_at:
+          type: string
+          format: date-time
+          example: '2026-06-10T17:15:00Z'
+    RotaDinamicaRequest:
+      type: object
+      required:
+      - provider
+      - origem
+      - destino_final
+      - distancia_metros
+      - duracao_segundos
+      - geometry
+      - destinos
+      properties:
+        provider:
+          type: string
+          example: osrm
+        origem:
+          type: object
+          required:
+          - nome
+          - latitude
+          - longitude
+          properties:
+            nome:
+              type: string
+              example: Ultima parada da rota interna
+            latitude:
+              type: number
+              example: -9.7812
+            longitude:
+              type: number
+              example: -36.3501
+        destino_final:
+          type: object
+          required:
+          - nome
+          - latitude
+          - longitude
+          properties:
+            nome:
+              type: string
+              example: Universidade Federal de Alagoas
+            latitude:
+              type: number
+              example: -9.5584
+            longitude:
+              type: number
+              example: -35.7777
+        distancia_metros:
+          type: integer
+          example: 100000
+        duracao_segundos:
+          type: integer
+          example: 5400
+        geometry:
+          type: object
+          required:
+          - type
+          - coordinates
+          properties:
+            type:
+              type: string
+              example: LineString
+            coordinates:
+              type: array
+              items:
+                type: array
+                items:
+                  type: number
+                minItems: 2
+                maxItems: 2
+              example:
+              - - -36.3501
+                - -9.7812
+              - - -35.7777
+                - -9.5584
+        destinos:
+          type: array
+          items:
+            type: object
+            required:
+            - destino_id
+            properties:
+              destino_id:
+                type: integer
+                example: 1
+    RotaDinamicaComDestinosResponse:
+      type: object
+      properties:
+        rota:
+          type: object
+          properties:
+            id:
+              type: integer
+              example: 1
+            viagem_id:
+              type: integer
+              example: 1
+            provider:
+              type: string
+              example: osrm
+            origem:
+              type: object
+              properties:
+                nome:
+                  type: string
+                  example: Ultima parada da rota interna
+                latitude:
+                  type: number
+                  example: -9.7812
+                longitude:
+                  type: number
+                  example: -36.3501
+            destino_final:
+              type: object
+              properties:
+                nome:
+                  type: string
+                  example: Universidade Federal de Alagoas
+                latitude:
+                  type: number
+                  example: -9.5584
+                longitude:
+                  type: number
+                  example: -35.7777
+            distancia_metros:
+              type: integer
+              example: 100000
+            duracao_segundos:
+              type: integer
+              example: 5400
+            geometry:
+              type: object
+              properties:
+                type:
+                  type: string
+                  example: LineString
+                coordinates:
+                  type: array
+                  items:
+                    type: array
+                    items:
+                      type: number
+                  example:
+                  - - -36.3501
+                    - -9.7812
+                  - - -35.7777
+                    - -9.5584
+            expires_at:
+              type: string
+              format: date-time
+              example: '2026-09-10T00:00:00Z'
+            created_at:
+              type: string
+              format: date-time
+              example: '2026-06-06T20:00:00Z'
+            updated_at:
+              type: string
+              format: date-time
+              example: '2026-06-06T20:00:00Z'
+        destinos:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+                example: 1
+              rota_dinamica_id:
+                type: integer
+                example: 1
+              destino_id:
+                type: integer
+                example: 1
+              ordem:
+                type: integer
+                example: 1
+              created_at:
+                type: string
+                format: date-time
+                example: '2026-06-06T20:00:00Z'
+    SignedUploadURLRequest:
+      type: object
+      required:
+      - bucket
+      - path
+      - content_type
+      properties:
+        bucket:
+          type: string
+          enum:
+          - fotos
+          - documentos
+          example: fotos
+        path:
+          type: string
+          example: clientes/1/foto.png
+        content_type:
+          type: string
+          example: image/png
+        upsert:
+          type: boolean
+          example: true
+    SignedUploadURLResponse:
+      type: object
+      properties:
+        bucket:
+          type: string
+          example: fotos
+        path:
+          type: string
+          example: clientes/1/foto.png
+        signed_url:
+          type: string
+          example: https://project.supabase.co/storage/v1/object/upload/sign/fotos/clientes/1/foto.png?token=...
+        token:
+          type: string
+          example: token-opcional
+    SignedDownloadURLRequest:
+      type: object
+      required:
+      - bucket
+      - path
+      properties:
+        bucket:
+          type: string
+          enum:
+          - fotos
+          - documentos
+          example: documentos
+        path:
+          type: string
+          example: clientes/1/vinculos/10/comprovante.pdf
+        expires_in_seconds:
+          type: integer
+          minimum: 60
+          maximum: 3600
+          example: 900
+    SignedDownloadURLResponse:
+      type: object
+      properties:
+        bucket:
+          type: string
+          example: documentos
+        path:
+          type: string
+          example: clientes/1/vinculos/10/comprovante.pdf
+        signed_url:
+          type: string
+          example: https://project.supabase.co/storage/v1/object/sign/documentos/clientes/1/vinculos/10/comprovante.pdf?token=...
+        expires_in_seconds:
+          type: integer
+          example: 900
+security:
+- bearerAuth: []
+paths:
+  /health:
+    get:
+      summary: Health Check
+      tags:
+      - Health
+      responses:
+        '200':
+          description: OK
+      security: []
+  /admin/login:
+    post:
+      summary: Autentica administrador
+      tags:
+      - Admin
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequestEmail'
+  /motoristas/login:
+    post:
+      summary: Autentica motorista
+      tags:
+      - Motoristas
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequestCPF'
+  /clientes/login:
+    post:
+      summary: Autentica cliente
+      tags:
+      - Clientes
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequestCPF'
+  /admin/:
+    post:
+      summary: Cria admin
+      tags:
+      - Admin
+      responses:
+        '201':
+          description: Criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCreateResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminCreateRequest'
+    get:
+      summary: Lista admins
+      tags:
+      - Admin
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminResponse'
+  /admin/{adminID}:
+    get:
+      summary: Busca admin
+      tags:
+      - Admin
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminResponse'
+      parameters:
+      - name: adminID
+        in: path
+        required: true
+        schema:
+          type: integer
+    put:
+      summary: Atualiza email do admin
+      tags:
+      - Admin
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminResponse'
+      parameters:
+      - name: adminID
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUpdateRequest'
+    delete:
+      summary: Remove admin
+      tags:
+      - Admin
+      responses:
+        '204':
+          description: No Content
+      parameters:
+      - name: adminID
+        in: path
+        required: true
+        schema:
+          type: integer
+  /veiculos/:
+    post:
+      summary: Cria veiculo
+      tags:
+      - Veiculos
+      responses:
+        '201':
+          description: Criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VeiculoIDResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VeiculoCreateRequest'
+    get:
+      summary: Lista veiculos
+      tags:
+      - Veiculos
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VeiculoResponse'
+  /veiculos/{veiculoID}:
+    get:
+      summary: Busca veiculo
+      tags:
+      - Veiculos
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VeiculoResponse'
+      parameters:
+      - name: veiculoID
+        in: path
+        required: true
+        schema:
+          type: integer
+    put:
+      summary: Atualiza veiculo
+      tags:
+      - Veiculos
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VeiculoResponse'
+      parameters:
+      - name: veiculoID
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VeiculoUpdateRequest'
+    delete:
+      summary: Remove veiculo
+      tags:
+      - Veiculos
+      responses:
+        '204':
+          description: No Content
+      parameters:
+      - name: veiculoID
+        in: path
+        required: true
+        schema:
+          type: integer
+  /destinos/:
+    post:
+      summary: Cria destino
+      tags:
+      - Destinos
+      responses:
+        '201':
+          description: Criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DestinoIDResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DestinoRequest'
+    get:
+      summary: Lista destinos
+      tags:
+      - Destinos
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DestinoResponse'
+  /destinos/cidade/{cidade}:
+    get:
+      summary: Lista destinos por cidade
+      tags:
+      - Destinos
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DestinoResponse'
+      parameters:
+      - name: cidade
+        in: path
+        required: true
+        schema:
+          type: string
+  /destinos/{id}:
+    get:
+      summary: Busca destino
+      tags:
+      - Destinos
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DestinoResponse'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+    put:
+      summary: Atualiza destino
+      tags:
+      - Destinos
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DestinoResponse'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DestinoRequest'
+    delete:
+      summary: Remove destino
+      tags:
+      - Destinos
+      responses:
+        '204':
+          description: No Content
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+  /paradas/:
+    post:
+      summary: Cria parada
+      tags:
+      - Paradas
+      responses:
+        '201':
+          description: Criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParadaResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParadaRequest'
+    get:
+      summary: Lista paradas
+      tags:
+      - Paradas
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ParadaResponse'
+  /paradas/cidade/{cidade}:
+    get:
+      summary: Lista paradas por cidade
+      tags:
+      - Paradas
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ParadaResponse'
+      parameters:
+      - name: cidade
+        in: path
+        required: true
+        schema:
+          type: string
+  /paradas/{id}:
+    get:
+      summary: Busca parada
+      tags:
+      - Paradas
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParadaResponse'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+    put:
+      summary: Atualiza parada
+      tags:
+      - Paradas
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParadaResponse'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParadaRequest'
+    delete:
+      summary: Remove parada
+      tags:
+      - Paradas
+      responses:
+        '204':
+          description: No Content
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+  /rotas-internas/:
+    post:
+      summary: Cria rota interna
+      tags:
+      - Rotas Internas
+      responses:
+        '201':
+          description: Criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RotaInternaResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRotaInternaRequest'
+    get:
+      summary: Lista rotas internas
+      tags:
+      - Rotas Internas
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RotaInternaResponse'
+  /rotas-internas/cidade/{cidade}:
+    get:
+      summary: Lista rotas internas por cidade
+      tags:
+      - Rotas Internas
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RotaInternaResponse'
+      parameters:
+      - name: cidade
+        in: path
+        required: true
+        schema:
+          type: string
+  /rotas-internas/{id}:
+    get:
+      summary: Busca rota interna
+      tags:
+      - Rotas Internas
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RotaInternaResponse'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+    delete:
+      summary: Remove rota interna
+      tags:
+      - Rotas Internas
+      responses:
+        '204':
+          description: No Content
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+  /rotas-internas/{id}/paradas:
+    put:
+      summary: Substitui paradas da rota interna
+      tags:
+      - Rotas Internas
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RotaInternaResponse'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateParadasRequest'
+  /motoristas/:
+    post:
+      summary: Cria motorista
+      tags:
+      - Motoristas
+      responses:
+        '201':
+          description: Criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MotoristaResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMotoristaRequest'
+    get:
+      summary: Lista motoristas
+      tags:
+      - Motoristas
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MotoristaResponse'
+  /motoristas/{id}:
+    get:
+      summary: Busca motorista
+      tags:
+      - Motoristas
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MotoristaResponse'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+    put:
+      summary: Atualiza motorista
+      tags:
+      - Motoristas
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MotoristaResponse'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMotoristaRequest'
+    delete:
+      summary: Remove motorista
+      tags:
+      - Motoristas
+      responses:
+        '204':
+          description: No Content
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+  /clientes/:
+    post:
+      summary: Cria cliente
+      tags:
+      - Clientes
+      responses:
+        '201':
+          description: Criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClienteResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateClienteRequest'
+    get:
+      summary: Lista clientes
+      tags:
+      - Clientes
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ClienteResponse'
+  /clientes/{clienteID}:
+    get:
+      summary: Busca cliente com vinculos
+      tags:
+      - Clientes
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClienteComVinculosResponse'
+      parameters:
+      - name: clienteID
+        in: path
+        required: true
+        schema:
+          type: integer
+    put:
+      summary: Atualiza cliente
+      tags:
+      - Clientes
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClienteResponse'
+      parameters:
+      - name: clienteID
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateClienteRequest'
+    delete:
+      summary: Remove cliente
+      tags:
+      - Clientes
+      responses:
+        '204':
+          description: No Content
+      parameters:
+      - name: clienteID
+        in: path
+        required: true
+        schema:
+          type: integer
+  /clientes/{clienteID}/reservas/:
+    get:
+      summary: Lista reservas do cliente
+      tags:
+      - Clientes
+      - Reservas
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReservaResponse'
+      parameters:
+      - name: clienteID
+        in: path
+        required: true
+        schema:
+          type: integer
+  /clientes/{clienteID}/vinculos/:
+    post:
+      summary: Cria vinculo para cliente
+      tags:
+      - Vínculos
+      responses:
+        '201':
+          description: Criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VinculoResponse'
+      parameters:
+      - name: clienteID
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VinculoRequest'
+    get:
+      summary: Lista vinculos do cliente
+      tags:
+      - Vínculos
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VinculoResponse'
+      parameters:
+      - name: clienteID
+        in: path
+        required: true
+        schema:
+          type: integer
+  /clientes/{clienteID}/vinculos/{vinculoID}:
+    get:
+      summary: Busca vinculo do cliente
+      tags:
+      - Vínculos
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VinculoResponse'
+      parameters:
+      - name: clienteID
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: vinculoID
+        in: path
+        required: true
+        schema:
+          type: integer
+    put:
+      summary: Atualiza vinculo
+      tags:
+      - Vínculos
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VinculoResponse'
+      parameters:
+      - name: clienteID
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: vinculoID
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VinculoRequest'
+    delete:
+      summary: Remove vinculo
+      tags:
+      - Vínculos
+      responses:
+        '204':
+          description: No Content
+      parameters:
+      - name: clienteID
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: vinculoID
+        in: path
+        required: true
+        schema:
+          type: integer
+  /clientes/{clienteID}/vinculos/{vinculoID}/reservas/:
+    post:
+      summary: Cria reserva usando vinculo
+      tags:
+      - Reservas
+      responses:
+        '201':
+          description: Criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservaResponse'
+      parameters:
+      - name: clienteID
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: vinculoID
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReservaRequest'
+    get:
+      summary: Lista reservas do vinculo
+      tags:
+      - Reservas
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReservaResponse'
+      parameters:
+      - name: clienteID
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: vinculoID
+        in: path
+        required: true
+        schema:
+          type: integer
+  /reservas/:
+    get:
+      summary: Lista reservas
+      tags:
+      - Reservas
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReservaResponse'
+  /reservas/{reservaID}:
+    get:
+      summary: Busca reserva
+      tags:
+      - Reservas
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservaResponse'
+      parameters:
+      - name: reservaID
+        in: path
+        required: true
+        schema:
+          type: integer
+    put:
+      summary: Atualiza dados editáveis da reserva
+      tags:
+      - Reservas
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservaResponse'
+      parameters:
+      - name: reservaID
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateReservaRequest'
+    delete:
+      summary: Remove reserva
+      tags:
+      - Reservas
+      responses:
+        '204':
+          description: No Content
+      parameters:
+      - name: reservaID
+        in: path
+        required: true
+        schema:
+          type: integer
+  /reservas/{reservaID}/cancelar:
+    post:
+      summary: Cancela reserva
+      tags:
+      - Reservas
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservaResponse'
+      parameters:
+      - name: reservaID
+        in: path
+        required: true
+        schema:
+          type: integer
+  /horarios-turno-viagem/:
+    post:
+      summary: Cria horario por cidade/turno
+      tags:
+      - Horários Turno
+      responses:
+        '201':
+          description: Criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HorarioTurnoViagemResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HorarioTurnoViagemRequest'
+    get:
+      summary: Lista horarios
+      tags:
+      - Horários Turno
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HorarioTurnoViagemResponse'
+  /horarios-turno-viagem/{horarioTurnoID}:
+    get:
+      summary: Busca horario
+      tags:
+      - Horários Turno
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HorarioTurnoViagemResponse'
+      parameters:
+      - name: horarioTurnoID
+        in: path
+        required: true
+        schema:
+          type: integer
+    put:
+      summary: Atualiza horario
+      tags:
+      - Horários Turno
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HorarioTurnoViagemResponse'
+      parameters:
+      - name: horarioTurnoID
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HorarioTurnoViagemRequest'
+    delete:
+      summary: Remove horario
+      tags:
+      - Horários Turno
+      responses:
+        '204':
+          description: No Content
+      parameters:
+      - name: horarioTurnoID
+        in: path
+        required: true
+        schema:
+          type: integer
+  /planejamentos/viagens:
+    post:
+      summary: Planeja ciclos e viagens
+      tags:
+      - Planejamento
+      responses:
+        '201':
+          description: Criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanejamentoViagensResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanejarViagensRequest'
+  /viagens/:
+    get:
+      summary: Lista viagens com ciclo
+      tags:
+      - Viagens
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ViagemComCicloResponse'
+  /viagens/{viagemID}:
+    get:
+      summary: Busca viagem com ciclo
+      tags:
+      - Viagens
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ViagemComCicloResponse'
+      parameters:
+      - name: viagemID
+        in: path
+        required: true
+        schema:
+          type: integer
+  /viagens/{viagemID}/iniciar:
+    post:
+      summary: Inicia viagem e registra inicio_real
+      tags:
+      - Viagens
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ViagemResponse'
+      parameters:
+      - name: viagemID
+        in: path
+        required: true
+        schema:
+          type: integer
+  /viagens/{viagemID}/concluir:
+    post:
+      summary: Conclui viagem e registra fim_real
+      tags:
+      - Viagens
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ViagemResponse'
+      parameters:
+      - name: viagemID
+        in: path
+        required: true
+        schema:
+          type: integer
+  /viagens/{viagemID}/cancelar:
+    post:
+      summary: Cancela viagem
+      tags:
+      - Viagens
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ViagemResponse'
+      parameters:
+      - name: viagemID
+        in: path
+        required: true
+        schema:
+          type: integer
+  /viagens/{viagemID}/horarios:
+    get:
+      summary: Lista horarios da viagem
+      tags:
+      - Viagens
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ViagemHorarioResponse'
+      parameters:
+      - name: viagemID
+        in: path
+        required: true
+        schema:
+          type: integer
+  /viagens/{viagemID}/reservas/:
+    get:
+      summary: Lista reservas alocadas na viagem
+      tags:
+      - Viagens
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ViagemReservaComReservaResponse'
+      parameters:
+      - name: viagemID
+        in: path
+        required: true
+        schema:
+          type: integer
+  /viagens/{viagemID}/reservas/{reservaID}/presenca:
+    put:
+      summary: Atualiza presenca do aluno na viagem
+      tags:
+      - Viagens
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ViagemReservaResponse'
+      parameters:
+      - name: viagemID
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: reservaID
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AtualizarPresencaRequest'
+  /viagens/{viagemID}/localizacao:
+    put:
+      summary: Atualiza a ultima localizacao da viagem
+      tags:
+      - Localização
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ViagemLocalizacaoResponse'
+      parameters:
+      - name: viagemID
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AtualizarLocalizacaoRequest'
+    get:
+      summary: Consulta a ultima localizacao
+      tags:
+      - Localização
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ViagemLocalizacaoResponse'
+      parameters:
+      - name: viagemID
+        in: path
+        required: true
+        schema:
+          type: integer
+  /viagens/{viagemID}/rota-dinamica/calcular:
+    post:
+      summary: Calcula e persiste rota automaticamente
+      tags:
+      - Rotas Dinâmicas
+      responses:
+        '201':
+          description: Criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RotaDinamicaComDestinosResponse'
+      parameters:
+      - name: viagemID
+        in: path
+        required: true
+        schema:
+          type: integer
+  /viagens/{viagemID}/rota-dinamica:
+    post:
+      summary: Cria rota dinamica manualmente
+      tags:
+      - Rotas Dinâmicas
+      responses:
+        '201':
+          description: Criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RotaDinamicaComDestinosResponse'
+      parameters:
+      - name: viagemID
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RotaDinamicaRequest'
+    get:
+      summary: Busca rota dinamica da viagem
+      tags:
+      - Rotas Dinâmicas
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RotaDinamicaComDestinosResponse'
+      parameters:
+      - name: viagemID
+        in: path
+        required: true
+        schema:
+          type: integer
+    delete:
+      summary: Remove rota dinamica da viagem
+      tags:
+      - Rotas Dinâmicas
+      responses:
+        '204':
+          description: No Content
+      parameters:
+      - name: viagemID
+        in: path
+        required: true
+        schema:
+          type: integer
+  /storage/signed-upload-url:
+    post:
+      summary: Gera URL assinada para upload direto no Supabase
+      tags:
+      - Storage
+      responses:
+        '201':
+          description: Criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignedUploadURLResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignedUploadURLRequest'
+  /storage/signed-download-url:
+    post:
+      summary: Gera URL temporaria para visualizar/download
+      tags:
+      - Storage
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignedDownloadURLResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignedDownloadURLRequest'
