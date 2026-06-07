@@ -847,6 +847,166 @@ func TestEndToEndCancelarReservaInvalidaRotaDinamica(t *testing.T) {
 	doStatus(t, h.Router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%d/rota-dinamica", viagemID), h.AdminToken, nil, http.StatusNotFound)
 }
 
+func TestEndToEndReservaCanceladaAntesDoPlanejamentoNaoEntraNaViagem(t *testing.T) {
+	h := newE2EHarness(t, e2eRouterOptions{})
+	suffix := h.Suffix
+	cidade := "e2e-reserva-cancelada-planejamento-" + suffix
+	h.Cleanup(e2eCleanupData{
+		AdminEmail:      h.AdminEmail,
+		MotoristaPrefix: "78" + suffix[len(suffix)-6:],
+		ClientePrefix:   "78" + suffix[len(suffix)-6:],
+		PlacaPrefix:     "N" + suffix[len(suffix)-5:],
+		Cidade:          cidade,
+		DestinoPrefix:   "Destino Reserva Cancelada E2E " + suffix,
+	})
+
+	destinoID := createDestino(t, h.Router, h.AdminToken, map[string]any{
+		"nome":      "Destino Reserva Cancelada E2E " + suffix,
+		"rua":       "Av. Teste",
+		"cidade":    "maceio",
+		"latitude":  -9.5584,
+		"longitude": -35.7777,
+	})
+	paradaID := createParada(t, h.Router, h.AdminToken, map[string]any{
+		"nome":      "Parada Reserva Cancelada E2E",
+		"latitude":  -9.7812,
+		"longitude": -36.3501,
+		"cidade":    cidade,
+	})
+	rotaInternaID := createRotaInterna(t, h.Router, h.AdminToken, map[string]any{
+		"cidade":  cidade,
+		"paradas": []map[string]any{{"parada_id": paradaID, "ordem": 1}},
+	})
+	createVeiculo(t, h.Router, h.AdminToken, map[string]any{
+		"placa":       "N" + suffix[len(suffix)-5:] + "7",
+		"modelo":      "Carro Reserva Cancelada E2E",
+		"categoria":   "carro_7_lugares",
+		"capacidade":  7,
+		"cidade_base": cidade,
+		"status":      "ativo",
+	})
+	createMotorista(t, h.Router, h.AdminToken, map[string]any{
+		"nome":            "Motorista Reserva Cancelada E2E",
+		"cpf":             "78" + suffix[len(suffix)-6:] + "00",
+		"senha":           "senha123",
+		"telefone":        "82999990000",
+		"data_nasc":       "1980-05-20",
+		"turno":           "NT",
+		"cidade_trabalho": cidade,
+		"residencia":      cidade,
+		"foto":            "",
+	})
+
+	dataViagem := time.Now().AddDate(0, 0, 9).Format("2006-01-02")
+	var reservaConfirmadaID, reservaCanceladaID int64
+	for i := 0; i < 2; i++ {
+		clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
+			"nome":      fmt.Sprintf("Cliente Reserva Cancelada E2E %d", i),
+			"cpf":       fmt.Sprintf("78%s%02d", suffix[len(suffix)-6:], i+1),
+			"senha":     "senha123",
+			"telefone":  "82999991111",
+			"data_nasc": "2002-08-10",
+			"foto":      "",
+		})
+		vinculoID := createVinculo(t, h.Router, h.AdminToken, clienteID, map[string]any{
+			"tipo":            "estudante",
+			"turno":           "NT",
+			"destino_id":      destinoID,
+			"rota_interna_id": rotaInternaID,
+			"curso":           "Sistemas",
+			"comprovante":     fmt.Sprintf("clientes/%d/e2e/comprovante.pdf", clienteID),
+			"validade":        "2027-12-31",
+			"horarios_fixos":  []int{1, 2, 3, 4, 5},
+		})
+		reservaID := createReserva(t, h.Router, h.AdminToken, clienteID, vinculoID, map[string]any{
+			"data_viagem": dataViagem,
+			"turno":       "NT",
+			"sentido":     "ida",
+		})
+		if i == 0 {
+			reservaConfirmadaID = reservaID
+			continue
+		}
+		reservaCanceladaID = reservaID
+		doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/reservas/%d/cancelar", reservaCanceladaID), h.AdminToken, nil, http.StatusOK)
+	}
+	createHorarioTurno(t, h.Router, h.AdminToken, map[string]any{
+		"cidade":        cidade,
+		"turno":         "NT",
+		"horario_ida":   "17:00",
+		"horario_volta": "22:00",
+	})
+
+	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
+		"data_viagem":     dataViagem,
+		"turno":           "NT",
+		"cidade":          cidade,
+		"rota_interna_id": rotaInternaID,
+		"expires_at":      time.Now().AddDate(0, 3, 0).Format(time.RFC3339),
+	}, http.StatusCreated)
+	if int(planejamento["quantidade_reservas_ida"].(float64)) != 1 {
+		t.Fatalf("expected only 1 confirmed ida reservation, got %v", planejamento["quantidade_reservas_ida"])
+	}
+	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
+	reservasViagem := doJSON[[]map[string]any](t, h.Router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%d/reservas/", viagemID), h.AdminToken, nil, http.StatusOK)
+	if len(reservasViagem) != 1 {
+		t.Fatalf("expected 1 viagem_reserva, got %d", len(reservasViagem))
+	}
+	gotReservaID := int64(reservasViagem[0]["reserva_id"].(float64))
+	if gotReservaID != reservaConfirmadaID {
+		t.Fatalf("expected confirmed reserva %d on viagem, got %d", reservaConfirmadaID, gotReservaID)
+	}
+	if gotReservaID == reservaCanceladaID {
+		t.Fatalf("canceled reserva %d should not enter viagem", reservaCanceladaID)
+	}
+}
+
+func TestEndToEndFalhaOSRMNaoPersisteRotaDinamica(t *testing.T) {
+	if strings.TrimSpace(os.Getenv("E2E_DATABASE_URL")) == "" {
+		t.Skip("set E2E_DATABASE_URL to run end-to-end tests")
+	}
+
+	osrmServer := newFailingOSRMServer(t)
+	defer osrmServer.Close()
+	h := newE2EHarness(t, e2eRouterOptions{OSRMBaseURL: osrmServer.URL})
+	suffix := h.Suffix
+	cidade := "e2e-osrm-fail-" + suffix
+	h.Cleanup(e2eCleanupData{
+		AdminEmail:      h.AdminEmail,
+		MotoristaPrefix: "77" + suffix[len(suffix)-6:],
+		ClientePrefix:   "77" + suffix[len(suffix)-6:],
+		PlacaPrefix:     "F" + suffix[len(suffix)-5:],
+		Cidade:          cidade,
+		DestinoPrefix:   "Destino Base E2E " + suffix,
+	})
+
+	rotaInternaID, dataViagem := setupPlanejamentoBase(t, h, planejamentoBaseOptions{
+		Cidade:          cidade,
+		Prefixo:         suffix,
+		MotoristaPrefix: "77" + suffix[len(suffix)-6:],
+		ClientePrefix:   "77" + suffix[len(suffix)-6:],
+		PlacaPrefix:     "F" + suffix[len(suffix)-5:],
+		CriarVeiculo:    true,
+		CriarMotorista:  true,
+		CriarHorario:    true,
+	})
+
+	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
+		"data_viagem":     dataViagem,
+		"turno":           "NT",
+		"cidade":          cidade,
+		"rota_interna_id": rotaInternaID,
+		"expires_at":      time.Now().AddDate(0, 3, 0).Format(time.RFC3339),
+	}, http.StatusCreated)
+	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
+
+	doStatus(t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/rota-dinamica/calcular", viagemID), h.AdminToken, nil, http.StatusInternalServerError)
+	if osrmServer.Requests() != 1 {
+		t.Fatalf("expected 1 failing OSRM request, got %d", osrmServer.Requests())
+	}
+	doStatus(t, h.Router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%d/rota-dinamica", viagemID), h.AdminToken, nil, http.StatusNotFound)
+}
+
 func TestEndToEndAutorizacaoPorDono(t *testing.T) {
 	h := newE2EHarness(t, e2eRouterOptions{})
 	suffix := h.Suffix
@@ -1692,6 +1852,35 @@ func newFakeOSRMServer(t *testing.T) *fakeOSRMServer {
 }
 
 func (s *fakeOSRMServer) Requests() int {
+	return s.requests
+}
+
+type failingOSRMServer struct {
+	*httptest.Server
+	requests int
+}
+
+func newFailingOSRMServer(t *testing.T) *failingOSRMServer {
+	t.Helper()
+	fake := &failingOSRMServer{}
+	fake.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("unexpected OSRM method: %s", r.Method)
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		if !strings.HasPrefix(r.URL.Path, "/route/v1/driving/") {
+			t.Errorf("unexpected OSRM path: %s", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		fake.requests++
+		http.Error(w, "osrm unavailable", http.StatusInternalServerError)
+	}))
+	return fake
+}
+
+func (s *failingOSRMServer) Requests() int {
 	return s.requests
 }
 
