@@ -1,12 +1,14 @@
 package reservas
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
 	"time"
 
+	"github.com/fredsaggio/bondrota-api/internal/auth"
 	"github.com/fredsaggio/bondrota-api/internal/conv"
 	"github.com/fredsaggio/bondrota-api/internal/db"
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
@@ -186,6 +188,10 @@ func (h *ReservaHandler) Cancel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !h.canCancelReserva(ctx, reservaID, w) {
+		return
+	}
+
 	reserva, err := h.svc.Cancel(ctx, reservaID)
 	if err != nil {
 		h.handleError(w, err, "failed to cancel reserva")
@@ -193,6 +199,28 @@ func (h *ReservaHandler) Cancel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httputils.Respond(w, http.StatusOK, toReservaResponse(reserva))
+}
+
+func (h *ReservaHandler) canCancelReserva(ctx context.Context, reservaID int64, w http.ResponseWriter) bool {
+	claims, ok := ctx.Value(auth.ClaimsKey).(*auth.Claims)
+	if !ok || claims.UserID <= 0 {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return false
+	}
+	if claims.Role != auth.RoleCliente {
+		return true
+	}
+
+	reserva, err := h.svc.GetByID(ctx, reservaID)
+	if err != nil {
+		h.handleError(w, err, "failed to get reserva")
+		return false
+	}
+	if reserva.ClienteID != claims.UserID {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return false
+	}
+	return true
 }
 
 func (h *ReservaHandler) Delete(w http.ResponseWriter, r *http.Request) {

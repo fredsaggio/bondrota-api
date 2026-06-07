@@ -173,8 +173,32 @@ func TestEndToEndPlanejamentoViagem(t *testing.T) {
 	if len(viagensResp) != 2 {
 		t.Fatalf("expected ida and volta viagens, got %d", len(viagensResp))
 	}
+	cicloData := ciclo["ciclo"].(map[string]any)
+	cicloID := int64(cicloData["id"].(float64))
+	veiculoID := int64(cicloData["veiculo_id"].(float64))
+	cicloMotoristaID := int64(cicloData["motorista_id"].(float64))
+	if veiculoID <= 0 {
+		t.Fatalf("expected ciclo veiculo_id to be set, got %d", veiculoID)
+	}
+	if cicloMotoristaID != motoristaID {
+		t.Fatalf("expected same motorista on ciclo: got %d, want %d", cicloMotoristaID, motoristaID)
+	}
+	for _, viagem := range viagensResp {
+		viagemData := viagem.(map[string]any)
+		if int64(viagemData["ciclo_viagem_id"].(float64)) != cicloID {
+			t.Fatalf("expected ida/volta to share ciclo %d, got viagem %+v", cicloID, viagemData)
+		}
+	}
 
 	viagemID := int64(viagensResp[0].(map[string]any)["id"].(float64))
+	viagemVoltaID := int64(viagensResp[1].(map[string]any)["id"].(float64))
+	idaComCiclo := doJSON[map[string]any](t, router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%d", viagemID), adminToken, nil, http.StatusOK)
+	voltaComCiclo := doJSON[map[string]any](t, router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%d", viagemVoltaID), adminToken, nil, http.StatusOK)
+	idaCiclo := idaComCiclo["ciclo"].(map[string]any)
+	voltaCiclo := voltaComCiclo["ciclo"].(map[string]any)
+	if idaCiclo["veiculo_id"] != voltaCiclo["veiculo_id"] || idaCiclo["motorista_id"] != voltaCiclo["motorista_id"] {
+		t.Fatalf("expected ida/volta to share veiculo and motorista: ida=%+v volta=%+v", idaCiclo, voltaCiclo)
+	}
 	motoristaToken := loginMotorista(t, router, motoristaCPF, "senha123")
 
 	rota := doJSON[map[string]any](t, router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/rota-dinamica/calcular", viagemID), motoristaToken, nil, http.StatusCreated)
@@ -769,6 +793,14 @@ func TestEndToEndReservaDuplicadaECancelada(t *testing.T) {
 		"data_nasc": "2002-08-10",
 		"foto":      "",
 	})
+	outroClienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
+		"nome":      "Outro Cliente Reserva E2E",
+		"cpf":       "84" + suffix[len(suffix)-6:] + "01",
+		"senha":     "senha123",
+		"telefone":  "82999991112",
+		"data_nasc": "2002-08-10",
+		"foto":      "",
+	})
 	vinculoID := createVinculo(t, h.Router, h.AdminToken, clienteID, map[string]any{
 		"tipo":            "estudante",
 		"turno":           "NT",
@@ -787,10 +819,19 @@ func TestEndToEndReservaDuplicadaECancelada(t *testing.T) {
 
 	reservaID := createReserva(t, h.Router, h.AdminToken, clienteID, vinculoID, body)
 	doStatus(t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/clientes/%d/vinculos/%d/reservas/", clienteID, vinculoID), h.AdminToken, body, http.StatusConflict)
+	outroClienteToken := loginCliente(t, h.Router, "84"+suffix[len(suffix)-6:]+"01", "senha123")
+	doStatus(t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/reservas/%d/cancelar", reservaID), outroClienteToken, nil, http.StatusForbidden)
 
-	cancelada := doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/reservas/%d/cancelar", reservaID), h.AdminToken, nil, http.StatusOK)
+	clienteToken := loginCliente(t, h.Router, "84"+suffix[len(suffix)-6:]+"00", "senha123")
+	cancelada := doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/reservas/%d/cancelar", reservaID), clienteToken, nil, http.StatusOK)
 	if cancelada["status"] != "cancelada" {
 		t.Fatalf("expected reserva cancelada, got %v", cancelada["status"])
+	}
+	if int64(cancelada["cliente_id"].(float64)) != clienteID {
+		t.Fatalf("expected owner cliente_id %d, got %v", clienteID, cancelada["cliente_id"])
+	}
+	if outroClienteID <= 0 {
+		t.Fatalf("expected other cliente to be created")
 	}
 
 	nova := doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/clientes/%d/vinculos/%d/reservas/", clienteID, vinculoID), h.AdminToken, body, http.StatusCreated)

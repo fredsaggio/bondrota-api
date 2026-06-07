@@ -2,6 +2,7 @@ package reservas_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/fredsaggio/bondrota-api/internal/auth"
 	"github.com/fredsaggio/bondrota-api/internal/mocks"
 	"github.com/fredsaggio/bondrota-api/internal/reservas"
 )
@@ -471,6 +473,10 @@ func TestHandler_Cancel(t *testing.T) {
 			tc.setup(svc)
 			h := reservas.NewReservaHandler(svc)
 			req := httptest.NewRequest(http.MethodPost, "/reservas/"+tc.reservaID+"/cancel", nil)
+			req = req.WithContext(context.WithValue(req.Context(), auth.ClaimsKey, &auth.Claims{
+				UserID: 1,
+				Role:   auth.RoleAdmin,
+			}))
 			rr := httptest.NewRecorder()
 			newRouter(h).ServeHTTP(rr, req)
 			if rr.Code != tc.wantStatus {
