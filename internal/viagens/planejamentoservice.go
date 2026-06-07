@@ -32,6 +32,7 @@ func (s *planejamentoService) Planejar(ctx context.Context, input PlanejamentoVi
 	if err := validatePlanejamentoInput(input); err != nil {
 		return nil, err
 	}
+	input.ExpiresAt = calcularExpiresAtPlanejamento(input.DataViagem)
 
 	horarioTurno, err := s.horarioStore.GetByCidadeTurno(ctx, input.Cidade, input.Turno)
 	if err != nil {
@@ -112,11 +113,12 @@ func validatePlanejamentoInput(input PlanejamentoViagensInput) error {
 	if input.RotaInternaID <= 0 {
 		return errors.New("rota_interna_id is required")
 	}
-	if input.ExpiresAt.IsZero() {
-		return errors.New("expires_at is required")
-	}
 
 	return nil
+}
+
+func calcularExpiresAtPlanejamento(dataViagem time.Time) time.Time {
+	return dataViagem.AddDate(0, 3, 0)
 }
 
 func montarPartidasPlanejamento(dataViagem time.Time, horario *HorarioTurnoViagem) map[SentidoViagem]time.Time {

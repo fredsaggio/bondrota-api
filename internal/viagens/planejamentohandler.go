@@ -24,7 +24,6 @@ type PlanejarViagensRequest struct {
 	Turno         TurnoViagem `json:"turno"`
 	Cidade        string      `json:"cidade"`
 	RotaInternaID int64       `json:"rota_interna_id"`
-	ExpiresAt     string      `json:"expires_at"`
 }
 
 type PlanejamentoViagensResponse struct {
@@ -89,17 +88,11 @@ func toPlanejamentoInput(req PlanejarViagensRequest) (PlanejamentoViagensInput, 
 		return PlanejamentoViagensInput{}, err
 	}
 
-	expiresAt, err := parseTimestamp(req.ExpiresAt, "expires_at")
-	if err != nil {
-		return PlanejamentoViagensInput{}, err
-	}
-
 	return PlanejamentoViagensInput{
 		DataViagem:    dataViagem,
 		Turno:         req.Turno,
 		Cidade:        req.Cidade,
 		RotaInternaID: req.RotaInternaID,
-		ExpiresAt:     expiresAt,
 	}, nil
 }
 

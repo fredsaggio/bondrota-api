@@ -42,7 +42,6 @@ type RotaDinamicaRequest struct {
 	DistanciaMetros int                          `json:"distancia_metros"`
 	DuracaoSegundos int                          `json:"duracao_segundos"`
 	Geometry        json.RawMessage              `json:"geometry"`
-	ExpiresAt       string                       `json:"expires_at"`
 	Destinos        []RotaDinamicaDestinoRequest `json:"destinos"`
 }
 
@@ -177,11 +176,6 @@ func (h *RotaDinamicaHandler) handleError(w http.ResponseWriter, err error, msg 
 }
 
 func toRotaDinamicaInput(viagemID int64, req RotaDinamicaRequest) (RotaDinamicaInput, error) {
-	expiresAt, err := parseTimestamp(req.ExpiresAt, "expires_at")
-	if err != nil {
-		return RotaDinamicaInput{}, err
-	}
-
 	destinos := make([]RotaDinamicaDestinoInput, 0, len(req.Destinos))
 	for _, destino := range req.Destinos {
 		destinos = append(destinos, RotaDinamicaDestinoInput{
@@ -197,7 +191,6 @@ func toRotaDinamicaInput(viagemID int64, req RotaDinamicaRequest) (RotaDinamicaI
 		DistanciaMetros: req.DistanciaMetros,
 		DuracaoSegundos: req.DuracaoSegundos,
 		Geometry:        req.Geometry,
-		ExpiresAt:       expiresAt,
 		Destinos:        destinos,
 	}, nil
 }
@@ -208,17 +201,6 @@ func toPontoRota(req PontoRotaRequest) PontoRota {
 		Latitude:  req.Latitude,
 		Longitude: req.Longitude,
 	}
-}
-
-func parseTimestamp(value, field string) (time.Time, error) {
-	if value == "" {
-		return time.Time{}, errors.New(field + " is required")
-	}
-	parsed, err := time.Parse(time.RFC3339, value)
-	if err != nil {
-		return time.Time{}, errors.New(field + " must be in RFC3339 format")
-	}
-	return parsed, nil
 }
 
 func toRotaDinamicaComDestinosResponse(data *RotaDinamicaComDestinos) RotaDinamicaComDestinosResponse {

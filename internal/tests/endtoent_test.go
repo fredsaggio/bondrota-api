@@ -161,7 +161,6 @@ func TestEndToEndPlanejamentoViagem(t *testing.T) {
 		"turno":           "NT",
 		"cidade":          cidade,
 		"rota_interna_id": rotaInternaID,
-		"expires_at":      time.Now().AddDate(0, 3, 0).Format(time.RFC3339),
 	}, http.StatusCreated)
 
 	ciclos := planejamento["ciclos"].([]any)
@@ -479,7 +478,6 @@ func TestEndToEndPlanejamentoMultiplosVeiculosPorCapacidade(t *testing.T) {
 		"turno":           "NT",
 		"cidade":          cidade,
 		"rota_interna_id": rotaInternaID,
-		"expires_at":      time.Now().AddDate(0, 3, 0).Format(time.RFC3339),
 	}, http.StatusCreated)
 
 	ciclos := planejamento["ciclos"].([]any)
@@ -600,7 +598,6 @@ func TestEndToEndPlanejamentoIgnoraRecursosIndisponiveis(t *testing.T) {
 		"turno":           "NT",
 		"cidade":          cidade,
 		"rota_interna_id": rotaInternaID,
-		"expires_at":      time.Now().AddDate(0, 3, 0).Format(time.RFC3339),
 	}, http.StatusCreated)
 	ciclo := planejamento["ciclos"].([]any)[0].(map[string]any)["ciclo"].(map[string]any)
 	if got := int64(ciclo["veiculo_id"].(float64)); got != activeEscolarID {
@@ -709,7 +706,6 @@ func TestEndToEndPlanejamentoNaoReutilizaRecursosJaAlocados(t *testing.T) {
 		"turno":           "NT",
 		"cidade":          cidade,
 		"rota_interna_id": rotaInternaAID,
-		"expires_at":      time.Now().AddDate(0, 3, 0).Format(time.RFC3339),
 	}, http.StatusCreated)
 	ciclo := primeiro["ciclos"].([]any)[0].(map[string]any)["ciclo"].(map[string]any)
 	if got := int64(ciclo["veiculo_id"].(float64)); got != veiculoID {
@@ -724,7 +720,6 @@ func TestEndToEndPlanejamentoNaoReutilizaRecursosJaAlocados(t *testing.T) {
 		"turno":           "NT",
 		"cidade":          cidade,
 		"rota_interna_id": rotaInternaBID,
-		"expires_at":      time.Now().AddDate(0, 3, 0).Format(time.RFC3339),
 	}, http.StatusNotFound)
 }
 
@@ -831,7 +826,6 @@ func TestEndToEndRotaDinamicaMultiplosDestinos(t *testing.T) {
 		"turno":           "NT",
 		"cidade":          cidade,
 		"rota_interna_id": rotaInternaID,
-		"expires_at":      time.Now().AddDate(0, 3, 0).Format(time.RFC3339),
 	}, http.StatusCreated)
 	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
 
@@ -950,7 +944,6 @@ func TestEndToEndCancelarReservaInvalidaRotaDinamica(t *testing.T) {
 		"turno":           "NT",
 		"cidade":          cidade,
 		"rota_interna_id": rotaInternaID,
-		"expires_at":      time.Now().AddDate(0, 3, 0).Format(time.RFC3339),
 	}, http.StatusCreated)
 	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
 
@@ -1059,7 +1052,6 @@ func TestEndToEndReservaCanceladaAntesDoPlanejamentoNaoEntraNaViagem(t *testing.
 		"turno":           "NT",
 		"cidade":          cidade,
 		"rota_interna_id": rotaInternaID,
-		"expires_at":      time.Now().AddDate(0, 3, 0).Format(time.RFC3339),
 	}, http.StatusCreated)
 	if int(planejamento["quantidade_reservas_ida"].(float64)) != 1 {
 		t.Fatalf("expected only 1 confirmed ida reservation, got %v", planejamento["quantidade_reservas_ida"])
@@ -1113,7 +1105,6 @@ func TestEndToEndFalhaOSRMNaoPersisteRotaDinamica(t *testing.T) {
 		"turno":           "NT",
 		"cidade":          cidade,
 		"rota_interna_id": rotaInternaID,
-		"expires_at":      time.Now().AddDate(0, 3, 0).Format(time.RFC3339),
 	}, http.StatusCreated)
 	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
 
@@ -1229,7 +1220,6 @@ func TestEndToEndAutorizacaoPorDono(t *testing.T) {
 		"turno":           "NT",
 		"cidade":          cidade,
 		"rota_interna_id": rotaInternaID,
-		"expires_at":      time.Now().AddDate(0, 3, 0).Format(time.RFC3339),
 	}, http.StatusCreated)
 	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
 	motoristaToken := loginMotorista(t, h.Router, motoristaCPF, "senha123")
@@ -1378,7 +1368,6 @@ func TestEndToEndPlanejamentoErrosSemRecursos(t *testing.T) {
 			"turno":           "NT",
 			"cidade":          cidade,
 			"rota_interna_id": rotaInternaID,
-			"expires_at":      time.Now().AddDate(0, 3, 0).Format(time.RFC3339),
 		}, http.StatusNotFound)
 	})
 
@@ -1408,7 +1397,6 @@ func TestEndToEndPlanejamentoErrosSemRecursos(t *testing.T) {
 			"turno":           "NT",
 			"cidade":          cidade,
 			"rota_interna_id": rotaInternaID,
-			"expires_at":      time.Now().AddDate(0, 3, 0).Format(time.RFC3339),
 		}, http.StatusNotFound)
 	})
 
@@ -1438,7 +1426,6 @@ func TestEndToEndPlanejamentoErrosSemRecursos(t *testing.T) {
 			"turno":           "NT",
 			"cidade":          cidade,
 			"rota_interna_id": rotaInternaID,
-			"expires_at":      time.Now().AddDate(0, 3, 0).Format(time.RFC3339),
 		}, http.StatusNotFound)
 	})
 }
@@ -1472,7 +1459,6 @@ func TestEndToEndViagemCanceladaNaoInicia(t *testing.T) {
 		"turno":           "NT",
 		"cidade":          cidade,
 		"rota_interna_id": rotaInternaID,
-		"expires_at":      time.Now().AddDate(0, 3, 0).Format(time.RFC3339),
 	}, http.StatusCreated)
 	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/fredsaggio/bondrota-api/internal/brerror"
 	"github.com/fredsaggio/bondrota-api/internal/db"
@@ -73,6 +74,27 @@ func (s *rotaDinamicaStore) GetByViagem(ctx context.Context, viagemID int64) (*R
 		Rota:     *rota,
 		Destinos: destinos,
 	}, nil
+}
+
+func (s *rotaDinamicaStore) GetExpiresAtByViagem(ctx context.Context, viagemID int64) (time.Time, error) {
+	const op = "db/rotaDinamicaStore.GetExpiresAtByViagem"
+
+	const q = `
+		SELECT c.expires_at
+		FROM viagens v
+		JOIN ciclos_viagem c ON c.id = v.ciclo_viagem_id
+		WHERE v.id = @viagem_id
+	`
+
+	var expiresAt time.Time
+	if err := s.db.QueryRow(ctx, q, pgx.StrictNamedArgs{"viagem_id": viagemID}).Scan(&expiresAt); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return time.Time{}, brerror.ErrNotFound
+		}
+		return time.Time{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return expiresAt, nil
 }
 
 func (s *rotaDinamicaStore) ListDestinos(ctx context.Context, rotaDinamicaID int64) ([]RotaDinamicaDestino, error) {

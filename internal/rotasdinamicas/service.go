@@ -21,6 +21,14 @@ func NewRotaDinamicaService(store RotaDinamicaStore) RotaDinamicaService {
 }
 
 func (s *rotaDinamicaService) Create(ctx context.Context, input RotaDinamicaInput) (*RotaDinamicaComDestinos, error) {
+	if input.ExpiresAt.IsZero() {
+		expiresAt, err := s.store.GetExpiresAtByViagem(ctx, input.ViagemID)
+		if err != nil {
+			return nil, err
+		}
+		input.ExpiresAt = expiresAt
+	}
+
 	normalized, err := normalizeRotaDinamicaInput(input)
 	if err != nil {
 		return nil, err

@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestLiveOSRMRotaDinamica(t *testing.T) {
@@ -42,7 +41,6 @@ func TestLiveOSRMRotaDinamica(t *testing.T) {
 		"turno":           "NT",
 		"cidade":          cidade,
 		"rota_interna_id": rotaInternaID,
-		"expires_at":      time.Now().AddDate(0, 3, 0).Format(time.RFC3339),
 	}, http.StatusCreated)
 	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
 

@@ -728,8 +728,7 @@ Request:
   "data_viagem": "2026-06-10",
   "turno": "NT",
   "cidade": "campo alegre",
-  "rota_interna_id": 1,
-  "expires_at": "2026-09-10T00:00:00Z"
+  "rota_interna_id": 1
 }
 ```
 
@@ -782,6 +781,7 @@ Regras operacionais importantes:
 
 - Usa reservas `confirmada` do mesmo `data_viagem`, `turno`, `cidade`, `rota_interna_id` e `sentido`.
 - Usa `horarios_turno_viagem` para definir partida prevista da ida e da volta.
+- Calcula `expires_at` automaticamente como `data_viagem + 3 meses`. O frontend nao envia esse campo no request.
 - Aloca veiculos automaticamente por cidade, status e capacidade.
 - Aloca motoristas automaticamente por cidade/turno/disponibilidade.
 - Cria `ciclos_viagem`, `viagens`, `viagem_horarios` e `viagem_reservas`.
@@ -997,7 +997,6 @@ Create manual:
       [-35.7777, -9.5584]
     ]
   },
-  "expires_at": "2026-09-10T00:00:00Z",
   "destinos": [
     {
       "destino_id": 1
@@ -1053,6 +1052,7 @@ Calculo automatico:
 
 - Usa OSRM como roteador externo.
 - O frontend nao precisa chamar OSRM diretamente para gerar a rota dinamica.
+- O backend herda `expires_at` da viagem/ciclo. O frontend nao envia esse campo no request.
 - Para ida, a origem e a ultima parada da rota interna e os destinos sao ordenados.
 - Para volta, a rota sai dos destinos e termina na primeira parada da rota interna.
 - Para ate 8 destinos, o backend usa busca por forca bruta para achar a melhor ordem estimada.
@@ -1483,10 +1483,11 @@ O backend:
 3. Calcula veiculos por capacidade.
 4. Aloca veiculos disponiveis.
 5. Aloca motoristas disponiveis.
-6. Cria ciclos de viagem.
-7. Cria viagens de ida e volta.
-8. Cria horarios previstos.
-9. Cria `viagem_reservas` para as reservas alocadas.
+6. Calcula `expires_at` automaticamente para retencao de dados.
+7. Cria ciclos de viagem.
+8. Cria viagens de ida e volta.
+9. Cria horarios previstos.
+10. Cria `viagem_reservas` para as reservas alocadas.
 
 Para o frontend, o retorno ja informa quais `viagem_id`, `veiculo_id` e `motorista_id` foram definidos.
 

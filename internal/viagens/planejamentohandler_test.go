@@ -32,7 +32,6 @@ func validPlanejamentoBody() map[string]any {
 		"turno":           "NT",
 		"cidade":          "Campo Alegre",
 		"rota_interna_id": 2,
-		"expires_at":      "2026-09-10T00:00:00Z",
 	}
 }
 

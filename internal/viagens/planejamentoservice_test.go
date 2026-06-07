@@ -100,7 +100,6 @@ func validPlanejamentoInput() viagens.PlanejamentoViagensInput {
 		Turno:         viagens.TurnoNoturno,
 		Cidade:        "Campo Alegre",
 		RotaInternaID: 2,
-		ExpiresAt:     time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC),
 	}
 }
 
@@ -154,6 +153,9 @@ func TestPlanejamentoService_Planejar(t *testing.T) {
 				}
 				if gotInputs[0].Ciclo.MotoristaID != 20 {
 					t.Fatalf("unexpected motorista id: %d", gotInputs[0].Ciclo.MotoristaID)
+				}
+				if want := input.DataViagem.AddDate(0, 3, 0); !gotInputs[0].Ciclo.ExpiresAt.Equal(want) {
+					t.Fatalf("unexpected expires_at: want %v, got %v", want, gotInputs[0].Ciclo.ExpiresAt)
 				}
 				if len(gotInputs[0].ReservaIDsIda) != 3 {
 					t.Fatalf("unexpected ida reservas: %+v", gotInputs[0].ReservaIDsIda)

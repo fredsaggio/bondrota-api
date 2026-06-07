@@ -13,6 +13,7 @@ import (
 type fakeRotaDinamicaStore struct {
 	createFn       func(ctx context.Context, input rotasdinamicas.RotaDinamicaInput) (*rotasdinamicas.RotaDinamicaComDestinos, error)
 	getByViagemFn  func(ctx context.Context, viagemID int64) (*rotasdinamicas.RotaDinamicaComDestinos, error)
+	getExpiresAtFn func(ctx context.Context, viagemID int64) (time.Time, error)
 	listDestinosFn func(ctx context.Context, rotaDinamicaID int64) ([]rotasdinamicas.RotaDinamicaDestino, error)
 	deleteFn       func(ctx context.Context, viagemID int64) error
 }
@@ -23,6 +24,10 @@ func (s fakeRotaDinamicaStore) Create(ctx context.Context, input rotasdinamicas.
 
 func (s fakeRotaDinamicaStore) GetByViagem(ctx context.Context, viagemID int64) (*rotasdinamicas.RotaDinamicaComDestinos, error) {
 	return s.getByViagemFn(ctx, viagemID)
+}
+
+func (s fakeRotaDinamicaStore) GetExpiresAtByViagem(ctx context.Context, viagemID int64) (time.Time, error) {
+	return s.getExpiresAtFn(ctx, viagemID)
 }
 
 func (s fakeRotaDinamicaStore) ListDestinos(ctx context.Context, rotaDinamicaID int64) ([]rotasdinamicas.RotaDinamicaDestino, error) {
@@ -49,7 +54,6 @@ func validRotaInput() rotasdinamicas.RotaDinamicaInput {
 		DistanciaMetros: 100000,
 		DuracaoSegundos: 7200,
 		Geometry:        []byte(`{"type":"LineString","coordinates":[[-36.35,-9.78],[-35.775,-9.558]]}`),
-		ExpiresAt:       time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC),
 		Destinos: []rotasdinamicas.RotaDinamicaDestinoInput{
 			{DestinoID: 5},
 			{DestinoID: 8, Ordem: 99},
@@ -93,12 +97,21 @@ func sampleRota(input rotasdinamicas.RotaDinamicaInput) *rotasdinamicas.RotaDina
 func TestRotaDinamicaService_Create(t *testing.T) {
 	t.Run("defaults provider, trims points and normalizes destination order", func(t *testing.T) {
 		svc := rotasdinamicas.NewRotaDinamicaService(fakeRotaDinamicaStore{
+			getExpiresAtFn: func(_ context.Context, viagemID int64) (time.Time, error) {
+				if viagemID != 10 {
+					t.Fatalf("unexpected viagemID when resolving expires_at: %d", viagemID)
+				}
+				return time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC), nil
+			},
 			createFn: func(_ context.Context, input rotasdinamicas.RotaDinamicaInput) (*rotasdinamicas.RotaDinamicaComDestinos, error) {
 				if input.Provider != "osrm" {
 					t.Fatalf("expected osrm provider, got %q", input.Provider)
 				}
 				if input.Origem.Nome != "Ultima parada" || input.DestinoFinal.Nome != "UFAL" {
 					t.Fatalf("expected trimmed point names, got origem=%q destino=%q", input.Origem.Nome, input.DestinoFinal.Nome)
+				}
+				if input.ExpiresAt.IsZero() {
+					t.Fatal("expected expires_at to be resolved from viagem")
 				}
 				if input.Destinos[0].Ordem != 1 || input.Destinos[1].Ordem != 2 {
 					t.Fatalf("expected normalized order, got %+v", input.Destinos)
@@ -121,6 +134,9 @@ func TestRotaDinamicaService_Create(t *testing.T) {
 		input := validRotaInput()
 		input.Provider = "manual"
 		svc := rotasdinamicas.NewRotaDinamicaService(fakeRotaDinamicaStore{
+			getExpiresAtFn: func(_ context.Context, _ int64) (time.Time, error) {
+				return time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC), nil
+			},
 			createFn: func(_ context.Context, input rotasdinamicas.RotaDinamicaInput) (*rotasdinamicas.RotaDinamicaComDestinos, error) {
 				if input.Provider != "manual" {
 					t.Fatalf("expected manual provider, got %q", input.Provider)
@@ -140,6 +156,9 @@ func TestRotaDinamicaService_Create(t *testing.T) {
 		input := validRotaInput()
 		input.Geometry = []byte("{")
 		svc := rotasdinamicas.NewRotaDinamicaService(fakeRotaDinamicaStore{
+			getExpiresAtFn: func(_ context.Context, _ int64) (time.Time, error) {
+				return time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC), nil
+			},
 			createFn: func(_ context.Context, _ rotasdinamicas.RotaDinamicaInput) (*rotasdinamicas.RotaDinamicaComDestinos, error) {
 				t.Fatal("store should not be called")
 				return nil, nil
@@ -157,6 +176,9 @@ func TestRotaDinamicaService_Create(t *testing.T) {
 		input := validRotaInput()
 		input.Destinos[1].DestinoID = input.Destinos[0].DestinoID
 		svc := rotasdinamicas.NewRotaDinamicaService(fakeRotaDinamicaStore{
+			getExpiresAtFn: func(_ context.Context, _ int64) (time.Time, error) {
+				return time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC), nil
+			},
 			createFn: func(_ context.Context, _ rotasdinamicas.RotaDinamicaInput) (*rotasdinamicas.RotaDinamicaComDestinos, error) {
 				t.Fatal("store should not be called")
 				return nil, nil
@@ -172,6 +194,9 @@ func TestRotaDinamicaService_Create(t *testing.T) {
 
 	t.Run("store error is returned", func(t *testing.T) {
 		svc := rotasdinamicas.NewRotaDinamicaService(fakeRotaDinamicaStore{
+			getExpiresAtFn: func(_ context.Context, _ int64) (time.Time, error) {
+				return time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC), nil
+			},
 			createFn: func(_ context.Context, _ rotasdinamicas.RotaDinamicaInput) (*rotasdinamicas.RotaDinamicaComDestinos, error) {
 				return nil, brerror.ErrAlreadyExists
 			},

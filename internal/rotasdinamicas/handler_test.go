@@ -75,7 +75,6 @@ func validRotaBody() map[string]any {
 			"type":        "LineString",
 			"coordinates": []any{[]float64{-36.35, -9.78}, []float64{-35.775, -9.558}},
 		},
-		"expires_at": "2026-09-10T00:00:00Z",
 		"destinos": []map[string]any{
 			{"destino_id": 5},
 			{"destino_id": 8},
@@ -113,13 +112,6 @@ func TestRotaDinamicaHandler_Create(t *testing.T) {
 			name:       "invalid viagem id",
 			path:       "/viagens/abc/rota-dinamica",
 			body:       validRotaBody(),
-			svc:        fakeRotaDinamicaService{},
-			wantStatus: http.StatusBadRequest,
-		},
-		{
-			name:       "invalid timestamp",
-			path:       "/viagens/10/rota-dinamica",
-			body:       map[string]any{"expires_at": "2026-09-10"},
 			svc:        fakeRotaDinamicaService{},
 			wantStatus: http.StatusBadRequest,
 		},

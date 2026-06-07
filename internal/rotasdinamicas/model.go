@@ -86,6 +86,7 @@ type DadosCalculoRota struct {
 type RotaDinamicaStore interface {
 	Create(ctx context.Context, input RotaDinamicaInput) (*RotaDinamicaComDestinos, error)
 	GetByViagem(ctx context.Context, viagemID int64) (*RotaDinamicaComDestinos, error)
+	GetExpiresAtByViagem(ctx context.Context, viagemID int64) (time.Time, error)
 	ListDestinos(ctx context.Context, rotaDinamicaID int64) ([]RotaDinamicaDestino, error)
 	DeleteByViagem(ctx context.Context, viagemID int64) error
 }
