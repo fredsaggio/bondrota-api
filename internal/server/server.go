@@ -12,6 +12,7 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/reservas"
 	"github.com/fredsaggio/bondrota-api/internal/rotasdinamicas"
 	"github.com/fredsaggio/bondrota-api/internal/rotasinternas"
+	"github.com/fredsaggio/bondrota-api/internal/storage"
 	"github.com/fredsaggio/bondrota-api/internal/veiculos"
 	"github.com/fredsaggio/bondrota-api/internal/viagens"
 	"github.com/go-chi/chi/v5"
@@ -33,6 +34,7 @@ type Handlers struct {
 	PlanejamentoHandler *viagens.PlanejamentoHandler
 	HorarioTurnoHandler *viagens.HorarioTurnoViagemHandler
 	RotaDinamicaHandler *rotasdinamicas.RotaDinamicaHandler
+	StorageHandler      *storage.Handler
 }
 
 type Server struct {
@@ -185,6 +187,12 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 			r.Get("/{horarioTurnoID}", srv.handlers.HorarioTurnoHandler.GetByID)
 			r.Put("/{horarioTurnoID}", srv.handlers.HorarioTurnoHandler.Update)
 			r.Delete("/{horarioTurnoID}", srv.handlers.HorarioTurnoHandler.Delete)
+		})
+
+		r.Route("/storage", func(r chi.Router) {
+			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin, auth.RoleCliente, auth.RoleMotorista))
+			r.Post("/signed-upload-url", srv.handlers.StorageHandler.CreateSignedUploadURL)
+			r.Post("/signed-download-url", srv.handlers.StorageHandler.CreateSignedDownloadURL)
 		})
 	})
 }

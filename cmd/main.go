@@ -15,6 +15,7 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/crypto"
 	"github.com/fredsaggio/bondrota-api/internal/db"
 	"github.com/fredsaggio/bondrota-api/internal/server"
+	"github.com/fredsaggio/bondrota-api/internal/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -79,7 +80,12 @@ func Run(ctx context.Context, getEnv func(string) string) error {
 
 	slog.Info("database connected")
 
-	handlers, rotaDinamicaWorker := buildHandlers(pool, authSvc)
+	storageConfig := storage.SupabaseConfig{
+		URL:        getEnv("SUPABASE_URL"),
+		ServiceKey: getEnv("SUPABASE_SERVICE_KEY"),
+	}
+
+	handlers, rotaDinamicaWorker := buildHandlers(pool, authSvc, storageConfig)
 	srv := server.NewServer(handlers, authSvc)
 	apiRouter := chi.NewRouter()
 	srv.RegisterRoutes(apiRouter)

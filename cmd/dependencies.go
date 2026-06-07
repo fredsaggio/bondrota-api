@@ -13,11 +13,12 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/rotasdinamicas"
 	"github.com/fredsaggio/bondrota-api/internal/rotasinternas"
 	"github.com/fredsaggio/bondrota-api/internal/server"
+	"github.com/fredsaggio/bondrota-api/internal/storage"
 	"github.com/fredsaggio/bondrota-api/internal/veiculos"
 	"github.com/fredsaggio/bondrota-api/internal/viagens"
 )
 
-func buildHandlers(pool db.DB, authSvc *auth.AuthService) (server.Handlers, *rotasdinamicas.RotaDinamicaWorker) {
+func buildHandlers(pool db.DB, authSvc *auth.AuthService, storageConfig storage.SupabaseConfig) (server.Handlers, *rotasdinamicas.RotaDinamicaWorker) {
 	adminStore := admin.NewAdminStore(pool)
 	adminSvc := admin.NewAdminService(adminStore, authSvc)
 	adminHandler := admin.NewAdminHandler(adminSvc)
@@ -92,6 +93,10 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService) (server.Handlers, *rot
 		rotasdinamicas.RotaDinamicaWorkerConfig{},
 	)
 
+	storageClient := storage.NewSupabaseClient(storageConfig, nil)
+	storageSvc := storage.NewService(storageClient)
+	storageHandler := storage.NewHandler(storageSvc)
+
 	return server.Handlers{
 		AdminHandler:        adminHandler,
 		VeiculoHandler:      veiculoHandler,
@@ -106,5 +111,6 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService) (server.Handlers, *rot
 		PlanejamentoHandler: planejamentoHandler,
 		HorarioTurnoHandler: horarioTurnoHandler,
 		RotaDinamicaHandler: rotaDinamicaHandler,
+		StorageHandler:      storageHandler,
 	}, rotaDinamicaWorker
 }

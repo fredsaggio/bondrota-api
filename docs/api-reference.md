@@ -1537,3 +1537,93 @@ O backend valida se o cliente possui reserva vinculada aquela viagem.
 - Duracao da rota dinamica vem em segundos.
 - O frontend nao precisa chamar OSRM para calcular rota. A API calcula e persiste.
 - Para mapa visual, o frontend pode usar biblioteca gratuita baseada em OpenStreetMap, como Leaflet, consumindo a `geometry` retornada pela API.
+
+### Supabase Storage
+
+Permissao: `admin`, `cliente` ou `motorista`.
+
+Estes endpoints nao recebem o arquivo em si. Eles retornam URLs assinadas para que o frontend envie ou visualize arquivos diretamente no Supabase Storage. Isso evita enviar arquivos grandes pela API e respeita os limites configurados nos buckets privados do Supabase.
+
+Buckets aceitos:
+
+- `fotos`
+- `documentos`
+
+Regras de acesso por path:
+
+- `admin`: pode assinar paths permitidos em qualquer bucket.
+- `cliente`: pode assinar apenas paths iniciando com `clientes/{user_id}/`.
+- `motorista`: pode assinar apenas paths iniciando com `motoristas/{user_id}/` e somente no bucket `fotos`.
+
+Content types aceitos:
+
+- `fotos`: `image/jpeg`, `image/png`, `image/webp`.
+- `documentos`: `application/pdf`, `image/jpeg`, `image/png`, `image/webp`.
+
+| Metodo | Path completo | Descricao | Body | Sucesso | Erros |
+| --- | --- | --- | --- | --- | --- |
+| `POST` | `BASE_URL/storage/signed-upload-url` | Gera URL assinada para upload direto no Supabase. | `SignedUploadURLRequest` | `201 SignedUploadURLResponse` | `400`, `401`, `403`, `422`, `500` |
+| `POST` | `BASE_URL/storage/signed-download-url` | Gera URL temporaria para visualizar/download de arquivo privado. | `SignedDownloadURLRequest` | `200 SignedDownloadURLResponse` | `400`, `401`, `403`, `422`, `500` |
+
+Request de upload:
+
+```json
+{
+  "bucket": "fotos",
+  "path": "clientes/1/foto.png",
+  "content_type": "image/png",
+  "upsert": true
+}
+```
+
+Response:
+
+```json
+{
+  "bucket": "fotos",
+  "path": "clientes/1/foto.png",
+  "signed_url": "https://project.supabase.co/storage/v1/object/upload/sign/fotos/clientes/1/foto.png?token=...",
+  "token": "token-opcional"
+}
+```
+
+Depois disso, o frontend envia o arquivo diretamente para `signed_url`, por exemplo:
+
+```ts
+await fetch(response.signed_url, {
+  method: "PUT",
+  headers: {
+    "Content-Type": file.type
+  },
+  body: file
+});
+```
+
+Depois do upload, salve o `path` no recurso correspondente da API, por exemplo:
+
+- `clientes.foto`
+- `motoristas.foto`
+- `cliente_vinculos.comprovante`
+
+Request de download:
+
+```json
+{
+  "bucket": "documentos",
+  "path": "clientes/1/vinculos/10/comprovante.pdf",
+  "expires_in_seconds": 900
+}
+```
+
+Response:
+
+```json
+{
+  "bucket": "documentos",
+  "path": "clientes/1/vinculos/10/comprovante.pdf",
+  "signed_url": "https://project.supabase.co/storage/v1/object/sign/documentos/clientes/1/vinculos/10/comprovante.pdf?token=...",
+  "expires_in_seconds": 900
+}
+```
+
+Se `expires_in_seconds` nao for enviado, a API usa `900` segundos. O valor aceito fica entre `60` e `3600`.
