@@ -109,7 +109,7 @@ func (s *motoristaStore) ListDisponiveisParaAlocacao(ctx context.Context, filtro
 	const q = `
 		SELECT m.id, m.nome, m.cpf, m.telefone, m.data_nasc, m.turno, m.cidade_trabalho, m.residencia, m.foto
 		FROM motoristas m
-		WHERE (m.turno = @turno OR m.turno = 'IN')
+		WHERE (m.turno::text = @turno OR m.turno = 'IN')
 		  AND (
 		      LOWER(m.residencia) = LOWER(@cidade)
 		      OR LOWER(m.cidade_trabalho) = LOWER(@cidade)
@@ -119,7 +119,7 @@ func (s *motoristaStore) ListDisponiveisParaAlocacao(ctx context.Context, filtro
 		      FROM ciclos_viagem cv
 		      WHERE cv.motorista_id = m.id
 		        AND cv.data_viagem = CAST(@data_viagem AS date)
-		        AND cv.turno = @turno
+		        AND cv.turno::text = @turno
 		        AND cv.status <> 'cancelado'
 		  )
 		ORDER BY m.id

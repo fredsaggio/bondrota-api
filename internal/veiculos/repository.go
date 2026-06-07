@@ -153,7 +153,7 @@ func (s *veiculoStore) ListDisponiveisParaAlocacao(ctx context.Context, filtro V
 		      FROM ciclos_viagem cv
 		      WHERE cv.veiculo_id = v.id
 		        AND cv.data_viagem = CAST(@data_viagem AS date)
-		        AND cv.turno = @turno
+		        AND cv.turno::text = @turno
 		        AND cv.status <> 'cancelado'
 		  )
 		ORDER BY
