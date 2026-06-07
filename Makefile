@@ -1,4 +1,5 @@
 include .env
+-include .env.prod
 export
 
 ## help: print this help message
@@ -75,17 +76,22 @@ migration/up:
 ## migration/up/prod: apply all migrations in production
 .PHONY: migration/up/prod
 migration/up/prod:
-	@goose -dir internal/db/migrations postgres "$(DATABASE_URL)" up
+	@goose -dir internal/db/migrations postgres "$(PROD_DATABASE_URL)" up
 
 ## migration/down: rollback last migration
 .PHONY: migration/down
 migration/down:
 	@goose -dir internal/db/migrations postgres "$(DATABASE_URL)" down
 
-## migration/status: show migration status
+## migration/status: show migration status locally
 .PHONY: migration/status
 migration/status:
 	@goose -dir internal/db/migrations postgres "$(DATABASE_URL)" status
+
+## migration/status/prod: show migration status in production
+.PHONY: migration/status/prod
+migration/status/prod:
+	@goose -dir internal/db/migrations postgres "$(PROD_DATABASE_URL)" status
 
 ## test: run unit tests (no DB required)
 .PHONY: test
