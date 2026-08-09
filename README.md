@@ -73,7 +73,7 @@ make infra/down     # Para o banco Docker
 make reset          # Para containers e remove volumes
 make build          # Compila o binário
 make test           # Roda testes unitários
-make test/integration  # Roda testes de integração (requer banco)
+make test/integration  # Roda testes de repository (requer Docker)
 make db             # Abre psql no banco local
 make logs           # Tail dos logs da API
 ```
@@ -141,7 +141,14 @@ Variáveis de ambiente necessárias em produção: `DATABASE_URL`, `PORT`, `ALLO
 # Testes unitários (sem banco)
 make test
 
+# Testes de integração dos repositories
+# Inicia um PostgreSQL 16 temporário e aplica as migrations automaticamente
+make test/integration
 ```
+
+Os testes de integração ficam em `internal/integration/repositories`. Cada teste
+executa em uma transação própria, revertida ao final, e não utiliza o banco local
+nem as variáveis `DATABASE_URL` ou `E2E_DATABASE_URL`.
 
 ## Licença
 

@@ -98,7 +98,7 @@ migration/status/prod:
 test:
 	@go test ./... -count=1
 
-## test/integration: run integration tests (requires running DB)
+## test/integration: run repository integration tests in a temporary PostgreSQL container
 .PHONY: test/integration
 test/integration:
-	@go test ./... -tags integration -count=1 -v
+	@go test -tags integration ./internal/integration/repositories -count=1 -v

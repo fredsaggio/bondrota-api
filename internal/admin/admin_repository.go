@@ -93,7 +93,7 @@ func (s *adminStore) Update(ctx context.Context, adminID int64, updateFunc func(
 
 func getAdminByIDForUpdate(ctx context.Context, tx pgx.Tx, id int64) (*Admin, error) {
 	const q = `
-        SELECT id, email
+		SELECT id, email, senha
         FROM administrador
         WHERE id = @id
         FOR UPDATE
@@ -105,7 +105,7 @@ func getAdminByIDForUpdate(ctx context.Context, tx pgx.Tx, id int64) (*Admin, er
 		return nil, err
 	}
 
-	admin, err := pgx.CollectExactlyOneRow(rows, scanAdmin)
+	admin, err := pgx.CollectExactlyOneRow(rows, scanAdminWithPassword)
 	if err != nil {
 		return nil, err
 	}
