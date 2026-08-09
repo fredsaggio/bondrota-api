@@ -25,7 +25,7 @@ type baseFixture struct {
 
 func beginTestTx(t *testing.T) (context.Context, pgx.Tx) {
 	t.Helper()
-	ctx := context.Background()
+	ctx := t.Context()
 	tx, err := testPool.Begin(ctx)
 	require.NoError(t, err)
 	t.Cleanup(func() {
