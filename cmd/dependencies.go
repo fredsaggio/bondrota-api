@@ -18,7 +18,7 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/viagens"
 )
 
-func buildHandlers(pool db.DB, authSvc *auth.AuthService, storageConfig storage.SupabaseConfig) (server.Handlers, *rotasdinamicas.RotaDinamicaWorker) {
+func buildHandlers(pool db.DB, authSvc *auth.AuthService, storageConfig storage.SupabaseConfig, osrmBaseURL string) (server.Handlers, *rotasdinamicas.RotaDinamicaWorker) {
 	adminStore := admin.NewAdminStore(pool)
 	adminSvc := admin.NewAdminService(adminStore, authSvc)
 	adminHandler := admin.NewAdminHandler(adminSvc)
@@ -78,7 +78,7 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService, storageConfig storage.
 
 	rotaDinamicaStore := rotasdinamicas.NewRotaDinamicaStore(pool)
 	rotaDinamicaSvc := rotasdinamicas.NewRotaDinamicaService(rotaDinamicaStore)
-	roteador := geo.NewOSRMClient(nil, "")
+	roteador := geo.NewOSRMClient(nil, osrmBaseURL)
 	otimizadorRota := geo.NewOtimizadorRota()
 	calculadorRotaDinamicaSvc := rotasdinamicas.NewCalculadorRotaDinamicaService(
 		calculadorRotaDinamicaStore,

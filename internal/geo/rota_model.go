@@ -16,6 +16,12 @@ type RotaCalculada struct {
 	Geometry        json.RawMessage
 }
 
+type MatrizCustos struct {
+	DistanciasMetros [][]float64
+	DuracoesSegundos [][]float64
+}
+
 type Roteador interface {
 	CalcularRota(ctx context.Context, coordenadas []Coordenada) (*RotaCalculada, error)
+	CalcularMatriz(ctx context.Context, coordenadas []Coordenada) (*MatrizCustos, error)
 }

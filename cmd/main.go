@@ -85,7 +85,7 @@ func Run(ctx context.Context, getEnv func(string) string) error {
 		ServiceKey: getEnv("SUPABASE_SERVICE_KEY"),
 	}
 
-	handlers, rotaDinamicaWorker := buildHandlers(pool, authSvc, storageConfig)
+	handlers, rotaDinamicaWorker := buildHandlers(pool, authSvc, storageConfig, getEnv("OSRM_BASE_URL"))
 	srv := server.NewServer(handlers, authSvc)
 	apiRouter := chi.NewRouter()
 	srv.RegisterRoutes(apiRouter)

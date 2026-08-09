@@ -205,8 +205,8 @@ func TestEndToEndPlanejamentoViagem(t *testing.T) {
 	if int64(rotaData["distancia_metros"].(float64)) != 12346 {
 		t.Fatalf("unexpected dynamic route distance: %v", rotaData["distancia_metros"])
 	}
-	if osrmServer.Requests() != 1 {
-		t.Fatalf("expected 1 OSRM request, got %d", osrmServer.Requests())
+	if osrmServer.Requests() != 2 {
+		t.Fatalf("expected 2 OSRM requests, got %d", osrmServer.Requests())
 	}
 
 	doJSON[map[string]any](t, router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/iniciar", viagemID), motoristaToken, nil, http.StatusOK)
@@ -844,13 +844,13 @@ func TestEndToEndRotaDinamicaMultiplosDestinos(t *testing.T) {
 			t.Fatalf("expected route destination order %d in %+v", i, destinos)
 		}
 	}
-	if osrmServer.Requests() != 1 {
-		t.Fatalf("expected 1 OSRM request, got %d", osrmServer.Requests())
+	if osrmServer.Requests() != 2 {
+		t.Fatalf("expected 2 OSRM requests, got %d", osrmServer.Requests())
 	}
 
 	doStatus(t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/rota-dinamica/calcular", viagemID), h.AdminToken, nil, http.StatusConflict)
-	if osrmServer.Requests() != 2 {
-		t.Fatalf("expected duplicate calculation to reach OSRM once more, got %d requests", osrmServer.Requests())
+	if osrmServer.Requests() != 4 {
+		t.Fatalf("expected duplicate calculation to reach both OSRM services again, got %d requests", osrmServer.Requests())
 	}
 }
 
@@ -1927,13 +1927,38 @@ func newFakeOSRMServer(t *testing.T) *fakeOSRMServer {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
+		fake.requests++
+		w.Header().Set("Content-Type", "application/json")
+		if strings.HasPrefix(r.URL.Path, "/table/v1/driving/") {
+			coordinates := strings.TrimPrefix(r.URL.Path, "/table/v1/driving/")
+			size := len(strings.Split(coordinates, ";"))
+			distances := make([][]float64, size)
+			durations := make([][]float64, size)
+			for i := 0; i < size; i++ {
+				distances[i] = make([]float64, size)
+				durations[i] = make([]float64, size)
+				for j := 0; j < size; j++ {
+					if i == j {
+						continue
+					}
+					distances[i][j] = float64(absInt(i-j)+1) * 1000
+					durations[i][j] = float64(absInt(i-j)+1) * 60
+				}
+			}
+			if err := json.NewEncoder(w).Encode(map[string]any{
+				"code":      "Ok",
+				"distances": distances,
+				"durations": durations,
+			}); err != nil {
+				t.Errorf("encode fake OSRM table response: %v", err)
+			}
+			return
+		}
 		if !strings.HasPrefix(r.URL.Path, "/route/v1/driving/") {
 			t.Errorf("unexpected OSRM path: %s", r.URL.Path)
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		fake.requests++
-		w.Header().Set("Content-Type", "application/json")
 		io.WriteString(w, `{
 			"code": "Ok",
 			"routes": [
@@ -1958,6 +1983,13 @@ func (s *fakeOSRMServer) Requests() int {
 	return s.requests
 }
 
+func absInt(value int) int {
+	if value < 0 {
+		return -value
+	}
+	return value
+}
+
 type failingOSRMServer struct {
 	*httptest.Server
 	requests int
@@ -1972,7 +2004,7 @@ func newFailingOSRMServer(t *testing.T) *failingOSRMServer {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
-		if !strings.HasPrefix(r.URL.Path, "/route/v1/driving/") {
+		if !strings.HasPrefix(r.URL.Path, "/table/v1/driving/") && !strings.HasPrefix(r.URL.Path, "/route/v1/driving/") {
 			t.Errorf("unexpected OSRM path: %s", r.URL.Path)
 			w.WriteHeader(http.StatusNotFound)
 			return

@@ -54,7 +54,7 @@ func (s *calculadorRotaDinamicaService) Calcular(ctx context.Context, viagemID i
 		return nil, err
 	}
 
-	input, coordenadas, err := s.montarInputRota(dados)
+	input, coordenadas, err := s.montarInputRota(ctx, dados)
 	if err != nil {
 		return nil, err
 	}
@@ -71,23 +71,36 @@ func (s *calculadorRotaDinamicaService) Calcular(ctx context.Context, viagemID i
 	return s.rotaSvc.Create(ctx, input)
 }
 
-func (s *calculadorRotaDinamicaService) montarInputRota(dados *DadosCalculoRota) (RotaDinamicaInput, []geo.Coordenada, error) {
+func (s *calculadorRotaDinamicaService) montarInputRota(ctx context.Context, dados *DadosCalculoRota) (RotaDinamicaInput, []geo.Coordenada, error) {
 	switch dados.Sentido {
 	case sentidoIda:
-		return s.montarInputIda(dados)
+		return s.montarInputIda(ctx, dados)
 	case sentidoVolta:
-		return s.montarInputVolta(dados)
+		return s.montarInputVolta(ctx, dados)
 	default:
 		return RotaDinamicaInput{}, nil, invalidInput("sentido da viagem invalido")
 	}
 }
 
-func (s *calculadorRotaDinamicaService) montarInputIda(dados *DadosCalculoRota) (RotaDinamicaInput, []geo.Coordenada, error) {
-	origem := dados.Paradas[len(dados.Paradas)-1]
+func (s *calculadorRotaDinamicaService) montarInputIda(ctx context.Context, dados *DadosCalculoRota) (RotaDinamicaInput, []geo.Coordenada, error) {
+	origem := dados.Paradas[0]
+	ultimaParada := dados.Paradas[len(dados.Paradas)-1]
+	pontos := toPontosRoteirizacao(dados.Destinos)
+	coordenadasOtimizacao := make([]geo.Coordenada, 0, len(pontos)+1)
+	coordenadasOtimizacao = append(coordenadasOtimizacao, coordenadaPonto(ultimaParada))
+	for _, ponto := range pontos {
+		coordenadasOtimizacao = append(coordenadasOtimizacao, ponto.Coordenada)
+	}
 
-	result, err := s.otimizador.OrdenarDestinos(geo.OtimizacaoRotaInput{
-		Origem:   coordenadaPonto(origem),
-		Destinos: toPontosRoteirizacao(dados.Destinos),
+	matriz, err := s.roteador.CalcularMatriz(ctx, coordenadasOtimizacao)
+	if err != nil {
+		return RotaDinamicaInput{}, nil, err
+	}
+
+	result, err := s.otimizador.OrdenarDestinosPorMatriz(geo.OtimizacaoRotaMatrizInput{
+		Destinos:            pontos,
+		CustosEntreDestinos: recortarCustosDestinos(matriz.DuracoesSegundos, 1, len(pontos)),
+		CustosOrigem:        custosOrigem(matriz.DuracoesSegundos, 0, 1, len(pontos)),
 	})
 	if err != nil {
 		return RotaDinamicaInput{}, nil, err
@@ -95,8 +108,8 @@ func (s *calculadorRotaDinamicaService) montarInputIda(dados *DadosCalculoRota) 
 
 	ordenados := result.Destinos
 	destinoFinal := ordenados[len(ordenados)-1]
-	coordenadas := make([]geo.Coordenada, 0, len(ordenados)+1)
-	coordenadas = append(coordenadas, coordenadaPonto(origem))
+	coordenadas := make([]geo.Coordenada, 0, len(dados.Paradas)+len(ordenados))
+	coordenadas = appendCoordenadasParadas(coordenadas, dados.Paradas, false)
 	for _, destino := range ordenados {
 		coordenadas = append(coordenadas, destino.Coordenada)
 	}
@@ -110,19 +123,37 @@ func (s *calculadorRotaDinamicaService) montarInputIda(dados *DadosCalculoRota) 
 	}, coordenadas, nil
 }
 
-func (s *calculadorRotaDinamicaService) montarInputVolta(dados *DadosCalculoRota) (RotaDinamicaInput, []geo.Coordenada, error) {
+func (s *calculadorRotaDinamicaService) montarInputVolta(ctx context.Context, dados *DadosCalculoRota) (RotaDinamicaInput, []geo.Coordenada, error) {
 	destinoFinal := dados.Paradas[0]
-	ordenados, err := s.ordenarVolta(dados.Destinos, coordenadaPonto(destinoFinal))
+	entradaRotaInterna := dados.Paradas[len(dados.Paradas)-1]
+	pontos := toPontosRoteirizacao(dados.Destinos)
+	coordenadasOtimizacao := make([]geo.Coordenada, 0, len(pontos)+1)
+	for _, ponto := range pontos {
+		coordenadasOtimizacao = append(coordenadasOtimizacao, ponto.Coordenada)
+	}
+	coordenadasOtimizacao = append(coordenadasOtimizacao, coordenadaPonto(entradaRotaInterna))
+
+	matriz, err := s.roteador.CalcularMatriz(ctx, coordenadasOtimizacao)
 	if err != nil {
 		return RotaDinamicaInput{}, nil, err
 	}
 
+	result, err := s.otimizador.OrdenarDestinosPorMatriz(geo.OtimizacaoRotaMatrizInput{
+		Destinos:            pontos,
+		CustosEntreDestinos: recortarCustosDestinos(matriz.DuracoesSegundos, 0, len(pontos)),
+		CustosDestinoFinal:  custosDestinoFinal(matriz.DuracoesSegundos, len(pontos), len(pontos)),
+	})
+	if err != nil {
+		return RotaDinamicaInput{}, nil, err
+	}
+
+	ordenados := result.Destinos
 	origem := ordenados[0]
-	coordenadas := make([]geo.Coordenada, 0, len(ordenados)+1)
+	coordenadas := make([]geo.Coordenada, 0, len(ordenados)+len(dados.Paradas))
 	for _, destino := range ordenados {
 		coordenadas = append(coordenadas, destino.Coordenada)
 	}
-	coordenadas = append(coordenadas, coordenadaPonto(destinoFinal))
+	coordenadas = appendCoordenadasParadas(coordenadas, dados.Paradas, true)
 
 	return RotaDinamicaInput{
 		ViagemID:     dados.ViagemID,
@@ -131,40 +162,6 @@ func (s *calculadorRotaDinamicaService) montarInputVolta(dados *DadosCalculoRota
 		ExpiresAt:    dados.ExpiresAt,
 		Destinos:     toRotaDinamicaDestinoInputs(ordenados),
 	}, coordenadas, nil
-}
-
-func (s *calculadorRotaDinamicaService) ordenarVolta(destinos []DestinoCalculoRota, destinoFinal geo.Coordenada) ([]geo.PontoRoteirizacao, error) {
-	pontos := toPontosRoteirizacao(destinos)
-	if len(pontos) == 1 {
-		return pontos, nil
-	}
-
-	var best []geo.PontoRoteirizacao
-	bestDist := int(^uint(0) >> 1)
-
-	for i, origem := range pontos {
-		restantes := make([]geo.PontoRoteirizacao, 0, len(pontos)-1)
-		restantes = append(restantes, pontos[:i]...)
-		restantes = append(restantes, pontos[i+1:]...)
-
-		result, err := s.otimizador.OrdenarDestinos(geo.OtimizacaoRotaInput{
-			Origem:           origem.Coordenada,
-			Destinos:         restantes,
-			DestinoFinal:     destinoFinal,
-			UsarDestinoFinal: true,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		ordenados := append([]geo.PontoRoteirizacao{origem}, result.Destinos...)
-		if result.DistanciaEstimadaMetros < bestDist {
-			bestDist = result.DistanciaEstimadaMetros
-			best = ordenados
-		}
-	}
-
-	return best, nil
 }
 
 func validateDadosCalculo(dados *DadosCalculoRota) error {
@@ -233,4 +230,38 @@ func coordenadaPonto(ponto PontoCalculoRota) geo.Coordenada {
 		Latitude:  ponto.Latitude,
 		Longitude: ponto.Longitude,
 	}
+}
+
+func appendCoordenadasParadas(coordenadas []geo.Coordenada, paradas []PontoCalculoRota, reverse bool) []geo.Coordenada {
+	if reverse {
+		for i := len(paradas) - 1; i >= 0; i-- {
+			coordenadas = append(coordenadas, coordenadaPonto(paradas[i]))
+		}
+		return coordenadas
+	}
+
+	for _, parada := range paradas {
+		coordenadas = append(coordenadas, coordenadaPonto(parada))
+	}
+	return coordenadas
+}
+
+func recortarCustosDestinos(matriz [][]float64, inicio, quantidade int) [][]float64 {
+	custos := make([][]float64, quantidade)
+	for i := 0; i < quantidade; i++ {
+		custos[i] = append([]float64(nil), matriz[inicio+i][inicio:inicio+quantidade]...)
+	}
+	return custos
+}
+
+func custosOrigem(matriz [][]float64, origem, inicioDestinos, quantidade int) []float64 {
+	return append([]float64(nil), matriz[origem][inicioDestinos:inicioDestinos+quantidade]...)
+}
+
+func custosDestinoFinal(matriz [][]float64, destinoFinal, quantidade int) []float64 {
+	custos := make([]float64, quantidade)
+	for i := 0; i < quantidade; i++ {
+		custos[i] = matriz[i][destinoFinal]
+	}
+	return custos
 }

@@ -38,6 +38,7 @@ ALLOWED_ORIGINS=http://localhost:3000
 JWT_SECRET=seu_jwt_secret
 SUPABASE_URL=https://<project>.supabase.co
 SUPABASE_SERVICE_KEY=sua_service_key
+OSRM_BASE_URL=https://router.project-osrm.org
 ```
 
 ## Rodando localmente
@@ -132,7 +133,7 @@ Consulte [`docs/api-reference.md`](docs/api-reference.md) para a referência com
 
 A API é containerizada via Docker e pode ser deployada em qualquer plataforma que suporte containers. O `Dockerfile` usa build multi-stage com imagem final `distroless` para manter o binário mínimo e seguro.
 
-Variáveis de ambiente necessárias em produção: `DATABASE_URL`, `PORT`, `ALLOWED_ORIGINS`, `JWT_SECRET`, `SUPABASE_URL` e `SUPABASE_SERVICE_KEY`.
+Variáveis de ambiente necessárias em produção: `DATABASE_URL`, `PORT`, `ALLOWED_ORIGINS`, `JWT_SECRET`, `SUPABASE_URL` e `SUPABASE_SERVICE_KEY`. Configure também `OSRM_BASE_URL` para usar uma instância dedicada do OSRM; quando omitida, a API usa o servidor público de demonstração.
 
 ## Testes
 

@@ -21,11 +21,16 @@ func (s fakeCalculadorRotaDinamicaStore) GetDadosCalculo(ctx context.Context, vi
 }
 
 type fakeRoteador struct {
-	calcularFn func(ctx context.Context, coordenadas []geo.Coordenada) (*geo.RotaCalculada, error)
+	calcularFn       func(ctx context.Context, coordenadas []geo.Coordenada) (*geo.RotaCalculada, error)
+	calcularMatrizFn func(ctx context.Context, coordenadas []geo.Coordenada) (*geo.MatrizCustos, error)
 }
 
 func (r fakeRoteador) CalcularRota(ctx context.Context, coordenadas []geo.Coordenada) (*geo.RotaCalculada, error) {
 	return r.calcularFn(ctx, coordenadas)
+}
+
+func (r fakeRoteador) CalcularMatriz(ctx context.Context, coordenadas []geo.Coordenada) (*geo.MatrizCustos, error) {
+	return r.calcularMatrizFn(ctx, coordenadas)
 }
 
 func dadosCalculo(sentido string) *rotasdinamicas.DadosCalculoRota {
@@ -63,7 +68,7 @@ func TestCalculadorRotaDinamicaService_CalcularIda(t *testing.T) {
 		},
 		fakeRotaDinamicaService{
 			createFn: func(_ context.Context, input rotasdinamicas.RotaDinamicaInput) (*rotasdinamicas.RotaDinamicaComDestinos, error) {
-				if input.Origem.Nome != "Ultima parada" {
+				if input.Origem.Nome != "Primeira parada" {
 					t.Fatalf("unexpected origem: %+v", input.Origem)
 				}
 				if input.DestinoFinal.Nome != "UFAL" {
@@ -81,12 +86,20 @@ func TestCalculadorRotaDinamicaService_CalcularIda(t *testing.T) {
 			},
 		},
 		fakeRoteador{
-			calcularFn: func(_ context.Context, coordenadas []geo.Coordenada) (*geo.RotaCalculada, error) {
-				if len(coordenadas) != 2 {
-					t.Fatalf("expected 2 coordinates, got %+v", coordenadas)
+			calcularMatrizFn: func(_ context.Context, coordenadas []geo.Coordenada) (*geo.MatrizCustos, error) {
+				if len(coordenadas) != 2 || coordenadas[0].Latitude != -9.78 || coordenadas[1].Latitude != -9.558 {
+					t.Fatalf("unexpected ida optimization coordinates: %+v", coordenadas)
 				}
-				if coordenadas[0].Latitude != -9.78 || coordenadas[0].Longitude != -36.35 {
-					t.Fatalf("expected first coordinate to be last parada, got %+v", coordenadas[0])
+				return matrizCustos(2), nil
+			},
+			calcularFn: func(_ context.Context, coordenadas []geo.Coordenada) (*geo.RotaCalculada, error) {
+				if len(coordenadas) != 3 {
+					t.Fatalf("expected 3 coordinates, got %+v", coordenadas)
+				}
+				if coordenadas[0].Latitude != -9.80 || coordenadas[0].Longitude != -36.40 ||
+					coordenadas[1].Latitude != -9.78 || coordenadas[1].Longitude != -36.35 ||
+					coordenadas[2].Latitude != -9.558 || coordenadas[2].Longitude != -35.775 {
+					t.Fatalf("unexpected ida coordinates: %+v", coordenadas)
 				}
 				return rotaCalculada(), nil
 			},
@@ -125,11 +138,19 @@ func TestCalculadorRotaDinamicaService_CalcularVolta(t *testing.T) {
 			},
 		},
 		fakeRoteador{
-			calcularFn: func(_ context.Context, coordenadas []geo.Coordenada) (*geo.RotaCalculada, error) {
-				if len(coordenadas) != 2 {
-					t.Fatalf("expected 2 coordinates, got %+v", coordenadas)
+			calcularMatrizFn: func(_ context.Context, coordenadas []geo.Coordenada) (*geo.MatrizCustos, error) {
+				if len(coordenadas) != 2 || coordenadas[0].Latitude != -9.558 || coordenadas[1].Latitude != -9.78 {
+					t.Fatalf("unexpected volta optimization coordinates: %+v", coordenadas)
 				}
-				if coordenadas[0].Latitude != -9.558 || coordenadas[1].Latitude != -9.80 {
+				return matrizCustos(2), nil
+			},
+			calcularFn: func(_ context.Context, coordenadas []geo.Coordenada) (*geo.RotaCalculada, error) {
+				if len(coordenadas) != 3 {
+					t.Fatalf("expected 3 coordinates, got %+v", coordenadas)
+				}
+				if coordenadas[0].Latitude != -9.558 ||
+					coordenadas[1].Latitude != -9.78 ||
+					coordenadas[2].Latitude != -9.80 {
 					t.Fatalf("unexpected volta coordinates: %+v", coordenadas)
 				}
 				return rotaCalculada(), nil
@@ -143,6 +164,72 @@ func TestCalculadorRotaDinamicaService_CalcularVolta(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
+}
+
+func TestCalculadorRotaDinamicaService_UsaMatrizViariaParaOrdenarDestinos(t *testing.T) {
+	dados := dadosCalculo("ida")
+	dados.Destinos = []rotasdinamicas.DestinoCalculoRota{
+		{ID: 5, Nome: "A", Latitude: -9.70, Longitude: -36.20},
+		{ID: 6, Nome: "B", Latitude: -9.60, Longitude: -36.10},
+		{ID: 7, Nome: "C", Latitude: -9.50, Longitude: -36.00},
+	}
+
+	svc := rotasdinamicas.NewCalculadorRotaDinamicaService(
+		fakeCalculadorRotaDinamicaStore{
+			getDadosFn: func(_ context.Context, _ int64) (*rotasdinamicas.DadosCalculoRota, error) {
+				return dados, nil
+			},
+		},
+		fakeRotaDinamicaService{
+			createFn: func(_ context.Context, input rotasdinamicas.RotaDinamicaInput) (*rotasdinamicas.RotaDinamicaComDestinos, error) {
+				want := []int64{6, 5, 7}
+				for i, destino := range input.Destinos {
+					if destino.DestinoID != want[i] {
+						t.Fatalf("unexpected destination order: %+v", input.Destinos)
+					}
+					input.Destinos[i].Ordem = i + 1
+				}
+				input.Provider = "osrm"
+				return sampleRota(input), nil
+			},
+		},
+		fakeRoteador{
+			calcularMatrizFn: func(_ context.Context, _ []geo.Coordenada) (*geo.MatrizCustos, error) {
+				// Indices: ultima parada, A, B, C. A melhor ordem e B -> A -> C.
+				duracoes := [][]float64{
+					{0, 10, 1, 10},
+					{10, 0, 10, 1},
+					{10, 1, 0, 10},
+					{10, 10, 10, 0},
+				}
+				return &geo.MatrizCustos{DistanciasMetros: duracoes, DuracoesSegundos: duracoes}, nil
+			},
+			calcularFn: func(_ context.Context, coordenadas []geo.Coordenada) (*geo.RotaCalculada, error) {
+				if len(coordenadas) != 5 ||
+					coordenadas[2].Latitude != -9.60 ||
+					coordenadas[3].Latitude != -9.70 ||
+					coordenadas[4].Latitude != -9.50 {
+					t.Fatalf("unexpected final route coordinates: %+v", coordenadas)
+				}
+				return rotaCalculada(), nil
+			},
+		},
+		nil,
+	)
+
+	if _, err := svc.Calcular(context.Background(), 10); err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+}
+
+func matrizCustos(size int) *geo.MatrizCustos {
+	distancias := make([][]float64, size)
+	duracoes := make([][]float64, size)
+	for i := 0; i < size; i++ {
+		distancias[i] = make([]float64, size)
+		duracoes[i] = make([]float64, size)
+	}
+	return &geo.MatrizCustos{DistanciasMetros: distancias, DuracoesSegundos: duracoes}
 }
 
 func TestCalculadorRotaDinamicaService_CalcularValidation(t *testing.T) {
