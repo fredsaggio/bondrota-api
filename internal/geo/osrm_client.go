@@ -79,6 +79,49 @@ func (c *OSRMClient) CalcularRota(ctx context.Context, coordenadas []Coordenada)
 	}, nil
 }
 
+func (c *OSRMClient) CalcularMatriz(ctx context.Context, coordenadas []Coordenada) (*MatrizCustos, error) {
+	if err := validateCoordenadas(coordenadas); err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.tableURL(coordenadas), nil)
+	if err != nil {
+		return nil, fmt.Errorf("create osrm table request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("call osrm table: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("osrm table returned status %d", resp.StatusCode)
+	}
+
+	var data osrmTableResponse
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, fmt.Errorf("decode osrm table response: %w", err)
+	}
+	if data.Code != "Ok" {
+		return nil, fmt.Errorf("osrm table returned code %q", data.Code)
+	}
+
+	distancias, err := normalizeTable(data.Distances, len(coordenadas), "distances")
+	if err != nil {
+		return nil, err
+	}
+	duracoes, err := normalizeTable(data.Durations, len(coordenadas), "durations")
+	if err != nil {
+		return nil, err
+	}
+
+	return &MatrizCustos{
+		DistanciasMetros: distancias,
+		DuracoesSegundos: duracoes,
+	}, nil
+}
+
 func (c *OSRMClient) routeURL(coordenadas []Coordenada) string {
 	u, _ := url.Parse(c.baseURL)
 	u.Path = "/route/v1/driving/" + formatCoordenadasOSRM(coordenadas)
@@ -86,6 +129,15 @@ func (c *OSRMClient) routeURL(coordenadas []Coordenada) string {
 	q.Set("overview", "full")
 	q.Set("geometries", "geojson")
 	q.Set("steps", "false")
+	u.RawQuery = q.Encode()
+	return u.String()
+}
+
+func (c *OSRMClient) tableURL(coordenadas []Coordenada) string {
+	u, _ := url.Parse(c.baseURL)
+	u.Path = "/table/v1/driving/" + formatCoordenadasOSRM(coordenadas)
+	q := u.Query()
+	q.Set("annotations", "duration,distance")
 	u.RawQuery = q.Encode()
 	return u.String()
 }
@@ -127,4 +179,33 @@ type osrmRoute struct {
 	Distance float64         `json:"distance"`
 	Duration float64         `json:"duration"`
 	Geometry json.RawMessage `json:"geometry"`
+}
+
+type osrmTableResponse struct {
+	Code      string       `json:"code"`
+	Distances [][]*float64 `json:"distances"`
+	Durations [][]*float64 `json:"durations"`
+}
+
+func normalizeTable(values [][]*float64, size int, field string) ([][]float64, error) {
+	if len(values) != size {
+		return nil, fmt.Errorf("osrm table returned invalid %s matrix", field)
+	}
+
+	result := make([][]float64, size)
+	for i, row := range values {
+		if len(row) != size {
+			return nil, fmt.Errorf("osrm table returned invalid %s matrix", field)
+		}
+
+		result[i] = make([]float64, size)
+		for j, value := range row {
+			if value == nil {
+				return nil, fmt.Errorf("%w: osrm table has no route from coordinate %d to %d", brerror.ErrNotFound, i, j)
+			}
+			result[i][j] = *value
+		}
+	}
+
+	return result, nil
 }
