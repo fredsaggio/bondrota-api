@@ -7,11 +7,10 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
-	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
 
+	"github.com/fredsaggio/bondrota-api/internal/db/migrations"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
@@ -81,13 +80,7 @@ func applyMigrations(ctx context.Context, dsn string) error {
 	}
 	defer database.Close()
 
-	_, currentFile, _, ok := runtime.Caller(0)
-	if !ok {
-		return fmt.Errorf("resolve migration directory")
-	}
-	migrationDir := filepath.Join(filepath.Dir(currentFile), "..", "..", "db", "migrations")
-
-	provider, err := goose.NewProvider(goose.DialectPostgres, database, os.DirFS(migrationDir))
+	provider, err := goose.NewProvider(goose.DialectPostgres, database, migrations.FS)
 	if err != nil {
 		return fmt.Errorf("create migration provider: %w", err)
 	}
