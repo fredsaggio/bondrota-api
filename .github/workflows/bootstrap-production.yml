@@ -1,0 +1,68 @@
+name: Bootstrap production database
+
+on:
+  workflow_dispatch:
+    inputs:
+      import_municipios:
+        description: Import municipalities from IBGE after applying migrations
+        required: true
+        type: boolean
+        default: true
+      uf:
+        description: Optional two-letter UF; leave empty to import all of Brazil
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-database-bootstrap
+  cancel-in-progress: false
+
+env:
+  GO_VERSION: "1.26.0"
+
+jobs:
+  bootstrap:
+    name: Migrate and seed catalog
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    env:
+      DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+      MUNICIPIO_UF: ${{ inputs.uf }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: go.sum
+
+      - name: Validate database URL
+        shell: bash
+        run: |
+          if [[ -z "$DATABASE_URL" ]]; then
+            echo "::error::Configure PROD_DATABASE_URL in the GitHub production environment."
+            exit 1
+          fi
+
+      - name: Install Goose
+        run: go install github.com/pressly/goose/v3/cmd/goose@v3.27.3
+
+      - name: Apply migrations
+        run: goose -dir internal/db/migrations postgres "$DATABASE_URL" up
+
+      - name: Import municipalities
+        if: ${{ inputs.import_municipios }}
+        shell: bash
+        run: |
+          if [[ -n "$MUNICIPIO_UF" ]]; then
+            go run ./cmd/import-municipios -uf "$MUNICIPIO_UF"
+          else
+            go run ./cmd/import-municipios
+          fi

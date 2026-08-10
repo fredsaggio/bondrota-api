@@ -148,6 +148,31 @@ A API é containerizada via Docker e pode ser deployada em qualquer plataforma q
 
 Variáveis de ambiente necessárias em produção: `DATABASE_URL`, `BASE_CITY`, `PORT`, `ALLOWED_ORIGINS`, `JWT_SECRET`, `SUPABASE_URL` e `SUPABASE_SERVICE_KEY`. Configure também `OSRM_BASE_URL` para usar uma instância dedicada do OSRM; quando omitida, a API usa o servidor público de demonstração.
 
+### CI/CD com GitHub Actions e Render
+
+O workflow `.github/workflows/ci.yml` é executado em pull requests e pushes para
+`main`. Ele verifica a formatação, executa `go vet`, testes unitários, testes de
+integração, valida o `Dockerfile` e, em pushes para `main`, aplica as migrations
+de produção.
+
+No GitHub, crie um environment chamado `production` em
+`Settings > Environments` e adicione o secret:
+
+```text
+PROD_DATABASE_URL=postgresql://usuario:senha@host:porta/database?sslmode=require
+```
+
+No serviço do Render, mantenha o repositório e a branch `main` conectados e
+configure `Settings > Auto-Deploy` como `After CI Checks Pass`. O Render fará o
+deploy somente depois que os testes, o build da imagem e as migrations passarem.
+As variáveis usadas durante a execução da API continuam configuradas diretamente
+no Render, incluindo a variável `DATABASE_URL`.
+
+Para preparar um Supabase vazio, acesse `Actions > Bootstrap production database
+> Run workflow`. Esse workflow aplica as migrations e, opcionalmente, importa o
+catálogo de municípios do IBGE. A UF pode ser deixada vazia para importar todo o
+Brasil. O bootstrap não é executado em deploys comuns.
+
 ## Testes
 
 ```bash
