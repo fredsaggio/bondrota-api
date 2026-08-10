@@ -109,6 +109,16 @@ func TestPlanejamentoHandler_PlanejarViagens(t *testing.T) {
 			wantStatus: http.StatusNotFound,
 		},
 		{
+			name: "without demand",
+			body: validPlanejamentoBody(),
+			svc: fakePlanejamentoService{
+				planejarFn: func(_ context.Context, _ viagens.PlanejamentoViagensInput) (*viagens.PlanejamentoViagens, error) {
+					return nil, viagens.ErrSemDemandaPlanejamento
+				},
+			},
+			wantStatus: http.StatusNotFound,
+		},
+		{
 			name: "internal error",
 			body: validPlanejamentoBody(),
 			svc: fakePlanejamentoService{

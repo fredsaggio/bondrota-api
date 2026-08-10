@@ -63,7 +63,7 @@ func (s *planejamentoService) planejarIda(ctx context.Context, input Planejament
 		return nil, err
 	}
 	if len(reservas) == 0 {
-		return nil, fmt.Errorf("%w: no confirmed reservations found for planejamento", brerror.ErrNotFound)
+		return nil, ErrSemDemandaPlanejamento
 	}
 
 	alocacaoVeiculos, err := s.veiculoAlocador.Alocar(ctx, veiculos.AlocarVeiculosInput{
@@ -112,7 +112,7 @@ func (s *planejamentoService) planejarVolta(ctx context.Context, input Planejame
 		return nil, err
 	}
 	if len(ciclos) == 0 {
-		return nil, fmt.Errorf("%w: no outbound cycles found for return planejamento", brerror.ErrNotFound)
+		return nil, ErrSemDemandaPlanejamento
 	}
 
 	reservas, err := s.cicloStore.ListReservasElegiveisParaVolta(ctx, filtro)

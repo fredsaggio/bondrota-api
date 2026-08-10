@@ -266,6 +266,20 @@ func TestPlanejamentoService_PlanejarIda(t *testing.T) {
 			t.Fatalf("expected already exists, got %v", err)
 		}
 	})
+
+	t.Run("returns no demand when there are no confirmed reservations", func(t *testing.T) {
+		store := fakeCicloViagemStore{
+			listReservasFn: func(context.Context, viagens.PlanejamentoReservasFiltro) ([]viagens.PlanejamentoReserva, error) {
+				return []viagens.PlanejamentoReserva{}, nil
+			},
+		}
+		svc := newPlanejamentoService(store, fakeVeiculoAlocador{}, fakeMotoristaAlocador{})
+
+		_, err := svc.Planejar(t.Context(), validPlanejamentoInput(viagens.SentidoIda))
+		if !errors.Is(err, viagens.ErrSemDemandaPlanejamento) {
+			t.Fatalf("expected no demand, got %v", err)
+		}
+	})
 }
 
 func TestPlanejamentoService_PlanejarVolta(t *testing.T) {
@@ -349,8 +363,8 @@ func TestPlanejamentoService_PlanejarVolta(t *testing.T) {
 		svc := newPlanejamentoService(store, forbiddenVeiculoAlocador(t), forbiddenMotoristaAlocador(t))
 
 		_, err := svc.Planejar(t.Context(), validPlanejamentoInput(viagens.SentidoVolta))
-		if !errors.Is(err, brerror.ErrNotFound) {
-			t.Fatalf("expected not found, got %v", err)
+		if !errors.Is(err, viagens.ErrSemDemandaPlanejamento) {
+			t.Fatalf("expected no demand, got %v", err)
 		}
 	})
 }

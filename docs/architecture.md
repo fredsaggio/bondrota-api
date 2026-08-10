@@ -57,6 +57,16 @@ Projeto escrito em Go, organizado como uma API HTTP REST leve. A aplicação seg
 - Adicionar novos domínios: criar pacote em `internal/`, implementar `service`, `repository` e `handler`, e registrar o handler em `server.RegisterRoutes` e `buildHandlers`.
 - Para alta disponibilidade, a configuração atual já permite rodar múltiplas instâncias por trás de um load balancer; o banco deve ser escalado separadamente.
 
+## Processamento do planejamento de viagens
+
+- `AgendadorPlanejamentoStore` descobre candidatos de ida a partir de reservas confirmadas e candidatos de volta a partir dos ciclos de ida existentes.
+- `ProcessadorPlanejamento.Processar` executa uma varredura unica. Ele considera o dia atual e o seguinte no fuso de `APP_TIMEZONE`, necessario para partidas logo apos a meia-noite.
+- Um candidato so e processado entre `partida - 30 minutos` e o instante da partida.
+- `ExecucaoPlanejamentoStore` adquire cada combinacao de data, turno, municipio de destino, rota e sentido. Isso impede processamento duplicado por chamadas concorrentes.
+- Uma execucao termina como `concluido`, `sem_demanda` ou `falhou`. Falhas podem ser adquiridas novamente; execucoes interrompidas liberam o bloqueio depois de cinco minutos.
+- A volta reutiliza os ciclos da ida. Por isso, ela e processada mesmo sem passageiros elegiveis, garantindo a criacao da viagem de retorno dos veiculos.
+- O processador nao possui ticker proprio nem endpoint neste estágio. O disparo periodico externo deve apenas chamar `Processar`.
+
 ## Deploy e execução
 
 - `Dockerfile` e `docker-compose.yml` estão presentes para facilitar execução local e containerização.

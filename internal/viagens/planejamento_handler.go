@@ -70,7 +70,7 @@ func (h *PlanejamentoHandler) handleError(w http.ResponseWriter, err error, msg 
 		http.Error(w, "resource already exists", http.StatusConflict)
 		return
 	}
-	if errors.Is(err, brerror.ErrNotFound) {
+	if errors.Is(err, brerror.ErrNotFound) || errors.Is(err, ErrSemDemandaPlanejamento) {
 		http.Error(w, "resource not found", http.StatusNotFound)
 		return
 	}

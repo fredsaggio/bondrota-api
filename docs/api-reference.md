@@ -824,6 +824,8 @@ Regras operacionais importantes:
 - Na volta, reutiliza os ciclos, veiculos e motoristas criados pela ida. Todos os ciclos da ida recebem uma viagem de volta, mesmo quando nao ha passageiro elegivel.
 - A ida deve ser planejada antes da volta. Repetir o mesmo planejamento retorna `409`.
 
+O processador interno de planejamento executa todos os candidatos devidos encontrados em uma unica chamada, inclusive quando varias cidades ou rotas possuem o mesmo horario. Ele usa `execucoes_planejamento` para impedir duplicidade e permitir recuperacao de falhas. O endpoint autenticado que disparara esse processamento e a configuracao do cron externo ainda nao estao expostos nesta etapa.
+
 ### Viagens
 
 Permissao: `admin` ou `motorista`.
