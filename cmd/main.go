@@ -60,6 +60,11 @@ func Run(ctx context.Context, getEnv func(string) string) error {
 		return fmt.Errorf("invalid APP_TIMEZONE: %w", err)
 	}
 
+	planningCronSecret := strings.TrimSpace(getEnv("PLANNING_CRON_SECRET"))
+	if len(planningCronSecret) < 32 {
+		return fmt.Errorf("PLANNING_CRON_SECRET must contain at least 32 characters")
+	}
+
 	hasher := crypto.NewBcryptHasher(crypto.DefaultCost)
 
 	authSvc := auth.NewAuthService(hasher, jwtSecret)
@@ -101,7 +106,10 @@ func Run(ctx context.Context, getEnv func(string) string) error {
 	}
 
 	handlers, rotaDinamicaWorker := buildHandlers(pool, authSvc, storageConfig, getEnv("OSRM_BASE_URL"), appLocation)
-	srv := server.NewServer(handlers, authSvc, server.Config{BaseCity: baseCity})
+	srv := server.NewServer(handlers, authSvc, server.Config{
+		BaseCity:           baseCity,
+		PlanningCronSecret: planningCronSecret,
+	})
 	apiRouter := chi.NewRouter()
 	srv.RegisterRoutes(apiRouter)
 	r.Mount("/api/v1", apiRouter)

@@ -35,6 +35,7 @@ type Handlers struct {
 	ReservaHandler      *reservas.ReservaHandler
 	ViagemHandler       *viagens.ViagemHandler
 	PlanejamentoHandler *viagens.PlanejamentoHandler
+	ProcessadorHandler  *viagens.ProcessadorPlanejamentoHandler
 	HorarioTurnoHandler *viagens.HorarioTurnoViagemHandler
 	RotaDinamicaHandler *rotasdinamicas.RotaDinamicaHandler
 	StorageHandler      *storage.Handler
@@ -47,7 +48,8 @@ type Server struct {
 }
 
 type Config struct {
-	BaseCity string `json:"cidade_base"`
+	BaseCity           string `json:"cidade_base"`
+	PlanningCronSecret string `json:"-"`
 }
 
 func NewServer(handlers Handlers, authSvc *auth.AuthService, config Config) *Server {
@@ -71,6 +73,11 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 	r.Post("/admin/login", srv.handlers.AdminHandler.Login)
 	r.Post("/motoristas/login", srv.handlers.MotoristaHandler.Login)
 	r.Post("/clientes/login", srv.handlers.ClienteHandler.Login)
+
+	r.Route("/internal", func(r chi.Router) {
+		r.Use(requireBearerSecret(srv.config.PlanningCronSecret))
+		r.Post("/planejamentos/processar", srv.handlers.ProcessadorHandler.Processar)
+	})
 
 	r.Group(func(r chi.Router) {
 		r.Use(srv.authSvc.Authenticate)

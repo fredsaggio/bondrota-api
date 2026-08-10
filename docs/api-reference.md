@@ -824,7 +824,28 @@ Regras operacionais importantes:
 - Na volta, reutiliza os ciclos, veiculos e motoristas criados pela ida. Todos os ciclos da ida recebem uma viagem de volta, mesmo quando nao ha passageiro elegivel.
 - A ida deve ser planejada antes da volta. Repetir o mesmo planejamento retorna `409`.
 
-O processador interno de planejamento executa todos os candidatos devidos encontrados em uma unica chamada, inclusive quando varias cidades ou rotas possuem o mesmo horario. Ele usa `execucoes_planejamento` para impedir duplicidade e permitir recuperacao de falhas. O endpoint autenticado que disparara esse processamento e a configuracao do cron externo ainda nao estao expostos nesta etapa.
+O processador interno de planejamento executa todos os candidatos devidos encontrados em uma unica chamada, inclusive quando varias cidades ou rotas possuem o mesmo horario. Ele usa `execucoes_planejamento` para impedir duplicidade e permitir recuperacao de falhas.
+
+#### Disparo interno do planejamento
+
+| Metodo | Path completo | Autenticacao | Sucesso | Erros |
+| --- | --- | --- | --- | --- |
+| `POST` | `BASE_URL/internal/planejamentos/processar` | `Authorization: Bearer <PLANNING_CRON_SECRET>` | `200 ResumoProcessamentoPlanejamentoResponse` | `401`, `500` |
+
+Resposta:
+
+```json
+{
+  "candidatos": 4,
+  "devidos": 2,
+  "adquiridos": 2,
+  "concluidos": 2,
+  "sem_demanda": 0,
+  "falhos": 0
+}
+```
+
+Esse endpoint nao aceita JWT de admin, cliente ou motorista. O Supabase Cron o chama a cada minuto com um segredo exclusivo armazenado no Vault. A configuracao executavel esta em `deploy/supabase/planning_cron.sql`.
 
 ### Viagens
 

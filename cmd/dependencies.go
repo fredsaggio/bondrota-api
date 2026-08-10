@@ -72,6 +72,15 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService, storageConfig storage.
 	horarioTurnoHandler := viagens.NewHorarioTurnoViagemHandler(horarioTurnoSvc)
 	planejamentoSvc := viagens.NewPlanejamentoService(cicloViagemStore, horarioTurnoStore, alocacaoVeiculoSvc, alocacaoMotoristaSvc, viagens.PlanejamentoServiceConfig{Location: appLocation})
 	planejamentoHandler := viagens.NewPlanejamentoHandler(planejamentoSvc)
+	agendadorPlanejamentoStore := viagens.NewAgendadorPlanejamentoStore(pool)
+	execucaoPlanejamentoStore := viagens.NewExecucaoPlanejamentoStore(pool)
+	processadorPlanejamento := viagens.NewProcessadorPlanejamento(
+		agendadorPlanejamentoStore,
+		execucaoPlanejamentoStore,
+		planejamentoSvc,
+		viagens.ProcessadorPlanejamentoConfig{Location: appLocation},
+	)
+	processadorPlanejamentoHandler := viagens.NewProcessadorPlanejamentoHandler(processadorPlanejamento)
 
 	viagemStore := viagens.NewViagemStore(pool)
 	viagemSvc := viagens.NewViagemService(viagemStore)
@@ -115,6 +124,7 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService, storageConfig storage.
 		ReservaHandler:      reservaHandler,
 		ViagemHandler:       viagemHandler,
 		PlanejamentoHandler: planejamentoHandler,
+		ProcessadorHandler:  processadorPlanejamentoHandler,
 		HorarioTurnoHandler: horarioTurnoHandler,
 		RotaDinamicaHandler: rotaDinamicaHandler,
 		StorageHandler:      storageHandler,

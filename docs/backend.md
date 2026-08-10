@@ -78,6 +78,6 @@ Nota: a aplicação atualmente registra as rotas via `server.RegisterRoutes` em 
 
 - As rotas acima são montadas em `/api/v1` pelo `cmd/main.go`, portanto o caminho final é, por exemplo, `/api/v1/admin`.
 - Outras pastas do projeto (`clientes`, `veiculos`, `viagens`, etc.) possuem handlers e serviços, mas atualmente não estão registrados no `server.RegisterRoutes` — por isso não estão expostas pela API.
-- Variáveis de ambiente relevantes: `DATABASE_URL`, `JWT_SECRET`, `PORT`, `ALLOWED_ORIGINS`.
+- Variáveis de ambiente relevantes: `DATABASE_URL`, `JWT_SECRET`, `PLANNING_CRON_SECRET`, `BASE_CITY`, `APP_TIMEZONE`, `PORT` e `ALLOWED_ORIGINS`.
 
 Se quiser, posso também registrar as rotas restantes (clientes, motoristas, veículos, viagens, destinos, reservas, rotasinternas) no servidor e documentá-las automaticamente.

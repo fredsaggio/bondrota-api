@@ -147,7 +147,7 @@ Consulte [`docs/api-reference.md`](docs/api-reference.md) para a referência com
 
 A API é containerizada via Docker e pode ser deployada em qualquer plataforma que suporte containers. O `Dockerfile` usa build multi-stage com imagem final `distroless` para manter o binário mínimo e seguro.
 
-Variáveis de ambiente necessárias em produção: `DATABASE_URL`, `BASE_CITY`, `APP_TIMEZONE`, `PORT`, `ALLOWED_ORIGINS`, `JWT_SECRET`, `SUPABASE_URL` e `SUPABASE_SERVICE_KEY`. `APP_TIMEZONE` deve usar um nome IANA, como `America/Maceio`, e determina o fuso dos horários operacionais e dos limites de reserva. Configure também `OSRM_BASE_URL` para usar uma instância dedicada do OSRM; quando omitida, a API usa o servidor público de demonstração.
+Variáveis de ambiente necessárias em produção: `DATABASE_URL`, `BASE_CITY`, `APP_TIMEZONE`, `PORT`, `ALLOWED_ORIGINS`, `JWT_SECRET`, `PLANNING_CRON_SECRET`, `SUPABASE_URL` e `SUPABASE_SERVICE_KEY`. `APP_TIMEZONE` deve usar um nome IANA, como `America/Maceio`, e determina o fuso dos horários operacionais e dos limites de reserva. `PLANNING_CRON_SECRET` deve ter pelo menos 32 caracteres e autentica exclusivamente o processador interno de planejamentos. Configure também `OSRM_BASE_URL` para usar uma instância dedicada do OSRM; quando omitida, a API usa o servidor público de demonstração.
 
 ### CI/CD com GitHub Actions e Render
 
@@ -173,6 +173,20 @@ Para preparar um Supabase vazio, acesse `Actions > Bootstrap production database
 > Run workflow`. Esse workflow aplica as migrations e, opcionalmente, importa o
 catálogo de municípios do IBGE. A UF pode ser deixada vazia para importar todo o
 Brasil. O bootstrap não é executado em deploys comuns.
+
+### Cron de planejamento no Supabase
+
+1. Gere um segredo com `openssl rand -hex 32` e configure o resultado como `PLANNING_CRON_SECRET` no Render.
+2. No Supabase, habilite os módulos Cron (`pg_cron`) e `pg_net` pelo Dashboard.
+3. Abra [`deploy/supabase/planning_cron.sql`](deploy/supabase/planning_cron.sql), substitua `<PLANNING_CRON_SECRET>` pelo mesmo segredo do Render e `<RENDER_PLANNING_ENDPOINT>` pela URL completa `https://SEU-SERVICO.onrender.com/api/v1/internal/planejamentos/processar`.
+4. Execute o SQL uma única vez no SQL Editor do Supabase. Os valores ficam criptografados no Vault e o job chama a API a cada minuto.
+
+Para consultar as execuções do cron:
+
+```sql
+select * from cron.job_run_details order by start_time desc limit 20;
+select * from net._http_response order by created desc limit 20;
+```
 
 ## Testes
 

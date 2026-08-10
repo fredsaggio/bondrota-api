@@ -32,3 +32,7 @@ type ResumoProcessamentoPlanejamento struct {
 	SemDemanda int
 	Falhos     int
 }
+
+type ProcessadorPlanejamentoService interface {
+	Processar(ctx context.Context) (ResumoProcessamentoPlanejamento, error)
+}

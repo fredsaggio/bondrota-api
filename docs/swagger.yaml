@@ -13,6 +13,10 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    planningCronAuth:
+      type: http
+      scheme: bearer
+      description: Segredo interno configurado em PLANNING_CRON_SECRET
   schemas:
     LoginRequestEmail:
       type: object
@@ -958,6 +962,34 @@ components:
         capacidade_total:
           type: integer
           example: 46
+    ResumoProcessamentoPlanejamentoResponse:
+      type: object
+      required:
+      - candidatos
+      - devidos
+      - adquiridos
+      - concluidos
+      - sem_demanda
+      - falhos
+      properties:
+        candidatos:
+          type: integer
+          example: 4
+        devidos:
+          type: integer
+          example: 2
+        adquiridos:
+          type: integer
+          example: 2
+        concluidos:
+          type: integer
+          example: 2
+        sem_demanda:
+          type: integer
+          example: 0
+        falhos:
+          type: integer
+          example: 0
     ViagemHorarioResponse:
       type: object
       properties:
@@ -2514,6 +2546,25 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/PlanejarViagensRequest'
+  /internal/planejamentos/processar:
+    post:
+      summary: Processa planejamentos devidos
+      description: Endpoint interno chamado pelo Supabase Cron a cada minuto.
+      tags:
+      - Planejamento
+      security:
+      - planningCronAuth: []
+      responses:
+        '200':
+          description: Varredura concluida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResumoProcessamentoPlanejamentoResponse'
+        '401':
+          description: Segredo ausente ou invalido
+        '500':
+          description: Um ou mais planejamentos falharam
   /viagens/:
     get:
       summary: Lista viagens com ciclo

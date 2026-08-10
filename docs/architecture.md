@@ -65,12 +65,13 @@ Projeto escrito em Go, organizado como uma API HTTP REST leve. A aplicação seg
 - `ExecucaoPlanejamentoStore` adquire cada combinacao de data, turno, municipio de destino, rota e sentido. Isso impede processamento duplicado por chamadas concorrentes.
 - Uma execucao termina como `concluido`, `sem_demanda` ou `falhou`. Falhas podem ser adquiridas novamente; execucoes interrompidas liberam o bloqueio depois de cinco minutos.
 - A volta reutiliza os ciclos da ida. Por isso, ela e processada mesmo sem passageiros elegiveis, garantindo a criacao da viagem de retorno dos veiculos.
-- O processador nao possui ticker proprio nem endpoint neste estágio. O disparo periodico externo deve apenas chamar `Processar`.
+- `POST /internal/planejamentos/processar` chama o processador com autenticacao Bearer propria, separada dos JWTs de usuarios.
+- O Supabase Cron chama o endpoint a cada minuto usando `pg_cron` e `pg_net`. A URL e o segredo ficam criptografados no Vault.
 
 ## Deploy e execução
 
 - `Dockerfile` e `docker-compose.yml` estão presentes para facilitar execução local e containerização.
-- Variáveis importantes: `DATABASE_URL`, `JWT_SECRET`, `PORT`, `ALLOWED_ORIGINS`.
+- Variáveis importantes: `DATABASE_URL`, `JWT_SECRET`, `PLANNING_CRON_SECRET`, `BASE_CITY`, `APP_TIMEZONE`, `PORT` e `ALLOWED_ORIGINS`.
 
 ## Próximos passos recomendados
 
