@@ -64,7 +64,7 @@ Nota: a aplicação atualmente registra as rotas via `server.RegisterRoutes` em 
   - Response: `204 No Content` em caso de sucesso.
 
 - **POST** `/admin/login`
-  - Descrição: autentica um administrador e retorna um JWT.
+  - Descrição: autentica um administrador, cria a sessão em cookie HttpOnly e mantém o JWT no JSON por compatibilidade com clientes legados.
   - Request JSON:
     ```json
     { "email": "a@b.com", "senha": "senha" }
@@ -73,6 +73,16 @@ Nota: a aplicação atualmente registra as rotas via `server.RegisterRoutes` em 
     ```json
     { "token": "<jwt_token>" }
     ```
+  - Header: Set-Cookie com bondrota_admin_session, HttpOnly, SameSite e Secure em produção.
+  - O painel envia X-Admin-Session-Mode: cookie e recebe 204 sem JWT no corpo.
+
+- **GET** /admin/session
+  - Descrição: valida a sessão administrativa atual.
+  - Response (200 OK): objeto com user_id, role e expires_at.
+
+- **POST** /admin/logout
+  - Descrição: expira o cookie administrativo.
+  - Response: 204 No Content.
 
 ## Observações
 

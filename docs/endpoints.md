@@ -174,7 +174,7 @@ Authorization: Bearer <token>
 
 ### POST /admin/login - Login de Administrador
 
-Autentica um administrador e retorna um token JWT.
+Autentica um administrador, define um cookie HttpOnly e mantém o token JWT no JSON por compatibilidade.
 
 **Request:**
 
@@ -196,6 +196,11 @@ Content-Type: application/json
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
+
+A resposta também envia o cookie bondrota_admin_session como HttpOnly. O painel
+envia X-Admin-Session-Mode: cookie para receber 204 sem JWT no corpo e
+usa GET /admin/session para consultar a sessão e POST /admin/logout para expirar
+o cookie.
 
 ---
 
@@ -1358,12 +1363,14 @@ Endpoints para gerenciar viagens/trajetos.
 
 ## Headers Padrão
 
-Todos os endpoints, exceto `GET /health`, `POST /admin/login`, `POST /clientes/login` e `POST /motoristas/login`, requerem:
+Todos os endpoints, exceto health, config, os três logins e o logout administrativo, requerem autenticação. Apps de cliente e motorista usam:
 
 ```http
 Authorization: Bearer <seu_token_jwt>
 Content-Type: application/json (para requisições com body)
 ```
+
+O painel administrativo usa o cookie HttpOnly e envia as requisições com credenciais.
 
 ## Status HTTP Padrão
 

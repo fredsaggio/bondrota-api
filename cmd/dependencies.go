@@ -21,10 +21,10 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/viagens"
 )
 
-func buildHandlers(pool db.DB, authSvc *auth.AuthService, storageConfig storage.SupabaseConfig, osrmBaseURL string, appLocation *time.Location) (server.Handlers, *rotasdinamicas.RotaDinamicaWorker) {
+func buildHandlers(pool db.DB, authSvc *auth.AuthService, adminCookieConfig admin.SessionCookieConfig, storageConfig storage.SupabaseConfig, osrmBaseURL string, appLocation *time.Location) (server.Handlers, *rotasdinamicas.RotaDinamicaWorker) {
 	adminStore := admin.NewAdminStore(pool)
 	adminSvc := admin.NewAdminService(adminStore, authSvc)
-	adminHandler := admin.NewAdminHandler(adminSvc)
+	adminHandler := admin.NewAdminHandler(adminSvc, adminCookieConfig)
 
 	veiculoStore := veiculos.NewVeiculoStore(pool)
 	alocacaoVeiculoStore := veiculos.NewAlocacaoVeiculoStore(pool)

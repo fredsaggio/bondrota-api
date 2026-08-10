@@ -14,6 +14,8 @@ var (
 	ErrUserNotFound       = errors.New("user not found")
 )
 
+const TokenTTL = 24 * time.Hour
+
 type Claims struct {
 	jwt.RegisteredClaims
 	UserID int64  `json:"user_id"`
@@ -37,7 +39,7 @@ func (s *AuthService) GenerateToken(userID int64, role string) (string, error) {
 
 	claims := Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(TokenTTL)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 		UserID: userID,

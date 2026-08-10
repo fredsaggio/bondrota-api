@@ -20,23 +20,44 @@ const (
 )
 
 func (s *AuthService) Authenticate(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get("Authorization")
-		if !strings.HasPrefix(authHeader, "Bearer ") {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
+	return s.AuthenticateWithCookie("")(next)
+}
 
-		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
-		claims, err := s.ValidateToken(tokenStr)
-		if err != nil {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
+// AuthenticateWithCookie accepts the regular Bearer token and, when configured,
+// the HttpOnly cookie used exclusively by the administrative web application.
+func (s *AuthService) AuthenticateWithCookie(cookieName string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			authHeader := r.Header.Get("Authorization")
+			var tokenStr string
+			if authHeader != "" {
+				if !strings.HasPrefix(authHeader, "Bearer ") {
+					http.Error(w, "unauthorized", http.StatusUnauthorized)
+					return
+				}
+				tokenStr = strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
+			} else if cookieName != "" {
+				cookie, err := r.Cookie(cookieName)
+				if err == nil {
+					tokenStr = cookie.Value
+				}
+			}
 
-		ctx := context.WithValue(r.Context(), ClaimsKey, claims)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
+			if tokenStr == "" {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+
+			claims, err := s.ValidateToken(tokenStr)
+			if err != nil {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+
+			ctx := context.WithValue(r.Context(), ClaimsKey, claims)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
 }
 
 func (s *AuthService) RequireRole(roles ...string) func(http.Handler) http.Handler {

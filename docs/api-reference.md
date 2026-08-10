@@ -47,7 +47,7 @@ Existem tres logins publicos:
 - `POST /motoristas/login`
 - `POST /clientes/login`
 
-Cada login retorna um JWT:
+Cada login retorna um JWT para compatibilidade com clientes que usam Bearer:
 
 ```json
 {
@@ -60,6 +60,13 @@ O token deve ser enviado nos endpoints autenticados:
 ```http
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
+
+O painel web administrativo não persiste esse JWT. O login também define um
+cookie HttpOnly, enviado automaticamente nas chamadas com credenciais. O painel
+envia X-Admin-Session-Mode: cookie e recebe 204 sem o JWT no corpo. Ele
+usa GET /admin/session para restaurar a sessão e POST /admin/logout para
+encerrá-la. Requisições mutáveis autenticadas por cookie exigem uma origem
+listada em ALLOWED_ORIGINS.
 
 O JWT contem pelo menos:
 
@@ -77,6 +84,12 @@ Roles existentes:
 - `admin`
 - `cliente`
 - `motorista`
+
+### Limite de tentativas de login
+
+Os logins de administrador, motorista e cliente são limitados por IP e por
+identidade normalizada. Quando o limite é excedido, a API responde
+`429 Too Many Requests` e inclui o header `Retry-After`.
 
 O token expira em 24 horas.
 
@@ -138,6 +151,16 @@ Response `200 OK`:
 
 Erros: `400` body invalido, `401` email/senha invalidos, `500`.
 
+A resposta também inclui Set-Cookie para a sessão HttpOnly administrativa.
+
+### GET BASE_URL/admin/session
+
+Retorna user_id, role e expires_at da sessão administrativa autenticada.
+
+### POST BASE_URL/admin/logout
+
+Expira o cookie administrativo. Response 204 No Content.
+
 ### `POST BASE_URL/motoristas/login`
 
 Autentica motorista por CPF e senha.
@@ -190,7 +213,7 @@ Erros: `400` body invalido ou CPF/senha ausentes, `401`, `500`.
 
 ## Endpoints
 
-Observacao: todos os endpoints abaixo, exceto logins, health e config, exigem `Authorization: Bearer <token>`.
+Observacao: todos os endpoints abaixo, exceto logins, logout, health e config, exigem autenticação. O painel administrativo usa o cookie HttpOnly; os demais clientes continuam usando Authorization Bearer.
 
 ### Administradores
 

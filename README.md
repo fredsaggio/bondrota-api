@@ -38,6 +38,12 @@ APP_TIMEZONE=America/Maceio
 PORT=8080
 ALLOWED_ORIGINS=http://localhost:3000
 JWT_SECRET=seu_jwt_secret
+AUTH_COOKIE_SECURE=false
+AUTH_COOKIE_SAME_SITE=lax
+LOGIN_RATE_LIMIT_PER_IP=20
+LOGIN_RATE_LIMIT_PER_IDENTITY=5
+LOGIN_RATE_LIMIT_WINDOW=1m
+LOGIN_RATE_LIMIT_TRUST_PROXY_HEADERS=false
 SUPABASE_URL=https://<project>.supabase.co
 SUPABASE_SERVICE_KEY=sua_service_key
 OSRM_BASE_URL=https://router.project-osrm.org
@@ -147,7 +153,17 @@ Consulte [`docs/api-reference.md`](docs/api-reference.md) para a referência com
 
 A API é containerizada via Docker e pode ser deployada em qualquer plataforma que suporte containers. O `Dockerfile` usa build multi-stage com imagem final `distroless` para manter o binário mínimo e seguro.
 
-Variáveis de ambiente necessárias em produção: `DATABASE_URL`, `BASE_CITY`, `APP_TIMEZONE`, `PORT`, `ALLOWED_ORIGINS`, `JWT_SECRET`, `PLANNING_CRON_SECRET`, `SUPABASE_URL` e `SUPABASE_SERVICE_KEY`. `APP_TIMEZONE` deve usar um nome IANA, como `America/Maceio`, e determina o fuso dos horários operacionais e dos limites de reserva. `PLANNING_CRON_SECRET` deve ter pelo menos 32 caracteres e autentica exclusivamente o processador interno de planejamentos. Configure também `OSRM_BASE_URL` para usar uma instância dedicada do OSRM; quando omitida, a API usa o servidor público de demonstração.
+Variáveis de ambiente necessárias em produção: `DATABASE_URL`, `BASE_CITY`, `APP_TIMEZONE`, `PORT`, `ALLOWED_ORIGINS`, `JWT_SECRET`, `PLANNING_CRON_SECRET`, `SUPABASE_URL` e `SUPABASE_SERVICE_KEY`. O painel administrativo autentica por cookie HttpOnly: em produção, use `AUTH_COOKIE_SECURE=true`; use `AUTH_COOKIE_SAME_SITE=none` apenas quando painel e API estiverem em sites diferentes (essa opção exige HTTPS). `AUTH_COOKIE_NAME` e `AUTH_COOKIE_DOMAIN` são opcionais. `ALLOWED_ORIGINS` deve listar origens exatas e não aceita `*`. `APP_TIMEZONE` deve usar um nome IANA, como `America/Maceio`, e determina o fuso dos horários operacionais e dos limites de reserva. `PLANNING_CRON_SECRET` deve ter pelo menos 32 caracteres e autentica exclusivamente o processador interno de planejamentos. Configure também `OSRM_BASE_URL` para usar uma instância dedicada do OSRM; quando omitida, a API usa o servidor público de demonstração.
+
+Os três logins possuem rate limit em memória por IP e por e-mail/CPF. Os padrões
+são 20 tentativas por IP e 5 por identidade a cada minuto; ajuste-os com
+`LOGIN_RATE_LIMIT_PER_IP`, `LOGIN_RATE_LIMIT_PER_IDENTITY` e
+`LOGIN_RATE_LIMIT_WINDOW`. Em múltiplas réplicas, complemente essa proteção no
+proxy ou WAF, pois cada processo mantém seu próprio contador.
+
+Mantenha `LOGIN_RATE_LIMIT_TRUST_PROXY_HEADERS=false` quando a API puder receber
+tráfego direto. Ative-o somente quando a API estiver exclusivamente atrás de um
+proxy confiável que sobrescreva `X-Forwarded-For`, como no serviço web do Render.
 
 ### CI/CD com GitHub Actions e Render
 

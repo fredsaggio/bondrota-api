@@ -2,13 +2,16 @@ package admin_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/fredsaggio/bondrota-api/internal/admin"
@@ -21,12 +24,92 @@ import (
 func newAdminRouter(h *admin.AdminHandler) http.Handler {
 	r := chi.NewRouter()
 	r.Post("/admin/login", h.Login)
+	r.Post("/admin/logout", h.Logout)
+	r.Get("/admin/session", h.Session)
 	r.Post("/admin", h.Create)
 	r.Get("/admin", h.List)
 	r.Get("/admin/{adminID}", h.GetByID)
 	r.Patch("/admin/{adminID}", h.Update)
 	r.Delete("/admin/{adminID}", h.Delete)
 	return r
+}
+
+func TestAdminHandler_LoginSetsHttpOnlyCookie(t *testing.T) {
+	svc := mocks.NewMockAdminService(t)
+	svc.EXPECT().Login(mock.Anything, "admin@bondrota.com", "secret").Return("signed-token", nil)
+	h := admin.NewAdminHandler(svc, admin.SessionCookieConfig{
+		Name:     "admin_session",
+		Path:     "/api/v1",
+		Secure:   true,
+		SameSite: http.SameSiteNoneMode,
+		TTL:      time.Hour,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/admin/login", jsonBuf(map[string]any{
+		"email": "admin@bondrota.com",
+		"senha": "secret",
+	}))
+	req.Header.Set(admin.SessionModeHeader, "cookie")
+	rr := httptest.NewRecorder()
+	newAdminRouter(h).ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNoContent {
+		t.Fatalf("want %d, got %d: %s", http.StatusNoContent, rr.Code, rr.Body.String())
+	}
+	cookies := rr.Result().Cookies()
+	if len(cookies) != 1 {
+		t.Fatalf("expected one session cookie, got %d", len(cookies))
+	}
+	cookie := cookies[0]
+	if cookie.Name != "admin_session" || cookie.Value != "signed-token" || cookie.Path != "/api/v1" {
+		t.Fatalf("unexpected cookie: %#v", cookie)
+	}
+	if !cookie.HttpOnly || !cookie.Secure || cookie.SameSite != http.SameSiteNoneMode {
+		t.Fatalf("cookie security attributes missing: %#v", cookie)
+	}
+	if rr.Body.Len() != 0 {
+		t.Fatalf("cookie-mode login must not expose the JWT: %q", rr.Body.String())
+	}
+}
+
+func TestAdminHandler_Session(t *testing.T) {
+	svc := mocks.NewMockAdminService(t)
+	h := admin.NewAdminHandler(svc)
+	expiresAt := time.Now().Add(time.Hour).Truncate(time.Second)
+	claims := &auth.Claims{
+		RegisteredClaims: jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(expiresAt)},
+		UserID:           7,
+		Role:             auth.RoleAdmin,
+	}
+	req := httptest.NewRequest(http.MethodGet, "/admin/session", nil)
+	req = req.WithContext(context.WithValue(req.Context(), auth.ClaimsKey, claims))
+	rr := httptest.NewRecorder()
+	newAdminRouter(h).ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("want %d, got %d: %s", http.StatusOK, rr.Code, rr.Body.String())
+	}
+	var response admin.SessionResponse
+	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
+		t.Fatal(err)
+	}
+	if response.UserID != 7 || response.Role != auth.RoleAdmin || response.ExpiresAt != expiresAt.UnixMilli() {
+		t.Fatalf("unexpected session: %#v", response)
+	}
+}
+
+func TestAdminHandler_LogoutClearsCookie(t *testing.T) {
+	svc := mocks.NewMockAdminService(t)
+	h := admin.NewAdminHandler(svc)
+	rr := httptest.NewRecorder()
+	newAdminRouter(h).ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/admin/logout", nil))
+
+	if rr.Code != http.StatusNoContent {
+		t.Fatalf("want %d, got %d", http.StatusNoContent, rr.Code)
+	}
+	cookies := rr.Result().Cookies()
+	if len(cookies) != 1 || cookies[0].MaxAge >= 0 || !cookies[0].HttpOnly {
+		t.Fatalf("expected an expired HttpOnly cookie, got %#v", cookies)
+	}
 }
 
 func jsonBuf(v any) *bytes.Buffer {

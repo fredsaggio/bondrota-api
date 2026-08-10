@@ -48,11 +48,16 @@ type Server struct {
 }
 
 type Config struct {
-	BaseCity           string `json:"cidade_base"`
-	PlanningCronSecret string `json:"-"`
+	BaseCity           string               `json:"cidade_base"`
+	PlanningCronSecret string               `json:"-"`
+	AdminCookieName    string               `json:"-"`
+	LoginRateLimit     LoginRateLimitConfig `json:"-"`
 }
 
 func NewServer(handlers Handlers, authSvc *auth.AuthService, config Config) *Server {
+	if config.AdminCookieName == "" {
+		config.AdminCookieName = admin.DefaultSessionCookieName
+	}
 	return &Server{
 		handlers: handlers,
 		authSvc:  authSvc,
@@ -62,6 +67,7 @@ func NewServer(handlers Handlers, authSvc *auth.AuthService, config Config) *Ser
 
 func (srv *Server) RegisterRoutes(r chi.Router) {
 	r.Use(limitRequestBody(reqBodyLimitBytes))
+	loginLimiter := newLoginRateLimiter(srv.config.LoginRateLimit)
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -70,9 +76,10 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 		httputils.Respond(w, http.StatusOK, srv.config)
 	})
 
-	r.Post("/admin/login", srv.handlers.AdminHandler.Login)
-	r.Post("/motoristas/login", srv.handlers.MotoristaHandler.Login)
-	r.Post("/clientes/login", srv.handlers.ClienteHandler.Login)
+	r.With(loginLimiter.middleware("admin", "email")).Post("/admin/login", srv.handlers.AdminHandler.Login)
+	r.Post("/admin/logout", srv.handlers.AdminHandler.Logout)
+	r.With(loginLimiter.middleware("motorista", "cpf")).Post("/motoristas/login", srv.handlers.MotoristaHandler.Login)
+	r.With(loginLimiter.middleware("cliente", "cpf")).Post("/clientes/login", srv.handlers.ClienteHandler.Login)
 
 	r.Route("/internal", func(r chi.Router) {
 		r.Use(requireBearerSecret(srv.config.PlanningCronSecret))
@@ -80,10 +87,11 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 	})
 
 	r.Group(func(r chi.Router) {
-		r.Use(srv.authSvc.Authenticate)
+		r.Use(srv.authSvc.AuthenticateWithCookie(srv.config.AdminCookieName))
 
 		r.Route("/admin", func(r chi.Router) {
 			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin))
+			r.Get("/session", srv.handlers.AdminHandler.Session)
 			r.Post("/", srv.handlers.AdminHandler.Create)
 			r.Get("/", srv.handlers.AdminHandler.List)
 			r.Get("/{adminID}", srv.handlers.AdminHandler.GetByID)

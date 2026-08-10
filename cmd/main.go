@@ -7,11 +7,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 	_ "time/tzdata"
 
+	"github.com/fredsaggio/bondrota-api/internal/admin"
 	"github.com/fredsaggio/bondrota-api/internal/auth"
 	"github.com/fredsaggio/bondrota-api/internal/crypto"
 	"github.com/fredsaggio/bondrota-api/internal/db"
@@ -74,23 +76,31 @@ func Run(ctx context.Context, getEnv func(string) string) error {
 		port = "8080"
 	}
 
-	allowedOrigins := getEnv("ALLOWED_ORIGINS")
-
-	if allowedOrigins == "" {
-		allowedOrigins = "http://localhost:3000"
+	allowedOrigins, err := parseAllowedOrigins(getEnv("ALLOWED_ORIGINS"))
+	if err != nil {
+		return err
+	}
+	adminCookieConfig, err := loadAdminCookieConfig(getEnv, allowedOrigins)
+	if err != nil {
+		return err
+	}
+	loginRateLimitConfig, err := loadLoginRateLimitConfig(getEnv)
+	if err != nil {
+		return err
 	}
 
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Logger)
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   strings.Split(allowedOrigins, ","),
+		AllowedOrigins:   allowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Content-Type", "Authorization"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization", admin.SessionModeHeader},
 		ExposedHeaders:   []string{"Content-Length"},
-		AllowCredentials: false,
+		AllowCredentials: true,
 		MaxAge:           300,
 	}))
+	r.Use(auth.ProtectCookieRequests(allowedOrigins, adminCookieConfig.Name))
 
 	pool, err := db.Connect(ctx, dbURL)
 	if err != nil {
@@ -105,10 +115,12 @@ func Run(ctx context.Context, getEnv func(string) string) error {
 		ServiceKey: getEnv("SUPABASE_SERVICE_KEY"),
 	}
 
-	handlers, rotaDinamicaWorker := buildHandlers(pool, authSvc, storageConfig, getEnv("OSRM_BASE_URL"), appLocation)
+	handlers, rotaDinamicaWorker := buildHandlers(pool, authSvc, adminCookieConfig, storageConfig, getEnv("OSRM_BASE_URL"), appLocation)
 	srv := server.NewServer(handlers, authSvc, server.Config{
 		BaseCity:           baseCity,
 		PlanningCronSecret: planningCronSecret,
+		AdminCookieName:    adminCookieConfig.Name,
+		LoginRateLimit:     loginRateLimitConfig,
 	})
 	apiRouter := chi.NewRouter()
 	srv.RegisterRoutes(apiRouter)
@@ -149,4 +161,122 @@ func Run(ctx context.Context, getEnv func(string) string) error {
 	})
 
 	return g.Wait()
+}
+
+func parseAllowedOrigins(raw string) ([]string, error) {
+	if strings.TrimSpace(raw) == "" {
+		raw = "http://localhost:3000"
+	}
+
+	seen := make(map[string]struct{})
+	origins := make([]string, 0)
+	for _, value := range strings.Split(raw, ",") {
+		origin := strings.TrimRight(strings.TrimSpace(value), "/")
+		if origin == "" {
+			continue
+		}
+		if origin == "*" {
+			return nil, fmt.Errorf("ALLOWED_ORIGINS cannot contain * when credentials are enabled")
+		}
+		if _, ok := seen[origin]; ok {
+			continue
+		}
+		seen[origin] = struct{}{}
+		origins = append(origins, origin)
+	}
+	if len(origins) == 0 {
+		return nil, fmt.Errorf("ALLOWED_ORIGINS must contain at least one origin")
+	}
+	return origins, nil
+}
+
+func loadAdminCookieConfig(getEnv func(string) string, allowedOrigins []string) (admin.SessionCookieConfig, error) {
+	allOriginsAreLocal := true
+	for _, origin := range allowedOrigins {
+		if !strings.HasPrefix(origin, "http://localhost") && !strings.HasPrefix(origin, "http://127.0.0.1") {
+			allOriginsAreLocal = false
+			break
+		}
+	}
+	secure := !allOriginsAreLocal
+	if raw := strings.TrimSpace(getEnv("AUTH_COOKIE_SECURE")); raw != "" {
+		parsed, err := strconv.ParseBool(raw)
+		if err != nil {
+			return admin.SessionCookieConfig{}, fmt.Errorf("invalid AUTH_COOKIE_SECURE: %w", err)
+		}
+		secure = parsed
+	}
+
+	sameSite := http.SameSiteLaxMode
+	switch strings.ToLower(strings.TrimSpace(getEnv("AUTH_COOKIE_SAME_SITE"))) {
+	case "", "lax":
+	case "strict":
+		sameSite = http.SameSiteStrictMode
+	case "none":
+		sameSite = http.SameSiteNoneMode
+	default:
+		return admin.SessionCookieConfig{}, fmt.Errorf("AUTH_COOKIE_SAME_SITE must be lax, strict or none")
+	}
+	if sameSite == http.SameSiteNoneMode && !secure {
+		return admin.SessionCookieConfig{}, fmt.Errorf("AUTH_COOKIE_SECURE must be true when AUTH_COOKIE_SAME_SITE=none")
+	}
+
+	name := strings.TrimSpace(getEnv("AUTH_COOKIE_NAME"))
+	if name == "" {
+		name = admin.DefaultSessionCookieName
+	}
+	return admin.SessionCookieConfig{
+		Name:     name,
+		Path:     "/api/v1",
+		Domain:   strings.TrimSpace(getEnv("AUTH_COOKIE_DOMAIN")),
+		Secure:   secure,
+		SameSite: sameSite,
+		TTL:      auth.TokenTTL,
+	}, nil
+}
+
+func loadLoginRateLimitConfig(getEnv func(string) string) (server.LoginRateLimitConfig, error) {
+	perIP, err := positiveIntEnv(getEnv, "LOGIN_RATE_LIMIT_PER_IP", 20)
+	if err != nil {
+		return server.LoginRateLimitConfig{}, err
+	}
+	perIdentity, err := positiveIntEnv(getEnv, "LOGIN_RATE_LIMIT_PER_IDENTITY", 5)
+	if err != nil {
+		return server.LoginRateLimitConfig{}, err
+	}
+
+	window := time.Minute
+	if raw := strings.TrimSpace(getEnv("LOGIN_RATE_LIMIT_WINDOW")); raw != "" {
+		window, err = time.ParseDuration(raw)
+		if err != nil || window <= 0 {
+			return server.LoginRateLimitConfig{}, fmt.Errorf("LOGIN_RATE_LIMIT_WINDOW must be a positive duration")
+		}
+	}
+
+	trustProxyHeaders := false
+	if raw := strings.TrimSpace(getEnv("LOGIN_RATE_LIMIT_TRUST_PROXY_HEADERS")); raw != "" {
+		trustProxyHeaders, err = strconv.ParseBool(raw)
+		if err != nil {
+			return server.LoginRateLimitConfig{}, fmt.Errorf("invalid LOGIN_RATE_LIMIT_TRUST_PROXY_HEADERS: %w", err)
+		}
+	}
+
+	return server.LoginRateLimitConfig{
+		RequestsPerIP:       perIP,
+		RequestsPerIdentity: perIdentity,
+		Window:              window,
+		TrustProxyHeaders:   trustProxyHeaders,
+	}, nil
+}
+
+func positiveIntEnv(getEnv func(string) string, name string, fallback int) (int, error) {
+	raw := strings.TrimSpace(getEnv(name))
+	if raw == "" {
+		return fallback, nil
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil || value <= 0 {
+		return 0, fmt.Errorf("%s must be a positive integer", name)
+	}
+	return value, nil
 }

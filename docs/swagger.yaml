@@ -13,6 +13,10 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    adminCookieAuth:
+      type: apiKey
+      in: cookie
+      name: bondrota_admin_session
     planningCronAuth:
       type: http
       scheme: bearer
@@ -48,6 +52,23 @@ components:
         token:
           type: string
           example: eyJhbGciOiJIUzI1NiIs...
+    AdminSessionResponse:
+      type: object
+      required:
+      - user_id
+      - role
+      - expires_at
+      properties:
+        user_id:
+          type: integer
+          format: int64
+        role:
+          type: string
+          example: admin
+        expires_at:
+          type: integer
+          format: int64
+          description: Expiração da sessão em milissegundos desde o Unix epoch
     ConfigResponse:
       type: object
       properties:
@@ -1416,6 +1437,7 @@ components:
           example: 900
 security:
 - bearerAuth: []
+- adminCookieAuth: []
 paths:
   /health:
     get:
@@ -1458,6 +1480,32 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/LoginRequestEmail'
+  /admin/session:
+    get:
+      summary: Retorna a sessão administrativa atual
+      tags:
+      - Admin
+      security:
+      - adminCookieAuth: []
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Sessão válida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSessionResponse'
+        '401':
+          description: Sessão ausente ou expirada
+  /admin/logout:
+    post:
+      summary: Encerra a sessão administrativa
+      tags:
+      - Admin
+      security: []
+      responses:
+        '204':
+          description: Sessão encerrada
   /motoristas/login:
     post:
       summary: Autentica motorista
