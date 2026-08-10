@@ -623,7 +623,6 @@ components:
       type: object
       required:
       - data_viagem
-      - turno
       - sentido
       properties:
         data_viagem:
@@ -718,6 +717,44 @@ components:
           type: string
           format: date-time
           example: '2026-06-06T20:00:00Z'
+    DisponibilidadeReservaResponse:
+      type: object
+      required:
+      - data_viagem
+      - turno
+      - sentido
+      - partida_em
+      - fechamento_em
+      - consultado_em
+      - disponivel
+      properties:
+        data_viagem:
+          type: string
+          format: date
+          example: '2026-06-10'
+        turno:
+          type: string
+          enum: [MT, VT, NT]
+          example: NT
+        sentido:
+          type: string
+          enum: [ida, volta]
+          example: ida
+        partida_em:
+          type: string
+          format: date-time
+          example: '2026-06-10T17:00:00-03:00'
+        fechamento_em:
+          type: string
+          format: date-time
+          example: '2026-06-10T16:30:00-03:00'
+        consultado_em:
+          type: string
+          format: date-time
+          example: '2026-06-10T15:40:00-03:00'
+        disponivel:
+          type: boolean
+          example: true
     HorarioTurnoViagemRequest:
       type: object
       required:
@@ -2236,6 +2273,47 @@ paths:
         required: true
         schema:
           type: integer
+  /clientes/{clienteID}/vinculos/{vinculoID}/reservas/disponibilidade:
+    get:
+      summary: Consulta disponibilidade para reservar um sentido
+      tags:
+      - Reservas
+      parameters:
+      - name: clienteID
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: vinculoID
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: data_viagem
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: turno
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: [MT, VT, NT]
+      - name: sentido
+        in: query
+        required: true
+        schema:
+          type: string
+          enum: [ida, volta]
+      responses:
+        '200':
+          description: Disponibilidade calculada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisponibilidadeReservaResponse'
   /reservas/:
     get:
       summary: Lista reservas

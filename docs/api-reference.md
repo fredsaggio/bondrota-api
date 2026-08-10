@@ -640,6 +640,7 @@ Turnos operacionais validos: `MT`, `VT`, `NT`. Se o vinculo for `IN`, o frontend
 
 | Metodo | Path completo | Descricao | Body | Sucesso | Erros |
 | --- | --- | --- | --- | --- | --- |
+| `GET` | `BASE_URL/clientes/{clienteID}/vinculos/{vinculoID}/reservas/disponibilidade?data_viagem=2026-06-10&turno=NT&sentido=ida` | Consulta partida, fechamento e disponibilidade para o vinculo. | nenhum | `200 DisponibilidadeReservaResponse` | `400`, `401`, `403`, `404`, `422`, `500` |
 | `GET` | `BASE_URL/reservas/` | Lista reservas. | nenhum | `200 ReservaResponse[]` | `401`, `403`, `500` |
 | `GET` | `BASE_URL/reservas/{reservaID}` | Busca reserva. | nenhum | `200 ReservaResponse` | `400`, `401`, `403`, `404`, `500` |
 | `PUT` | `BASE_URL/reservas/{reservaID}` | Atualiza dados editaveis da reserva. | `UpdateReservaRequest` parcial | `200 ReservaResponse` | `400`, `401`, `403`, `404`, `409`, `422`, `500` |
@@ -693,6 +694,24 @@ Update:
 ```
 
 Regra importante: nao pode existir mais de uma reserva ativa para o mesmo `vinculo_id`, `data_viagem`, `turno` e `sentido`. Se ja existir, a API retorna `409`.
+
+Cada sentido fecha separadamente 30 minutos antes da partida configurada para o municipio de destino e turno. A ida usa `horario_ida`; a volta usa `horario_volta`. No instante exato do fechamento, criar ou reativar uma reserva retorna `409`. O horario precisa estar configurado antes da reserva; caso contrario, a API retorna `422`.
+
+Consulta de disponibilidade:
+
+```json
+{
+  "data_viagem": "2026-06-10",
+  "turno": "NT",
+  "sentido": "ida",
+  "partida_em": "2026-06-10T17:00:00-03:00",
+  "fechamento_em": "2026-06-10T16:30:00-03:00",
+  "consultado_em": "2026-06-10T15:40:00-03:00",
+  "disponivel": true
+}
+```
+
+O frontend pode usar `fechamento_em` para desabilitar o botao antecipadamente, mas o backend sempre repete a validacao ao criar ou alterar a reserva. Os timestamps usam o fuso configurado em `APP_TIMEZONE`.
 
 ### Horarios por Turno de Viagem
 

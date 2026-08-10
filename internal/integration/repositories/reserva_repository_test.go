@@ -4,6 +4,7 @@ package repositories
 
 import (
 	"testing"
+	"time"
 
 	"github.com/fredsaggio/bondrota-api/internal/reservas"
 	"github.com/stretchr/testify/require"
@@ -44,6 +45,30 @@ func TestReservaRepository_CRUDAndVinculoSnapshot(t *testing.T) {
 	require.NoError(t, store.Delete(ctx, created.ID))
 	_, err = store.GetByID(ctx, created.ID)
 	require.ErrorIs(t, err, reservas.ErrReservaNotFound)
+}
+
+func TestReservaRepository_GetHorarioPartidaPorSentido(t *testing.T) {
+	ctx, tx := beginTestTx(t)
+	fixture := seedFixtureWithVinculo(t, ctx, tx)
+	store := reservas.NewReservaStore(tx)
+
+	_, err := store.GetHorarioPartida(ctx, fixture.DestinoID, reservas.TurnoNoturno, reservas.SentidoIda)
+	require.ErrorIs(t, err, reservas.ErrHorarioNaoConfigurado)
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO horarios_turno_viagem (
+			municipio_destino_id, turno, horario_ida, horario_volta
+		) VALUES ($1, 'NT', '17:00', '22:00')
+	`, testMunicipioID)
+	require.NoError(t, err)
+
+	horarioIda, err := store.GetHorarioPartida(ctx, fixture.DestinoID, reservas.TurnoNoturno, reservas.SentidoIda)
+	require.NoError(t, err)
+	require.Equal(t, 17*time.Hour, horarioIda)
+
+	horarioVolta, err := store.GetHorarioPartida(ctx, fixture.DestinoID, reservas.TurnoNoturno, reservas.SentidoVolta)
+	require.NoError(t, err)
+	require.Equal(t, 22*time.Hour, horarioVolta)
 }
 
 func TestReservaRepository_EnforcesOneActiveReservationPerDirection(t *testing.T) {

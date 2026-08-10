@@ -1,6 +1,8 @@
 package main
 
 import (
+	"time"
+
 	"github.com/fredsaggio/bondrota-api/internal/admin"
 	"github.com/fredsaggio/bondrota-api/internal/auth"
 	"github.com/fredsaggio/bondrota-api/internal/clientes"
@@ -19,7 +21,7 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/viagens"
 )
 
-func buildHandlers(pool db.DB, authSvc *auth.AuthService, storageConfig storage.SupabaseConfig, osrmBaseURL string) (server.Handlers, *rotasdinamicas.RotaDinamicaWorker) {
+func buildHandlers(pool db.DB, authSvc *auth.AuthService, storageConfig storage.SupabaseConfig, osrmBaseURL string, appLocation *time.Location) (server.Handlers, *rotasdinamicas.RotaDinamicaWorker) {
 	adminStore := admin.NewAdminStore(pool)
 	adminSvc := admin.NewAdminService(adminStore, authSvc)
 	adminHandler := admin.NewAdminHandler(adminSvc)
@@ -61,7 +63,7 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService, storageConfig storage.
 	)
 
 	reservaStore := reservas.NewReservaStore(pool)
-	reservaSvc := reservas.NewReservaService(reservaStore, rotaDinamicaInvalidator)
+	reservaSvc := reservas.NewReservaService(reservaStore, reservas.ReservaServiceConfig{Location: appLocation}, rotaDinamicaInvalidator)
 	reservaHandler := reservas.NewReservaHandler(reservaSvc)
 
 	cicloViagemStore := viagens.NewCicloViagemStore(pool)

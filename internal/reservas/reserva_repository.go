@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/fredsaggio/bondrota-api/internal/db"
 	"github.com/jackc/pgx/v5"
@@ -65,6 +66,37 @@ func (s *reservaStore) GetByID(ctx context.Context, reservaID int64) (*Reserva, 
 	}
 
 	return reserva, nil
+}
+
+func (s *reservaStore) GetHorarioPartida(ctx context.Context, destinoID int64, turno TurnoReserva, sentido SentidoReserva) (time.Duration, error) {
+	const op = "db/reservaStore.GetHorarioPartida"
+
+	const q = `
+		SELECT EXTRACT(EPOCH FROM CASE @sentido::reserva_sentido
+			WHEN 'ida' THEN h.horario_ida
+			WHEN 'volta' THEN h.horario_volta
+		END)::BIGINT
+		FROM destinos d
+		JOIN horarios_turno_viagem h
+			ON h.municipio_destino_id = d.municipio_id
+			AND h.turno = @turno::turno_cliente
+		WHERE d.id = @destino_id
+	`
+
+	var segundos int64
+	err := s.db.QueryRow(ctx, q, pgx.StrictNamedArgs{
+		"destino_id": destinoID,
+		"turno":      turno,
+		"sentido":    sentido,
+	}).Scan(&segundos)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, ErrHorarioNaoConfigurado
+		}
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return time.Duration(segundos) * time.Second, nil
 }
 
 func (s *reservaStore) List(ctx context.Context) ([]Reserva, error) {

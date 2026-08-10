@@ -10,6 +10,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	_ "time/tzdata"
 
 	"github.com/fredsaggio/bondrota-api/internal/auth"
 	"github.com/fredsaggio/bondrota-api/internal/crypto"
@@ -48,6 +49,15 @@ func Run(ctx context.Context, getEnv func(string) string) error {
 	baseCity := strings.TrimSpace(getEnv("BASE_CITY"))
 	if baseCity == "" {
 		return fmt.Errorf("BASE_CITY is required")
+	}
+
+	appTimezone := strings.TrimSpace(getEnv("APP_TIMEZONE"))
+	if appTimezone == "" {
+		return fmt.Errorf("APP_TIMEZONE is required")
+	}
+	appLocation, err := time.LoadLocation(appTimezone)
+	if err != nil {
+		return fmt.Errorf("invalid APP_TIMEZONE: %w", err)
 	}
 
 	hasher := crypto.NewBcryptHasher(crypto.DefaultCost)
@@ -90,7 +100,7 @@ func Run(ctx context.Context, getEnv func(string) string) error {
 		ServiceKey: getEnv("SUPABASE_SERVICE_KEY"),
 	}
 
-	handlers, rotaDinamicaWorker := buildHandlers(pool, authSvc, storageConfig, getEnv("OSRM_BASE_URL"))
+	handlers, rotaDinamicaWorker := buildHandlers(pool, authSvc, storageConfig, getEnv("OSRM_BASE_URL"), appLocation)
 	srv := server.NewServer(handlers, authSvc, server.Config{BaseCity: baseCity})
 	apiRouter := chi.NewRouter()
 	srv.RegisterRoutes(apiRouter)

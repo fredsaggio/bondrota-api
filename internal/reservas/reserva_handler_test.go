@@ -21,6 +21,7 @@ import (
 func newRouter(h *reservas.ReservaHandler) http.Handler {
 	r := chi.NewRouter()
 	r.Post("/clientes/{clienteID}/vinculos/{vinculoID}/reservas", h.CreateByVinculo)
+	r.Get("/clientes/{clienteID}/vinculos/{vinculoID}/reservas/disponibilidade", h.ConsultarDisponibilidade)
 	r.Get("/reservas", h.List)
 	r.Get("/reservas/{reservaID}", h.GetByID)
 	r.Get("/clientes/{clienteID}/reservas", h.ListByCliente)
@@ -120,6 +121,24 @@ func TestHandler_CreateByVinculo(t *testing.T) {
 			wantStatus: http.StatusNotFound,
 		},
 		{
+			name:      "prazo encerrado → 409",
+			clienteID: "10", vinculoID: "20",
+			body: jsonBody(validBody),
+			setup: func(svc *mocks.MockReservaService) {
+				svc.EXPECT().Create(mock.Anything, mock.Anything).Return(nil, reservas.ErrPrazoReservaEncerrado)
+			},
+			wantStatus: http.StatusConflict,
+		},
+		{
+			name:      "horario não configurado → 422",
+			clienteID: "10", vinculoID: "20",
+			body: jsonBody(validBody),
+			setup: func(svc *mocks.MockReservaService) {
+				svc.EXPECT().Create(mock.Anything, mock.Anything).Return(nil, reservas.ErrHorarioNaoConfigurado)
+			},
+			wantStatus: http.StatusUnprocessableEntity,
+		},
+		{
 			name:      "erro interno → 500",
 			clienteID: "10", vinculoID: "20",
 			body: jsonBody(validBody),
@@ -144,6 +163,71 @@ func TestHandler_CreateByVinculo(t *testing.T) {
 
 			if rr.Code != tc.wantStatus {
 				t.Errorf("want %d, got %d — %s", tc.wantStatus, rr.Code, rr.Body.String())
+			}
+		})
+	}
+}
+
+func TestHandler_ConsultarDisponibilidade(t *testing.T) {
+	fechamento := time.Date(2026, 7, 1, 16, 30, 0, 0, testLocation)
+	partida := time.Date(2026, 7, 1, 17, 0, 0, 0, testLocation)
+	consultado := time.Date(2026, 7, 1, 16, 0, 0, 0, testLocation)
+
+	tests := []struct {
+		name       string
+		path       string
+		setup      func(*mocks.MockReservaService)
+		wantStatus int
+	}{
+		{
+			name: "sucesso",
+			path: "/clientes/10/vinculos/20/reservas/disponibilidade?data_viagem=2026-07-01&sentido=ida",
+			setup: func(svc *mocks.MockReservaService) {
+				svc.EXPECT().ConsultarDisponibilidade(mock.Anything, mock.MatchedBy(func(input reservas.DisponibilidadeReservaInput) bool {
+					return input.ClienteID == 10 && input.VinculoID == 20 && input.Sentido == reservas.SentidoIda
+				})).Return(&reservas.DisponibilidadeReserva{
+					DataViagem:   time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
+					Turno:        reservas.TurnoMatutino,
+					Sentido:      reservas.SentidoIda,
+					PartidaEm:    partida,
+					FechamentoEm: fechamento,
+					ConsultadoEm: consultado,
+					Disponivel:   true,
+				}, nil)
+			},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "data ausente",
+			path:       "/clientes/10/vinculos/20/reservas/disponibilidade?sentido=ida",
+			setup:      func(_ *mocks.MockReservaService) {},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name: "sentido invalido",
+			path: "/clientes/10/vinculos/20/reservas/disponibilidade?data_viagem=2026-07-01&sentido=nenhum",
+			setup: func(svc *mocks.MockReservaService) {
+				svc.EXPECT().ConsultarDisponibilidade(mock.Anything, mock.Anything).Return(nil, reservas.ErrSentidoInvalido)
+			},
+			wantStatus: http.StatusUnprocessableEntity,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := mocks.NewMockReservaService(t)
+			tc.setup(svc)
+			h := reservas.NewReservaHandler(svc)
+			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+			rr := httptest.NewRecorder()
+
+			newRouter(h).ServeHTTP(rr, req)
+
+			if rr.Code != tc.wantStatus {
+				t.Fatalf("want %d, got %d: %s", tc.wantStatus, rr.Code, rr.Body.String())
+			}
+			if tc.wantStatus == http.StatusOK && !bytes.Contains(rr.Body.Bytes(), []byte(`"fechamento_em":"2026-07-01T16:30:00-03:00"`)) {
+				t.Fatalf("unexpected response: %s", rr.Body.String())
 			}
 		})
 	}

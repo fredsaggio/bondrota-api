@@ -6,12 +6,32 @@ import (
 )
 
 type reservaService struct {
-	store           ReservaStore
-	rotaInvalidator RotaDinamicaInvalidator
+	store                  ReservaStore
+	rotaInvalidator        RotaDinamicaInvalidator
+	location               *time.Location
+	now                    func() time.Time
+	antecedenciaFechamento time.Duration
 }
 
-func NewReservaService(store ReservaStore, rotaInvalidator ...RotaDinamicaInvalidator) ReservaService {
-	s := &reservaService{store: store}
+const DefaultAntecedenciaFechamentoReserva = 30 * time.Minute
+
+func NewReservaService(store ReservaStore, config ReservaServiceConfig, rotaInvalidator ...RotaDinamicaInvalidator) ReservaService {
+	if config.Location == nil {
+		config.Location = time.UTC
+	}
+	if config.Now == nil {
+		config.Now = time.Now
+	}
+	if config.AntecedenciaFechamento <= 0 {
+		config.AntecedenciaFechamento = DefaultAntecedenciaFechamentoReserva
+	}
+
+	s := &reservaService{
+		store:                  store,
+		location:               config.Location,
+		now:                    config.Now,
+		antecedenciaFechamento: config.AntecedenciaFechamento,
+	}
 	if len(rotaInvalidator) > 0 {
 		s.rotaInvalidator = rotaInvalidator[0]
 	}
@@ -40,8 +60,32 @@ func (s *reservaService) Create(ctx context.Context, input ReservaInput) (*Reser
 	input.Turno = turno
 	input.DestinoID = snapshot.DestinoID
 	input.RotaInternaID = snapshot.RotaInternaID
+	if err := s.validarPrazoReserva(ctx, input.DataViagem, input.Turno, input.DestinoID, input.Sentido); err != nil {
+		return nil, err
+	}
 
 	return s.store.Create(ctx, input)
+}
+
+func (s *reservaService) ConsultarDisponibilidade(ctx context.Context, input DisponibilidadeReservaInput) (*DisponibilidadeReserva, error) {
+	if err := validateDisponibilidadeInput(input); err != nil {
+		return nil, err
+	}
+
+	snapshot, err := s.store.GetVinculoSnapshot(ctx, input.VinculoID)
+	if err != nil {
+		return nil, err
+	}
+	if input.ClienteID > 0 && snapshot.ClienteID != input.ClienteID {
+		return nil, ErrVinculoNotFound
+	}
+
+	turno, err := resolveTurno(snapshot.Turno, input.Turno)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.consultarDisponibilidade(ctx, input.DataViagem, turno, snapshot.DestinoID, input.Sentido)
 }
 
 func (s *reservaService) GetByID(ctx context.Context, reservaID int64) (*Reserva, error) {
@@ -145,8 +189,59 @@ func (s *reservaService) validateReserva(ctx context.Context, reserva *Reserva) 
 		return err
 	}
 	reserva.Turno = turno
+	if reserva.Status == StatusConfirmada {
+		return s.validarPrazoReserva(ctx, reserva.DataViagem, reserva.Turno, reserva.DestinoID, reserva.Sentido)
+	}
 
 	return nil
+}
+
+func validateDisponibilidadeInput(input DisponibilidadeReservaInput) error {
+	return validateCreateInput(ReservaInput{
+		VinculoID:  input.VinculoID,
+		DataViagem: input.DataViagem,
+		Turno:      input.Turno,
+		Sentido:    input.Sentido,
+	})
+}
+
+func (s *reservaService) validarPrazoReserva(ctx context.Context, dataViagem time.Time, turno TurnoReserva, destinoID int64, sentido SentidoReserva) error {
+	disponibilidade, err := s.consultarDisponibilidade(ctx, dataViagem, turno, destinoID, sentido)
+	if err != nil {
+		return err
+	}
+	if !disponibilidade.Disponivel {
+		return ErrPrazoReservaEncerrado
+	}
+	return nil
+}
+
+func (s *reservaService) consultarDisponibilidade(ctx context.Context, dataViagem time.Time, turno TurnoReserva, destinoID int64, sentido SentidoReserva) (*DisponibilidadeReserva, error) {
+	horarioPartida, err := s.store.GetHorarioPartida(ctx, destinoID, turno, sentido)
+	if err != nil {
+		return nil, err
+	}
+
+	partidaEm := montarHorarioNaData(dataViagem, horarioPartida, s.location)
+	fechamentoEm := partidaEm.Add(-s.antecedenciaFechamento)
+	consultadoEm := s.now().In(s.location)
+
+	return &DisponibilidadeReserva{
+		DataViagem:   dataViagem,
+		Turno:        turno,
+		Sentido:      sentido,
+		PartidaEm:    partidaEm,
+		FechamentoEm: fechamentoEm,
+		ConsultadoEm: consultadoEm,
+		Disponivel:   consultadoEm.Before(fechamentoEm),
+	}, nil
+}
+
+func montarHorarioNaData(data time.Time, horario time.Duration, location *time.Location) time.Time {
+	horas := int(horario / time.Hour)
+	minutos := int((horario % time.Hour) / time.Minute)
+	segundos := int((horario % time.Minute) / time.Second)
+	return time.Date(data.Year(), data.Month(), data.Day(), horas, minutos, segundos, 0, location)
 }
 
 func resolveTurno(vinculoTurno, requestedTurno TurnoReserva) (TurnoReserva, error) {

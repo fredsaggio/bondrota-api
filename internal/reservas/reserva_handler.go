@@ -49,6 +49,16 @@ type ReservaResponse struct {
 	UpdatedAt     string         `json:"updated_at"`
 }
 
+type DisponibilidadeReservaResponse struct {
+	DataViagem   string         `json:"data_viagem"`
+	Turno        TurnoReserva   `json:"turno"`
+	Sentido      SentidoReserva `json:"sentido"`
+	PartidaEm    string         `json:"partida_em"`
+	FechamentoEm string         `json:"fechamento_em"`
+	ConsultadoEm string         `json:"consultado_em"`
+	Disponivel   bool           `json:"disponivel"`
+}
+
 func (h *ReservaHandler) CreateByVinculo(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -77,6 +87,34 @@ func (h *ReservaHandler) CreateByVinculo(w http.ResponseWriter, r *http.Request)
 	}
 
 	httputils.Respond(w, http.StatusCreated, toReservaResponse(reserva))
+}
+
+func (h *ReservaHandler) ConsultarDisponibilidade(w http.ResponseWriter, r *http.Request) {
+	clienteID, vinculoID, err := parseNestedVinculoIDs(r)
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+
+	dataViagem, err := parseReservaDate(r.URL.Query().Get("data_viagem"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	disponibilidade, err := h.svc.ConsultarDisponibilidade(r.Context(), DisponibilidadeReservaInput{
+		ClienteID:  clienteID,
+		VinculoID:  vinculoID,
+		DataViagem: dataViagem,
+		Turno:      TurnoReserva(r.URL.Query().Get("turno")),
+		Sentido:    SentidoReserva(r.URL.Query().Get("sentido")),
+	})
+	if err != nil {
+		h.handleError(w, err, "failed to check reservation availability")
+		return
+	}
+
+	httputils.Respond(w, http.StatusOK, toDisponibilidadeReservaResponse(disponibilidade))
 }
 
 func (h *ReservaHandler) GetByID(w http.ResponseWriter, r *http.Request) {
@@ -252,6 +290,10 @@ func (h *ReservaHandler) handleError(w http.ResponseWriter, err error, msg strin
 		http.Error(w, "active reserva already exists for this vinculo, date, turno and sentido", http.StatusConflict)
 		return
 	}
+	if errors.Is(err, ErrPrazoReservaEncerrado) {
+		http.Error(w, err.Error(), http.StatusConflict)
+		return
+	}
 	if errors.Is(err, ErrDataObrigatoria) ||
 		errors.Is(err, ErrDataInvalida) ||
 		errors.Is(err, ErrSentidoInvalido) ||
@@ -259,7 +301,8 @@ func (h *ReservaHandler) handleError(w http.ResponseWriter, err error, msg strin
 		errors.Is(err, ErrTurnoInvalido) ||
 		errors.Is(err, ErrTurnoObrigatorio) ||
 		errors.Is(err, ErrTurnoIncompativel) ||
-		errors.Is(err, ErrVinculoIDObrigatorio) {
+		errors.Is(err, ErrVinculoIDObrigatorio) ||
+		errors.Is(err, ErrHorarioNaoConfigurado) {
 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
@@ -371,5 +414,17 @@ func toReservaResponse(r *Reserva) ReservaResponse {
 		Status:        r.Status,
 		CreatedAt:     r.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:     r.UpdatedAt.Format(time.RFC3339),
+	}
+}
+
+func toDisponibilidadeReservaResponse(d *DisponibilidadeReserva) DisponibilidadeReservaResponse {
+	return DisponibilidadeReservaResponse{
+		DataViagem:   d.DataViagem.Format("2006-01-02"),
+		Turno:        d.Turno,
+		Sentido:      d.Sentido,
+		PartidaEm:    d.PartidaEm.Format(time.RFC3339),
+		FechamentoEm: d.FechamentoEm.Format(time.RFC3339),
+		ConsultadoEm: d.ConsultadoEm.Format(time.RFC3339),
+		Disponivel:   d.Disponivel,
 	}
 }

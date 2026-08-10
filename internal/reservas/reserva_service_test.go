@@ -15,6 +15,19 @@ import (
 
 var ctx = context.Background()
 
+var testLocation = time.FixedZone("America/Maceio", -3*60*60)
+
+func newReservaService(store reservas.ReservaStore) reservas.ReservaService {
+	return newReservaServiceAt(store, time.Date(2026, 7, 1, 15, 0, 0, 0, testLocation))
+}
+
+func newReservaServiceAt(store reservas.ReservaStore, now time.Time) reservas.ReservaService {
+	return reservas.NewReservaService(store, reservas.ReservaServiceConfig{
+		Location: testLocation,
+		Now:      func() time.Time { return now },
+	})
+}
+
 func baseInput() reservas.ReservaInput {
 	return reservas.ReservaInput{
 		ClienteID:  10,
@@ -48,6 +61,7 @@ func TestService_Create(t *testing.T) {
 			input: baseInput,
 			setup: func(st *mocks.MockReservaStore) {
 				st.EXPECT().GetVinculoSnapshot(mock.Anything, int64(20)).Return(snapshotFor(10, reservas.TurnoMatutino), nil)
+				st.EXPECT().GetHorarioPartida(mock.Anything, int64(5), reservas.TurnoMatutino, reservas.SentidoIda).Return(17*time.Hour, nil)
 				st.EXPECT().Create(mock.Anything, mock.MatchedBy(func(in reservas.ReservaInput) bool {
 					return in.Turno == reservas.TurnoMatutino
 				})).Return(sampleReserva(), nil)
@@ -63,6 +77,7 @@ func TestService_Create(t *testing.T) {
 			},
 			setup: func(st *mocks.MockReservaStore) {
 				st.EXPECT().GetVinculoSnapshot(mock.Anything, int64(20)).Return(snapshotFor(10, reservas.TurnoIntegral), nil)
+				st.EXPECT().GetHorarioPartida(mock.Anything, int64(5), reservas.TurnoVespertino, reservas.SentidoIda).Return(17*time.Hour, nil)
 				st.EXPECT().Create(mock.Anything, mock.MatchedBy(func(in reservas.ReservaInput) bool {
 					return in.Turno == reservas.TurnoVespertino
 				})).Return(sampleReserva(), nil)
@@ -151,7 +166,7 @@ func TestService_Create(t *testing.T) {
 			store := mocks.NewMockReservaStore(t)
 			tc.setup(store)
 
-			svc := reservas.NewReservaService(store)
+			svc := newReservaService(store)
 			_, err := svc.Create(ctx, tc.input())
 
 			switch {
@@ -196,7 +211,7 @@ func TestService_GetByID(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			store := mocks.NewMockReservaStore(t)
 			tc.setup(store)
-			svc := reservas.NewReservaService(store)
+			svc := newReservaService(store)
 			_, err := svc.GetByID(ctx, tc.reservaID)
 			if tc.wantErr != nil {
 				assert.ErrorIs(t, err, tc.wantErr)
@@ -247,7 +262,7 @@ func TestService_ListByVinculo(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			store := mocks.NewMockReservaStore(t)
 			tc.setup(store)
-			svc := reservas.NewReservaService(store)
+			svc := newReservaService(store)
 			_, err := svc.ListByVinculo(ctx, tc.clienteID, tc.vinculoID)
 			if tc.wantErr != nil {
 				assert.ErrorIs(t, err, tc.wantErr)
@@ -314,7 +329,7 @@ func TestService_Cancel(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			store := mocks.NewMockReservaStore(t)
 			tc.setup(store)
-			svc := reservas.NewReservaService(store)
+			svc := newReservaService(store)
 			_, err := svc.Cancel(ctx, tc.reservaID)
 			if tc.wantErr != nil {
 				assert.ErrorIs(t, err, tc.wantErr)
@@ -353,7 +368,7 @@ func TestService_Delete(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			store := mocks.NewMockReservaStore(t)
 			tc.setup(store)
-			svc := reservas.NewReservaService(store)
+			svc := newReservaService(store)
 			err := svc.Delete(ctx, tc.reservaID)
 			if tc.wantErr != nil {
 				assert.ErrorIs(t, err, tc.wantErr)
@@ -394,10 +409,15 @@ func TestService_ResolveTurno(t *testing.T) {
 					Return(snapshotFor(10, tc.vinculoTurno), nil)
 			}
 			if tc.wantErr == nil {
+				resolvedTurno := tc.inputTurno
+				if resolvedTurno == "" {
+					resolvedTurno = tc.vinculoTurno
+				}
+				store.EXPECT().GetHorarioPartida(mock.Anything, int64(5), resolvedTurno, reservas.SentidoIda).Return(17*time.Hour, nil)
 				store.EXPECT().Create(mock.Anything, mock.Anything).Return(sampleReserva(), nil)
 			}
 
-			svc := reservas.NewReservaService(store)
+			svc := newReservaService(store)
 			in := baseInput()
 			in.Turno = tc.inputTurno
 			_, err := svc.Create(ctx, in)
@@ -409,4 +429,104 @@ func TestService_ResolveTurno(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestService_ConsultarDisponibilidadePorSentido(t *testing.T) {
+	tests := []struct {
+		name       string
+		sentido    reservas.SentidoReserva
+		horario    time.Duration
+		now        time.Time
+		disponivel bool
+		fechamento time.Time
+	}{
+		{
+			name:       "ida aberta antes de 30 minutos",
+			sentido:    reservas.SentidoIda,
+			horario:    17 * time.Hour,
+			now:        time.Date(2026, 7, 1, 16, 29, 59, 0, testLocation),
+			disponivel: true,
+			fechamento: time.Date(2026, 7, 1, 16, 30, 0, 0, testLocation),
+		},
+		{
+			name:       "ida fechada exatamente no limite",
+			sentido:    reservas.SentidoIda,
+			horario:    17 * time.Hour,
+			now:        time.Date(2026, 7, 1, 16, 30, 0, 0, testLocation),
+			disponivel: false,
+			fechamento: time.Date(2026, 7, 1, 16, 30, 0, 0, testLocation),
+		},
+		{
+			name:       "volta permanece aberta ate seu proprio limite",
+			sentido:    reservas.SentidoVolta,
+			horario:    22 * time.Hour,
+			now:        time.Date(2026, 7, 1, 16, 30, 0, 0, testLocation),
+			disponivel: true,
+			fechamento: time.Date(2026, 7, 1, 21, 30, 0, 0, testLocation),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			store := mocks.NewMockReservaStore(t)
+			store.EXPECT().GetVinculoSnapshot(mock.Anything, int64(20)).Return(snapshotFor(10, reservas.TurnoNoturno), nil)
+			store.EXPECT().GetHorarioPartida(mock.Anything, int64(5), reservas.TurnoNoturno, tc.sentido).Return(tc.horario, nil)
+
+			svc := newReservaServiceAt(store, tc.now)
+			disponibilidade, err := svc.ConsultarDisponibilidade(ctx, reservas.DisponibilidadeReservaInput{
+				ClienteID:  10,
+				VinculoID:  20,
+				DataViagem: time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
+				Sentido:    tc.sentido,
+			})
+
+			assert.NoError(t, err)
+			assert.Equal(t, tc.disponivel, disponibilidade.Disponivel)
+			assert.Equal(t, tc.fechamento, disponibilidade.FechamentoEm)
+			assert.Equal(t, testLocation, disponibilidade.PartidaEm.Location())
+		})
+	}
+}
+
+func TestService_CreateRejeitaPrazoEncerrado(t *testing.T) {
+	store := mocks.NewMockReservaStore(t)
+	store.EXPECT().GetVinculoSnapshot(mock.Anything, int64(20)).Return(snapshotFor(10, reservas.TurnoMatutino), nil)
+	store.EXPECT().GetHorarioPartida(mock.Anything, int64(5), reservas.TurnoMatutino, reservas.SentidoIda).Return(17*time.Hour, nil)
+
+	svc := newReservaServiceAt(store, time.Date(2026, 7, 1, 16, 30, 0, 0, testLocation))
+	_, err := svc.Create(ctx, baseInput())
+
+	assert.ErrorIs(t, err, reservas.ErrPrazoReservaEncerrado)
+}
+
+func TestService_CreateRejeitaHorarioNaoConfigurado(t *testing.T) {
+	store := mocks.NewMockReservaStore(t)
+	store.EXPECT().GetVinculoSnapshot(mock.Anything, int64(20)).Return(snapshotFor(10, reservas.TurnoMatutino), nil)
+	store.EXPECT().GetHorarioPartida(mock.Anything, int64(5), reservas.TurnoMatutino, reservas.SentidoIda).Return(time.Duration(0), reservas.ErrHorarioNaoConfigurado)
+
+	_, err := newReservaService(store).Create(ctx, baseInput())
+
+	assert.ErrorIs(t, err, reservas.ErrHorarioNaoConfigurado)
+}
+
+func TestService_UpdateNaoReativaReservaDepoisDoPrazo(t *testing.T) {
+	store := mocks.NewMockReservaStore(t)
+	store.EXPECT().Update(mock.Anything, int64(1), mock.Anything).RunAndReturn(
+		func(_ context.Context, _ int64, fn func(*reservas.Reserva) (bool, error)) (*reservas.Reserva, error) {
+			reserva := sampleReserva()
+			reserva.Status = reservas.StatusCancelada
+			_, err := fn(reserva)
+			return nil, err
+		},
+	)
+	store.EXPECT().GetVinculoSnapshot(mock.Anything, int64(20)).Return(snapshotFor(10, reservas.TurnoMatutino), nil)
+	store.EXPECT().GetHorarioPartida(mock.Anything, int64(5), reservas.TurnoMatutino, reservas.SentidoIda).Return(17*time.Hour, nil)
+
+	svc := newReservaServiceAt(store, time.Date(2026, 7, 1, 16, 30, 0, 0, testLocation))
+	_, err := svc.Update(ctx, 1, func(reserva *reservas.Reserva) (bool, error) {
+		reserva.Status = reservas.StatusConfirmada
+		return true, nil
+	})
+
+	assert.ErrorIs(t, err, reservas.ErrPrazoReservaEncerrado)
 }

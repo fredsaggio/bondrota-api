@@ -7,16 +7,18 @@ import (
 )
 
 var (
-	ErrReservaNotFound      = errors.New("reserva not found")
-	ErrVinculoNotFound      = errors.New("vinculo not found")
-	ErrDataObrigatoria      = errors.New("data_viagem is required")
-	ErrDataInvalida         = errors.New("data_viagem must be in format YYYY-MM-DD")
-	ErrSentidoInvalido      = errors.New("sentido must be ida or volta")
-	ErrStatusInvalido       = errors.New("status must be confirmada or cancelada")
-	ErrTurnoInvalido        = errors.New("turno must be MT, VT or NT")
-	ErrTurnoObrigatorio     = errors.New("turno is required for vinculo integral")
-	ErrTurnoIncompativel    = errors.New("turno is incompatible with vinculo")
-	ErrVinculoIDObrigatorio = errors.New("vinculo_id is required")
+	ErrReservaNotFound       = errors.New("reserva not found")
+	ErrVinculoNotFound       = errors.New("vinculo not found")
+	ErrDataObrigatoria       = errors.New("data_viagem is required")
+	ErrDataInvalida          = errors.New("data_viagem must be in format YYYY-MM-DD")
+	ErrSentidoInvalido       = errors.New("sentido must be ida or volta")
+	ErrStatusInvalido        = errors.New("status must be confirmada or cancelada")
+	ErrTurnoInvalido         = errors.New("turno must be MT, VT or NT")
+	ErrTurnoObrigatorio      = errors.New("turno is required for vinculo integral")
+	ErrTurnoIncompativel     = errors.New("turno is incompatible with vinculo")
+	ErrVinculoIDObrigatorio  = errors.New("vinculo_id is required")
+	ErrHorarioNaoConfigurado = errors.New("trip schedule is not configured for this destination and turno")
+	ErrPrazoReservaEncerrado = errors.New("reservation deadline has passed")
 )
 
 type TurnoReserva string
@@ -60,6 +62,30 @@ type ReservaInput struct {
 	Sentido       SentidoReserva
 }
 
+type DisponibilidadeReservaInput struct {
+	ClienteID  int64
+	VinculoID  int64
+	DataViagem time.Time
+	Turno      TurnoReserva
+	Sentido    SentidoReserva
+}
+
+type DisponibilidadeReserva struct {
+	DataViagem   time.Time
+	Turno        TurnoReserva
+	Sentido      SentidoReserva
+	PartidaEm    time.Time
+	FechamentoEm time.Time
+	ConsultadoEm time.Time
+	Disponivel   bool
+}
+
+type ReservaServiceConfig struct {
+	Location               *time.Location
+	Now                    func() time.Time
+	AntecedenciaFechamento time.Duration
+}
+
 type VinculoSnapshot struct {
 	ClienteID     int64
 	Turno         TurnoReserva
@@ -71,6 +97,7 @@ type ReservaStore interface {
 	Create(ctx context.Context, input ReservaInput) (*Reserva, error)
 	GetByID(ctx context.Context, reservaID int64) (*Reserva, error)
 	GetVinculoSnapshot(ctx context.Context, vinculoID int64) (VinculoSnapshot, error)
+	GetHorarioPartida(ctx context.Context, destinoID int64, turno TurnoReserva, sentido SentidoReserva) (time.Duration, error)
 	List(ctx context.Context) ([]Reserva, error)
 	ListByCliente(ctx context.Context, clienteID int64) ([]Reserva, error)
 	ListByVinculo(ctx context.Context, clienteID, vinculoID int64) ([]Reserva, error)
@@ -84,6 +111,7 @@ type RotaDinamicaInvalidator interface {
 
 type ReservaService interface {
 	Create(ctx context.Context, input ReservaInput) (*Reserva, error)
+	ConsultarDisponibilidade(ctx context.Context, input DisponibilidadeReservaInput) (*DisponibilidadeReserva, error)
 	GetByID(ctx context.Context, reservaID int64) (*Reserva, error)
 	List(ctx context.Context) ([]Reserva, error)
 	ListByCliente(ctx context.Context, clienteID int64) ([]Reserva, error)

@@ -6,6 +6,7 @@ package mocks
 
 import (
 	"context"
+	"time"
 
 	"github.com/fredsaggio/bondrota-api/internal/reservas"
 	mock "github.com/stretchr/testify/mock"
@@ -227,6 +228,84 @@ func (_c *MockReservaStore_GetByID_Call) Return(reserva *reservas.Reserva, err e
 }
 
 func (_c *MockReservaStore_GetByID_Call) RunAndReturn(run func(ctx context.Context, reservaID int64) (*reservas.Reserva, error)) *MockReservaStore_GetByID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetHorarioPartida provides a mock function for the type MockReservaStore
+func (_mock *MockReservaStore) GetHorarioPartida(ctx context.Context, destinoID int64, turno reservas.TurnoReserva, sentido reservas.SentidoReserva) (time.Duration, error) {
+	ret := _mock.Called(ctx, destinoID, turno, sentido)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetHorarioPartida")
+	}
+
+	var r0 time.Duration
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, reservas.TurnoReserva, reservas.SentidoReserva) (time.Duration, error)); ok {
+		return returnFunc(ctx, destinoID, turno, sentido)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, reservas.TurnoReserva, reservas.SentidoReserva) time.Duration); ok {
+		r0 = returnFunc(ctx, destinoID, turno, sentido)
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int64, reservas.TurnoReserva, reservas.SentidoReserva) error); ok {
+		r1 = returnFunc(ctx, destinoID, turno, sentido)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockReservaStore_GetHorarioPartida_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetHorarioPartida'
+type MockReservaStore_GetHorarioPartida_Call struct {
+	*mock.Call
+}
+
+// GetHorarioPartida is a helper method to define mock.On call
+//   - ctx context.Context
+//   - destinoID int64
+//   - turno reservas.TurnoReserva
+//   - sentido reservas.SentidoReserva
+func (_e *MockReservaStore_Expecter) GetHorarioPartida(ctx interface{}, destinoID interface{}, turno interface{}, sentido interface{}) *MockReservaStore_GetHorarioPartida_Call {
+	return &MockReservaStore_GetHorarioPartida_Call{Call: _e.mock.On("GetHorarioPartida", ctx, destinoID, turno, sentido)}
+}
+
+func (_c *MockReservaStore_GetHorarioPartida_Call) Run(run func(ctx context.Context, destinoID int64, turno reservas.TurnoReserva, sentido reservas.SentidoReserva)) *MockReservaStore_GetHorarioPartida_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int64
+		if args[1] != nil {
+			arg1 = args[1].(int64)
+		}
+		var arg2 reservas.TurnoReserva
+		if args[2] != nil {
+			arg2 = args[2].(reservas.TurnoReserva)
+		}
+		var arg3 reservas.SentidoReserva
+		if args[3] != nil {
+			arg3 = args[3].(reservas.SentidoReserva)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockReservaStore_GetHorarioPartida_Call) Return(duration time.Duration, err error) *MockReservaStore_GetHorarioPartida_Call {
+	_c.Call.Return(duration, err)
+	return _c
+}
+
+func (_c *MockReservaStore_GetHorarioPartida_Call) RunAndReturn(run func(ctx context.Context, destinoID int64, turno reservas.TurnoReserva, sentido reservas.SentidoReserva) (time.Duration, error)) *MockReservaStore_GetHorarioPartida_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -666,6 +745,74 @@ func (_c *MockReservaService_Cancel_Call) Return(reserva *reservas.Reserva, err 
 }
 
 func (_c *MockReservaService_Cancel_Call) RunAndReturn(run func(ctx context.Context, reservaID int64) (*reservas.Reserva, error)) *MockReservaService_Cancel_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ConsultarDisponibilidade provides a mock function for the type MockReservaService
+func (_mock *MockReservaService) ConsultarDisponibilidade(ctx context.Context, input reservas.DisponibilidadeReservaInput) (*reservas.DisponibilidadeReserva, error) {
+	ret := _mock.Called(ctx, input)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ConsultarDisponibilidade")
+	}
+
+	var r0 *reservas.DisponibilidadeReserva
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, reservas.DisponibilidadeReservaInput) (*reservas.DisponibilidadeReserva, error)); ok {
+		return returnFunc(ctx, input)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, reservas.DisponibilidadeReservaInput) *reservas.DisponibilidadeReserva); ok {
+		r0 = returnFunc(ctx, input)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*reservas.DisponibilidadeReserva)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, reservas.DisponibilidadeReservaInput) error); ok {
+		r1 = returnFunc(ctx, input)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockReservaService_ConsultarDisponibilidade_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ConsultarDisponibilidade'
+type MockReservaService_ConsultarDisponibilidade_Call struct {
+	*mock.Call
+}
+
+// ConsultarDisponibilidade is a helper method to define mock.On call
+//   - ctx context.Context
+//   - input reservas.DisponibilidadeReservaInput
+func (_e *MockReservaService_Expecter) ConsultarDisponibilidade(ctx interface{}, input interface{}) *MockReservaService_ConsultarDisponibilidade_Call {
+	return &MockReservaService_ConsultarDisponibilidade_Call{Call: _e.mock.On("ConsultarDisponibilidade", ctx, input)}
+}
+
+func (_c *MockReservaService_ConsultarDisponibilidade_Call) Run(run func(ctx context.Context, input reservas.DisponibilidadeReservaInput)) *MockReservaService_ConsultarDisponibilidade_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 reservas.DisponibilidadeReservaInput
+		if args[1] != nil {
+			arg1 = args[1].(reservas.DisponibilidadeReservaInput)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockReservaService_ConsultarDisponibilidade_Call) Return(disponibilidadeReserva *reservas.DisponibilidadeReserva, err error) *MockReservaService_ConsultarDisponibilidade_Call {
+	_c.Call.Return(disponibilidadeReserva, err)
+	return _c
+}
+
+func (_c *MockReservaService_ConsultarDisponibilidade_Call) RunAndReturn(run func(ctx context.Context, input reservas.DisponibilidadeReservaInput) (*reservas.DisponibilidadeReserva, error)) *MockReservaService_ConsultarDisponibilidade_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -150,6 +150,7 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 				r.Get("/{vinculoID}", srv.handlers.VinculoHandler.GetByID)
 				r.Put("/{vinculoID}", srv.handlers.VinculoHandler.Update)
 				r.Delete("/{vinculoID}", srv.handlers.VinculoHandler.Delete)
+				r.Get("/{vinculoID}/reservas/disponibilidade", srv.handlers.ReservaHandler.ConsultarDisponibilidade)
 				r.Post("/{vinculoID}/reservas/", srv.handlers.ReservaHandler.CreateByVinculo)
 				r.Get("/{vinculoID}/reservas/", srv.handlers.ReservaHandler.ListByVinculo)
 			})

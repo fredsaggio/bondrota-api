@@ -34,6 +34,7 @@ Crie um arquivo `.env` na raiz do projeto:
 ```env
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/bondrota_db?sslmode=disable
 BASE_CITY=Campo Alegre
+APP_TIMEZONE=America/Maceio
 PORT=8080
 ALLOWED_ORIGINS=http://localhost:3000
 JWT_SECRET=seu_jwt_secret
@@ -146,7 +147,7 @@ Consulte [`docs/api-reference.md`](docs/api-reference.md) para a referência com
 
 A API é containerizada via Docker e pode ser deployada em qualquer plataforma que suporte containers. O `Dockerfile` usa build multi-stage com imagem final `distroless` para manter o binário mínimo e seguro.
 
-Variáveis de ambiente necessárias em produção: `DATABASE_URL`, `BASE_CITY`, `PORT`, `ALLOWED_ORIGINS`, `JWT_SECRET`, `SUPABASE_URL` e `SUPABASE_SERVICE_KEY`. Configure também `OSRM_BASE_URL` para usar uma instância dedicada do OSRM; quando omitida, a API usa o servidor público de demonstração.
+Variáveis de ambiente necessárias em produção: `DATABASE_URL`, `BASE_CITY`, `APP_TIMEZONE`, `PORT`, `ALLOWED_ORIGINS`, `JWT_SECRET`, `SUPABASE_URL` e `SUPABASE_SERVICE_KEY`. `APP_TIMEZONE` deve usar um nome IANA, como `America/Maceio`, e determina o fuso dos horários operacionais e dos limites de reserva. Configure também `OSRM_BASE_URL` para usar uma instância dedicada do OSRM; quando omitida, a API usa o servidor público de demonstração.
 
 ### CI/CD com GitHub Actions e Render
 

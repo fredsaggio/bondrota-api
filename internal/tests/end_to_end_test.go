@@ -145,6 +145,12 @@ func TestEndToEndPlanejamentoViagem(t *testing.T) {
 		"horarios_fixos":  []int{1, 2, 3, 4, 5},
 	})
 
+	createHorarioTurno(t, router, adminToken, map[string]any{
+		"municipio_destino_id": e2eMunicipioID,
+		"turno":                "NT",
+		"horario_ida":          "17:00",
+		"horario_volta":        "22:00",
+	})
 	dataViagem := time.Now().AddDate(0, 0, 1).Format("2006-01-02")
 	createReserva(t, router, adminToken, clienteID, vinculoID, map[string]any{
 		"data_viagem": dataViagem,
@@ -156,13 +162,6 @@ func TestEndToEndPlanejamentoViagem(t *testing.T) {
 		"turno":       "NT",
 		"sentido":     "volta",
 	})
-	createHorarioTurno(t, router, adminToken, map[string]any{
-		"municipio_destino_id": e2eMunicipioID,
-		"turno":                "NT",
-		"horario_ida":          "17:00",
-		"horario_volta":        "22:00",
-	})
-
 	planejamento := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/planejamentos/viagens", adminToken, map[string]any{
 		"municipio_destino_id": e2eMunicipioID,
 		"data_viagem":          dataViagem,
@@ -443,6 +442,12 @@ func TestEndToEndPlanejamentoMultiplosVeiculosPorCapacidade(t *testing.T) {
 		})
 	}
 
+	createHorarioTurno(t, h.Router, h.AdminToken, map[string]any{
+		"municipio_destino_id": e2eMunicipioID,
+		"turno":                "NT",
+		"horario_ida":          "17:00",
+		"horario_volta":        "22:00",
+	})
 	dataViagem := time.Now().AddDate(0, 0, 2).Format("2006-01-02")
 	for i := 0; i < 48; i++ {
 		clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
@@ -469,13 +474,6 @@ func TestEndToEndPlanejamentoMultiplosVeiculosPorCapacidade(t *testing.T) {
 			"sentido":     "ida",
 		})
 	}
-	createHorarioTurno(t, h.Router, h.AdminToken, map[string]any{
-		"municipio_destino_id": e2eMunicipioID,
-		"turno":                "NT",
-		"horario_ida":          "17:00",
-		"horario_volta":        "22:00",
-	})
-
 	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
 		"municipio_destino_id": e2eMunicipioID,
 		"data_viagem":          dataViagem,
@@ -579,19 +577,18 @@ func TestEndToEndPlanejamentoIgnoraRecursosIndisponiveis(t *testing.T) {
 		"validade":        "2027-12-31",
 		"horarios_fixos":  []int{1, 2, 3, 4, 5},
 	})
-	dataViagem := time.Now().AddDate(0, 0, 7).Format("2006-01-02")
-	createReserva(t, h.Router, h.AdminToken, clienteID, vinculoID, map[string]any{
-		"data_viagem": dataViagem,
-		"turno":       "NT",
-		"sentido":     "ida",
-	})
 	createHorarioTurno(t, h.Router, h.AdminToken, map[string]any{
 		"municipio_destino_id": e2eMunicipioID,
 		"turno":                "NT",
 		"horario_ida":          "17:00",
 		"horario_volta":        "22:00",
 	})
-
+	dataViagem := time.Now().AddDate(0, 0, 7).Format("2006-01-02")
+	createReserva(t, h.Router, h.AdminToken, clienteID, vinculoID, map[string]any{
+		"data_viagem": dataViagem,
+		"turno":       "NT",
+		"sentido":     "ida",
+	})
 	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
 		"municipio_destino_id": e2eMunicipioID,
 		"data_viagem":          dataViagem,
@@ -662,6 +659,12 @@ func TestEndToEndPlanejamentoNaoReutilizaRecursosJaAlocados(t *testing.T) {
 		"foto":                  "",
 	})
 
+	createHorarioTurno(t, h.Router, h.AdminToken, map[string]any{
+		"municipio_destino_id": e2eMunicipioID,
+		"turno":                "NT",
+		"horario_ida":          "17:00",
+		"horario_volta":        "22:00",
+	})
 	dataViagem := time.Now().AddDate(0, 0, 10).Format("2006-01-02")
 	for i, rotaInternaID := range []int64{rotaInternaAID, rotaInternaBID} {
 		clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
@@ -688,13 +691,6 @@ func TestEndToEndPlanejamentoNaoReutilizaRecursosJaAlocados(t *testing.T) {
 			"sentido":     "ida",
 		})
 	}
-	createHorarioTurno(t, h.Router, h.AdminToken, map[string]any{
-		"municipio_destino_id": e2eMunicipioID,
-		"turno":                "NT",
-		"horario_ida":          "17:00",
-		"horario_volta":        "22:00",
-	})
-
 	primeiro := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
 		"municipio_destino_id": e2eMunicipioID,
 		"data_viagem":          dataViagem,
@@ -780,6 +776,12 @@ func TestEndToEndRotaDinamicaMultiplosDestinos(t *testing.T) {
 		"foto":                  "",
 	})
 
+	createHorarioTurno(t, h.Router, h.AdminToken, map[string]any{
+		"municipio_destino_id": e2eMunicipioID,
+		"turno":                "NT",
+		"horario_ida":          "17:00",
+		"horario_volta":        "22:00",
+	})
 	dataViagem := time.Now().AddDate(0, 0, 3).Format("2006-01-02")
 	for i, destinoID := range destinosIDs {
 		clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
@@ -806,12 +808,6 @@ func TestEndToEndRotaDinamicaMultiplosDestinos(t *testing.T) {
 			"sentido":     "ida",
 		})
 	}
-	createHorarioTurno(t, h.Router, h.AdminToken, map[string]any{
-		"municipio_destino_id": e2eMunicipioID,
-		"turno":                "NT",
-		"horario_ida":          "17:00",
-		"horario_volta":        "22:00",
-	})
 	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
 		"municipio_destino_id": e2eMunicipioID,
 		"data_viagem":          dataViagem,
@@ -915,17 +911,17 @@ func TestEndToEndCancelarReservaInvalidaRotaDinamica(t *testing.T) {
 		"validade":        "2027-12-31",
 		"horarios_fixos":  []int{1, 2, 3, 4, 5},
 	})
-	dataViagem := time.Now().AddDate(0, 0, 8).Format("2006-01-02")
-	reservaID := createReserva(t, h.Router, h.AdminToken, clienteID, vinculoID, map[string]any{
-		"data_viagem": dataViagem,
-		"turno":       "NT",
-		"sentido":     "ida",
-	})
 	createHorarioTurno(t, h.Router, h.AdminToken, map[string]any{
 		"municipio_destino_id": e2eMunicipioID,
 		"turno":                "NT",
 		"horario_ida":          "17:00",
 		"horario_volta":        "22:00",
+	})
+	dataViagem := time.Now().AddDate(0, 0, 8).Format("2006-01-02")
+	reservaID := createReserva(t, h.Router, h.AdminToken, clienteID, vinculoID, map[string]any{
+		"data_viagem": dataViagem,
+		"turno":       "NT",
+		"sentido":     "ida",
 	})
 	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
 		"municipio_destino_id": e2eMunicipioID,
@@ -992,6 +988,12 @@ func TestEndToEndReservaCanceladaAntesDoPlanejamentoNaoEntraNaViagem(t *testing.
 		"foto":                  "",
 	})
 
+	createHorarioTurno(t, h.Router, h.AdminToken, map[string]any{
+		"municipio_destino_id": e2eMunicipioID,
+		"turno":                "NT",
+		"horario_ida":          "17:00",
+		"horario_volta":        "22:00",
+	})
 	dataViagem := time.Now().AddDate(0, 0, 9).Format("2006-01-02")
 	var reservaConfirmadaID, reservaCanceladaID int64
 	for i := 0; i < 2; i++ {
@@ -1025,13 +1027,6 @@ func TestEndToEndReservaCanceladaAntesDoPlanejamentoNaoEntraNaViagem(t *testing.
 		reservaCanceladaID = reservaID
 		doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/reservas/%d/cancelar", reservaCanceladaID), h.AdminToken, nil, http.StatusOK)
 	}
-	createHorarioTurno(t, h.Router, h.AdminToken, map[string]any{
-		"municipio_destino_id": e2eMunicipioID,
-		"turno":                "NT",
-		"horario_ida":          "17:00",
-		"horario_volta":        "22:00",
-	})
-
 	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
 		"municipio_destino_id": e2eMunicipioID,
 		"data_viagem":          dataViagem,
@@ -1185,17 +1180,17 @@ func TestEndToEndAutorizacaoPorDono(t *testing.T) {
 		"validade":        "2027-12-31",
 		"horarios_fixos":  []int{1, 2, 3, 4, 5},
 	})
-	dataViagem := time.Now().AddDate(0, 0, 4).Format("2006-01-02")
-	createReserva(t, h.Router, h.AdminToken, clienteID, vinculoID, map[string]any{
-		"data_viagem": dataViagem,
-		"turno":       "NT",
-		"sentido":     "ida",
-	})
 	createHorarioTurno(t, h.Router, h.AdminToken, map[string]any{
 		"municipio_destino_id": e2eMunicipioID,
 		"turno":                "NT",
 		"horario_ida":          "17:00",
 		"horario_volta":        "22:00",
+	})
+	dataViagem := time.Now().AddDate(0, 0, 4).Format("2006-01-02")
+	createReserva(t, h.Router, h.AdminToken, clienteID, vinculoID, map[string]any{
+		"data_viagem": dataViagem,
+		"turno":       "NT",
+		"sentido":     "ida",
 	})
 	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
 		"municipio_destino_id": e2eMunicipioID,
@@ -1295,6 +1290,12 @@ func TestEndToEndReservaDuplicadaECancelada(t *testing.T) {
 		"turno":       "NT",
 		"sentido":     "ida",
 	}
+	createHorarioTurno(t, h.Router, h.AdminToken, map[string]any{
+		"municipio_destino_id": e2eMunicipioID,
+		"turno":                "NT",
+		"horario_ida":          "17:00",
+		"horario_volta":        "22:00",
+	})
 
 	reservaID := createReserva(t, h.Router, h.AdminToken, clienteID, vinculoID, body)
 	doStatus(t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/clientes/%d/vinculos/%d/reservas/", clienteID, vinculoID), h.AdminToken, body, http.StatusConflict)
@@ -1522,12 +1523,6 @@ func setupPlanejamentoBase(t *testing.T, h *e2eHarness, options planejamentoBase
 		"horarios_fixos":  []int{1, 2, 3, 4, 5},
 	})
 
-	dataViagem := time.Now().AddDate(0, 0, 6).Format("2006-01-02")
-	createReserva(t, h.Router, h.AdminToken, clienteID, vinculoID, map[string]any{
-		"data_viagem": dataViagem,
-		"turno":       "NT",
-		"sentido":     "ida",
-	})
 	if options.CriarHorario {
 		createHorarioTurno(t, h.Router, h.AdminToken, map[string]any{
 			"municipio_destino_id": e2eMunicipioID,
@@ -1535,6 +1530,18 @@ func setupPlanejamentoBase(t *testing.T, h *e2eHarness, options planejamentoBase
 			"horario_ida":          "17:00",
 			"horario_volta":        "22:00",
 		})
+	}
+
+	dataViagem := time.Now().AddDate(0, 0, 6).Format("2006-01-02")
+	reservaBody := map[string]any{
+		"data_viagem": dataViagem,
+		"turno":       "NT",
+		"sentido":     "ida",
+	}
+	if options.CriarHorario {
+		createReserva(t, h.Router, h.AdminToken, clienteID, vinculoID, reservaBody)
+	} else {
+		doStatus(t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/clientes/%d/vinculos/%d/reservas/", clienteID, vinculoID), h.AdminToken, reservaBody, http.StatusUnprocessableEntity)
 	}
 
 	return rotaInternaID, dataViagem
@@ -1630,7 +1637,7 @@ func buildE2ERouter(pool *pgxpool.Pool, authSvc *auth.AuthService, options e2eRo
 	rotaDinamicaInvalidator := rotasdinamicas.NewInvalidadorRotaDinamicaService(calculadorRotaDinamicaStore, rotasdinamicas.DefaultJanelaBloqueioRotaDinamica)
 
 	reservaStore := reservas.NewReservaStore(pool)
-	reservaSvc := reservas.NewReservaService(reservaStore, rotaDinamicaInvalidator)
+	reservaSvc := reservas.NewReservaService(reservaStore, reservas.ReservaServiceConfig{Location: time.Local}, rotaDinamicaInvalidator)
 
 	cicloViagemStore := viagens.NewCicloViagemStore(pool)
 	horarioTurnoStore := viagens.NewHorarioTurnoViagemStore(pool)
