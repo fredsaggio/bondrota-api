@@ -32,6 +32,7 @@ func validPlanejamentoBody() map[string]any {
 		"turno":                "NT",
 		"municipio_destino_id": int64(2704302),
 		"rota_interna_id":      2,
+		"sentido":              "ida",
 	}
 }
 
@@ -47,15 +48,15 @@ func TestPlanejamentoHandler_PlanejarViagens(t *testing.T) {
 			body: validPlanejamentoBody(),
 			svc: fakePlanejamentoService{
 				planejarFn: func(_ context.Context, input viagens.PlanejamentoViagensInput) (*viagens.PlanejamentoViagens, error) {
-					if input.MunicipioDestinoID != 2704302 || input.Turno != viagens.TurnoNoturno {
+					if input.MunicipioDestinoID != 2704302 || input.Turno != viagens.TurnoNoturno || input.Sentido != viagens.SentidoIda {
 						t.Fatalf("unexpected input: %+v", input)
 					}
 					ciclo := sampleCicloComViagens()
 					return &viagens.PlanejamentoViagens{
-						Ciclos:                  []viagens.CicloComViagens{ciclo},
-						QuantidadeReservasIda:   1,
-						QuantidadeReservasVolta: 1,
-						CapacidadeTotal:         7,
+						Sentido:            viagens.SentidoIda,
+						Ciclos:             []viagens.CicloComViagens{ciclo},
+						QuantidadeReservas: 1,
+						CapacidadeTotal:    7,
 					}, nil
 				},
 			},
@@ -72,6 +73,16 @@ func TestPlanejamentoHandler_PlanejarViagens(t *testing.T) {
 			body: func() map[string]any {
 				in := validPlanejamentoBody()
 				in["rota_interna_id"] = 0
+				return in
+			}(),
+			svc:        fakePlanejamentoService{},
+			wantStatus: http.StatusUnprocessableEntity,
+		},
+		{
+			name: "missing sentido",
+			body: func() map[string]any {
+				in := validPlanejamentoBody()
+				delete(in, "sentido")
 				return in
 			}(),
 			svc:        fakePlanejamentoService{},

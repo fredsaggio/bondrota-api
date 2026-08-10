@@ -20,17 +20,18 @@ func NewPlanejamentoHandler(svc PlanejamentoService) *PlanejamentoHandler {
 }
 
 type PlanejarViagensRequest struct {
-	DataViagem         string      `json:"data_viagem"`
-	Turno              TurnoViagem `json:"turno"`
-	MunicipioDestinoID int64       `json:"municipio_destino_id"`
-	RotaInternaID      int64       `json:"rota_interna_id"`
+	DataViagem         string        `json:"data_viagem"`
+	Turno              TurnoViagem   `json:"turno"`
+	MunicipioDestinoID int64         `json:"municipio_destino_id"`
+	RotaInternaID      int64         `json:"rota_interna_id"`
+	Sentido            SentidoViagem `json:"sentido"`
 }
 
 type PlanejamentoViagensResponse struct {
-	Ciclos                  []CicloComViagensResponse `json:"ciclos"`
-	QuantidadeReservasIda   int                       `json:"quantidade_reservas_ida"`
-	QuantidadeReservasVolta int                       `json:"quantidade_reservas_volta"`
-	CapacidadeTotal         int                       `json:"capacidade_total"`
+	Sentido            SentidoViagem             `json:"sentido"`
+	Ciclos             []CicloComViagensResponse `json:"ciclos"`
+	QuantidadeReservas int                       `json:"quantidade_reservas"`
+	CapacidadeTotal    int                       `json:"capacidade_total"`
 }
 
 type CicloComViagensResponse struct {
@@ -93,6 +94,7 @@ func toPlanejamentoInput(req PlanejarViagensRequest) (PlanejamentoViagensInput, 
 		Turno:              req.Turno,
 		MunicipioDestinoID: req.MunicipioDestinoID,
 		RotaInternaID:      req.RotaInternaID,
+		Sentido:            req.Sentido,
 	}, nil
 }
 
@@ -120,10 +122,10 @@ func parseTimestamp(value, field string) (time.Time, error) {
 
 func toPlanejamentoViagensResponse(p *PlanejamentoViagens) PlanejamentoViagensResponse {
 	resp := PlanejamentoViagensResponse{
-		Ciclos:                  make([]CicloComViagensResponse, 0, len(p.Ciclos)),
-		QuantidadeReservasIda:   p.QuantidadeReservasIda,
-		QuantidadeReservasVolta: p.QuantidadeReservasVolta,
-		CapacidadeTotal:         p.CapacidadeTotal,
+		Sentido:            p.Sentido,
+		Ciclos:             make([]CicloComViagensResponse, 0, len(p.Ciclos)),
+		QuantidadeReservas: p.QuantidadeReservas,
+		CapacidadeTotal:    p.CapacidadeTotal,
 	}
 
 	for _, ciclo := range p.Ciclos {

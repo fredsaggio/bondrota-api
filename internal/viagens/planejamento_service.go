@@ -17,14 +17,19 @@ type planejamentoService struct {
 	horarioStore      HorarioTurnoViagemStore
 	veiculoAlocador   VeiculoAlocador
 	motoristaAlocador MotoristaAlocador
+	location          *time.Location
 }
 
-func NewPlanejamentoService(cicloStore CicloViagemStore, horarioStore HorarioTurnoViagemStore, veiculoAlocador VeiculoAlocador, motoristaAlocador MotoristaAlocador) PlanejamentoService {
+func NewPlanejamentoService(cicloStore CicloViagemStore, horarioStore HorarioTurnoViagemStore, veiculoAlocador VeiculoAlocador, motoristaAlocador MotoristaAlocador, config PlanejamentoServiceConfig) PlanejamentoService {
+	if config.Location == nil {
+		config.Location = time.UTC
+	}
 	return &planejamentoService{
 		cicloStore:        cicloStore,
 		horarioStore:      horarioStore,
 		veiculoAlocador:   veiculoAlocador,
 		motoristaAlocador: motoristaAlocador,
+		location:          config.Location,
 	}
 }
 
@@ -32,15 +37,22 @@ func (s *planejamentoService) Planejar(ctx context.Context, input PlanejamentoVi
 	if err := validatePlanejamentoInput(input); err != nil {
 		return nil, err
 	}
-	input.ExpiresAt = calcularExpiresAtPlanejamento(input.DataViagem)
+	input.ExpiresAt = calcularExpiresAtPlanejamento(input.DataViagem, s.location)
 
 	horarioTurno, err := s.horarioStore.GetByMunicipioDestinoTurno(ctx, input.MunicipioDestinoID, input.Turno)
 	if err != nil {
 		return nil, err
 	}
-	partidas := montarPartidasPlanejamento(input.DataViagem, horarioTurno)
+	partida := montarPartidaPlanejamento(input.DataViagem, horarioTurno, input.Sentido, s.location)
 
-	reservasIda, err := s.cicloStore.ListReservasConfirmadasParaPlanejamento(ctx, PlanejamentoReservasFiltro{
+	if input.Sentido == SentidoIda {
+		return s.planejarIda(ctx, input, partida)
+	}
+	return s.planejarVolta(ctx, input, partida)
+}
+
+func (s *planejamentoService) planejarIda(ctx context.Context, input PlanejamentoViagensInput, partida time.Time) (*PlanejamentoViagens, error) {
+	reservas, err := s.cicloStore.ListReservasConfirmadasParaPlanejamento(ctx, PlanejamentoReservasFiltro{
 		DataViagem:         input.DataViagem,
 		Turno:              input.Turno,
 		MunicipioDestinoID: input.MunicipioDestinoID,
@@ -50,27 +62,14 @@ func (s *planejamentoService) Planejar(ctx context.Context, input PlanejamentoVi
 	if err != nil {
 		return nil, err
 	}
-
-	reservasVolta, err := s.cicloStore.ListReservasConfirmadasParaPlanejamento(ctx, PlanejamentoReservasFiltro{
-		DataViagem:         input.DataViagem,
-		Turno:              input.Turno,
-		MunicipioDestinoID: input.MunicipioDestinoID,
-		RotaInternaID:      input.RotaInternaID,
-		Sentido:            SentidoVolta,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	qtdAlunos := maxInt(len(reservasIda), len(reservasVolta))
-	if qtdAlunos == 0 {
+	if len(reservas) == 0 {
 		return nil, fmt.Errorf("%w: no confirmed reservations found for planejamento", brerror.ErrNotFound)
 	}
 
 	alocacaoVeiculos, err := s.veiculoAlocador.Alocar(ctx, veiculos.AlocarVeiculosInput{
 		DataViagem:       input.DataViagem,
 		Turno:            string(input.Turno),
-		QuantidadeAlunos: qtdAlunos,
+		QuantidadeAlunos: len(reservas),
 	})
 	if err != nil {
 		return nil, err
@@ -86,16 +85,53 @@ func (s *planejamentoService) Planejar(ctx context.Context, input PlanejamentoVi
 		return nil, err
 	}
 
-	ciclosInput := montarCiclosComReservasInput(input, alocacaoVeiculos.Veiculos, alocacaoMotoristas, reservasIda, reservasVolta)
-	planejamento, err := s.cicloStore.CreateCiclosComViagens(ctx, ciclosInput, partidas)
+	ciclosInput := montarCiclosIdaComReservasInput(input, alocacaoVeiculos.Veiculos, alocacaoMotoristas, reservas)
+	planejamento, err := s.cicloStore.CreatePlanejamentoIda(ctx, ciclosInput, partida)
 	if err != nil {
 		return nil, err
 	}
 
-	planejamento.QuantidadeReservasIda = len(reservasIda)
-	planejamento.QuantidadeReservasVolta = len(reservasVolta)
+	planejamento.Sentido = SentidoIda
+	planejamento.QuantidadeReservas = len(reservas)
 	planejamento.CapacidadeTotal = alocacaoVeiculos.CapacidadeTotal
 
+	return planejamento, nil
+}
+
+func (s *planejamentoService) planejarVolta(ctx context.Context, input PlanejamentoViagensInput, partida time.Time) (*PlanejamentoViagens, error) {
+	filtro := PlanejamentoReservasFiltro{
+		DataViagem:         input.DataViagem,
+		Turno:              input.Turno,
+		MunicipioDestinoID: input.MunicipioDestinoID,
+		RotaInternaID:      input.RotaInternaID,
+		Sentido:            SentidoVolta,
+	}
+
+	ciclos, err := s.cicloStore.ListCiclosParaPlanejamentoVolta(ctx, filtro)
+	if err != nil {
+		return nil, err
+	}
+	if len(ciclos) == 0 {
+		return nil, fmt.Errorf("%w: no outbound cycles found for return planejamento", brerror.ErrNotFound)
+	}
+
+	reservas, err := s.cicloStore.ListReservasElegiveisParaVolta(ctx, filtro)
+	if err != nil {
+		return nil, err
+	}
+
+	inputs, capacidadeTotal, err := montarCiclosVoltaComReservasInput(ciclos, reservas)
+	if err != nil {
+		return nil, err
+	}
+	planejamento, err := s.cicloStore.CreatePlanejamentoVolta(ctx, inputs, partida)
+	if err != nil {
+		return nil, err
+	}
+
+	planejamento.Sentido = SentidoVolta
+	planejamento.QuantidadeReservas = len(reservas)
+	planejamento.CapacidadeTotal = capacidadeTotal
 	return planejamento, nil
 }
 
@@ -112,22 +148,27 @@ func validatePlanejamentoInput(input PlanejamentoViagensInput) error {
 	if input.RotaInternaID <= 0 {
 		return errors.New("rota_interna_id is required")
 	}
+	if input.Sentido != SentidoIda && input.Sentido != SentidoVolta {
+		return errors.New("sentido must be ida or volta")
+	}
 
 	return nil
 }
 
-func calcularExpiresAtPlanejamento(dataViagem time.Time) time.Time {
-	return dataViagem.AddDate(0, 3, 0)
+func calcularExpiresAtPlanejamento(dataViagem time.Time, location *time.Location) time.Time {
+	dataLocal := time.Date(dataViagem.Year(), dataViagem.Month(), dataViagem.Day(), 0, 0, 0, 0, location)
+	return dataLocal.AddDate(0, 3, 0)
 }
 
-func montarPartidasPlanejamento(dataViagem time.Time, horario *HorarioTurnoViagem) map[SentidoViagem]time.Time {
-	return map[SentidoViagem]time.Time{
-		SentidoIda:   combinarDataHorario(dataViagem, horario.HorarioIda),
-		SentidoVolta: combinarDataHorario(dataViagem, horario.HorarioVolta),
+func montarPartidaPlanejamento(dataViagem time.Time, horario *HorarioTurnoViagem, sentido SentidoViagem, location *time.Location) time.Time {
+	horarioPartida := horario.HorarioIda
+	if sentido == SentidoVolta {
+		horarioPartida = horario.HorarioVolta
 	}
+	return combinarDataHorario(dataViagem, horarioPartida, location)
 }
 
-func combinarDataHorario(data time.Time, horario time.Duration) time.Time {
+func combinarDataHorario(data time.Time, horario time.Duration, location *time.Location) time.Time {
 	hours := int(horario / time.Hour)
 	horario -= time.Duration(hours) * time.Hour
 	minutes := int(horario / time.Minute)
@@ -135,16 +176,15 @@ func combinarDataHorario(data time.Time, horario time.Duration) time.Time {
 	seconds := int(horario / time.Second)
 	nanoseconds := int(horario - time.Duration(seconds)*time.Second)
 
-	return time.Date(data.Year(), data.Month(), data.Day(), hours, minutes, seconds, nanoseconds, data.Location())
+	return time.Date(data.Year(), data.Month(), data.Day(), hours, minutes, seconds, nanoseconds, location)
 }
 
-func montarCiclosComReservasInput(input PlanejamentoViagensInput, veiculosAlocados []veiculos.Veiculo, motoristasAlocados []motoristas.Motorista, reservasIda, reservasVolta []PlanejamentoReserva) []CicloViagemComReservasInput {
-	result := make([]CicloViagemComReservasInput, 0, len(veiculosAlocados))
-	reservasIdaPorVeiculo := distribuirReservasPorDestinoECapacidade(reservasIda, veiculosAlocados)
-	reservasVoltaPorVeiculo := distribuirReservasPorDestinoECapacidade(reservasVolta, veiculosAlocados)
+func montarCiclosIdaComReservasInput(input PlanejamentoViagensInput, veiculosAlocados []veiculos.Veiculo, motoristasAlocados []motoristas.Motorista, reservas []PlanejamentoReserva) []CicloIdaComReservasInput {
+	result := make([]CicloIdaComReservasInput, 0, len(veiculosAlocados))
+	reservasPorVeiculo := distribuirReservasPorDestinoECapacidade(reservas, veiculosAlocados)
 
 	for i, veiculo := range veiculosAlocados {
-		result = append(result, CicloViagemComReservasInput{
+		result = append(result, CicloIdaComReservasInput{
 			Ciclo: CicloViagemInput{
 				DataViagem:         input.DataViagem,
 				Turno:              input.Turno,
@@ -154,12 +194,39 @@ func montarCiclosComReservasInput(input PlanejamentoViagensInput, veiculosAlocad
 				MotoristaID:        motoristasAlocados[i].ID,
 				ExpiresAt:          input.ExpiresAt,
 			},
-			ReservaIDsIda:   reservasIdaPorVeiculo[i],
-			ReservaIDsVolta: reservasVoltaPorVeiculo[i],
+			ReservaIDs: reservasPorVeiculo[i],
 		})
 	}
 
 	return result
+}
+
+func montarCiclosVoltaComReservasInput(ciclos []CicloPlanejamentoVolta, reservas []PlanejamentoReserva) ([]CicloVoltaComReservasInput, int, error) {
+	veiculosAlocados := make([]veiculos.Veiculo, 0, len(ciclos))
+	capacidadeTotal := 0
+	for _, ciclo := range ciclos {
+		veiculosAlocados = append(veiculosAlocados, veiculos.Veiculo{
+			ID:         ciclo.Ciclo.VeiculoID,
+			Capacidade: int16(ciclo.Capacidade),
+		})
+		capacidadeTotal += ciclo.Capacidade
+	}
+
+	reservasPorVeiculo := distribuirReservasPorDestinoECapacidade(reservas, veiculosAlocados)
+	quantidadeAlocada := 0
+	inputs := make([]CicloVoltaComReservasInput, 0, len(ciclos))
+	for i, ciclo := range ciclos {
+		quantidadeAlocada += len(reservasPorVeiculo[i])
+		inputs = append(inputs, CicloVoltaComReservasInput{
+			Ciclo:      ciclo.Ciclo,
+			ReservaIDs: reservasPorVeiculo[i],
+		})
+	}
+	if quantidadeAlocada != len(reservas) {
+		return nil, 0, fmt.Errorf("%w: return reservations exceed outbound vehicle capacity", brerror.ErrInvalidInput)
+	}
+
+	return inputs, capacidadeTotal, nil
 }
 
 func distribuirReservasPorDestinoECapacidade(reservas []PlanejamentoReserva, veiculosAlocados []veiculos.Veiculo) [][]int64 {
@@ -272,13 +339,6 @@ func veiculoComMaiorCapacidadeRestante(capacidadesRestantes []int) int {
 	}
 
 	return veiculoIndex
-}
-
-func maxInt(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 func isOperationalTurnoViagem(turno TurnoViagem) bool {

@@ -12,25 +12,42 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/viagens"
 )
 
+var planejamentoLocation = time.FixedZone("America/Maceio", -3*60*60)
+
 type fakeCicloViagemStore struct {
-	createCicloFn            func(ctx context.Context, input viagens.CicloViagemInput) (*viagens.CicloViagem, error)
-	createCiclosComViagensFn func(ctx context.Context, inputs []viagens.CicloViagemComReservasInput, partidas map[viagens.SentidoViagem]time.Time) (*viagens.PlanejamentoViagens, error)
-	listReservasFn           func(ctx context.Context, filtro viagens.PlanejamentoReservasFiltro) ([]viagens.PlanejamentoReserva, error)
-	getCicloByIDFn           func(ctx context.Context, cicloID int64) (*viagens.CicloViagem, error)
-	listCiclosFn             func(ctx context.Context) ([]viagens.CicloViagem, error)
-	updateCicloFn            func(ctx context.Context, cicloID int64, updateFunc func(*viagens.CicloViagem) (bool, error)) (*viagens.CicloViagem, error)
+	createCicloFn       func(context.Context, viagens.CicloViagemInput) (*viagens.CicloViagem, error)
+	createIdaFn         func(context.Context, []viagens.CicloIdaComReservasInput, time.Time) (*viagens.PlanejamentoViagens, error)
+	createVoltaFn       func(context.Context, []viagens.CicloVoltaComReservasInput, time.Time) (*viagens.PlanejamentoViagens, error)
+	listReservasFn      func(context.Context, viagens.PlanejamentoReservasFiltro) ([]viagens.PlanejamentoReserva, error)
+	listReservasVoltaFn func(context.Context, viagens.PlanejamentoReservasFiltro) ([]viagens.PlanejamentoReserva, error)
+	listCiclosVoltaFn   func(context.Context, viagens.PlanejamentoReservasFiltro) ([]viagens.CicloPlanejamentoVolta, error)
+	getCicloByIDFn      func(context.Context, int64) (*viagens.CicloViagem, error)
+	listCiclosFn        func(context.Context) ([]viagens.CicloViagem, error)
+	updateCicloFn       func(context.Context, int64, func(*viagens.CicloViagem) (bool, error)) (*viagens.CicloViagem, error)
 }
 
 func (s fakeCicloViagemStore) CreateCiclo(ctx context.Context, input viagens.CicloViagemInput) (*viagens.CicloViagem, error) {
 	return s.createCicloFn(ctx, input)
 }
 
-func (s fakeCicloViagemStore) CreateCiclosComViagens(ctx context.Context, inputs []viagens.CicloViagemComReservasInput, partidas map[viagens.SentidoViagem]time.Time) (*viagens.PlanejamentoViagens, error) {
-	return s.createCiclosComViagensFn(ctx, inputs, partidas)
+func (s fakeCicloViagemStore) CreatePlanejamentoIda(ctx context.Context, inputs []viagens.CicloIdaComReservasInput, partida time.Time) (*viagens.PlanejamentoViagens, error) {
+	return s.createIdaFn(ctx, inputs, partida)
+}
+
+func (s fakeCicloViagemStore) CreatePlanejamentoVolta(ctx context.Context, inputs []viagens.CicloVoltaComReservasInput, partida time.Time) (*viagens.PlanejamentoViagens, error) {
+	return s.createVoltaFn(ctx, inputs, partida)
 }
 
 func (s fakeCicloViagemStore) ListReservasConfirmadasParaPlanejamento(ctx context.Context, filtro viagens.PlanejamentoReservasFiltro) ([]viagens.PlanejamentoReserva, error) {
 	return s.listReservasFn(ctx, filtro)
+}
+
+func (s fakeCicloViagemStore) ListReservasElegiveisParaVolta(ctx context.Context, filtro viagens.PlanejamentoReservasFiltro) ([]viagens.PlanejamentoReserva, error) {
+	return s.listReservasVoltaFn(ctx, filtro)
+}
+
+func (s fakeCicloViagemStore) ListCiclosParaPlanejamentoVolta(ctx context.Context, filtro viagens.PlanejamentoReservasFiltro) ([]viagens.CicloPlanejamentoVolta, error) {
+	return s.listCiclosVoltaFn(ctx, filtro)
 }
 
 func (s fakeCicloViagemStore) GetCicloByID(ctx context.Context, cicloID int64) (*viagens.CicloViagem, error) {
@@ -46,14 +63,14 @@ func (s fakeCicloViagemStore) UpdateCiclo(ctx context.Context, cicloID int64, up
 }
 
 type fakeHorarioTurnoViagemStore struct {
-	getByMunicipioDestinoTurnoFn func(ctx context.Context, municipioDestinoID int64, turno viagens.TurnoViagem) (*viagens.HorarioTurnoViagem, error)
+	getByMunicipioDestinoTurnoFn func(context.Context, int64, viagens.TurnoViagem) (*viagens.HorarioTurnoViagem, error)
 }
 
-func (s fakeHorarioTurnoViagemStore) Create(ctx context.Context, input viagens.HorarioTurnoViagemInput) (*viagens.HorarioTurnoViagem, error) {
+func (s fakeHorarioTurnoViagemStore) Create(context.Context, viagens.HorarioTurnoViagemInput) (*viagens.HorarioTurnoViagem, error) {
 	return nil, nil
 }
 
-func (s fakeHorarioTurnoViagemStore) GetByID(ctx context.Context, id int64) (*viagens.HorarioTurnoViagem, error) {
+func (s fakeHorarioTurnoViagemStore) GetByID(context.Context, int64) (*viagens.HorarioTurnoViagem, error) {
 	return nil, nil
 }
 
@@ -61,20 +78,20 @@ func (s fakeHorarioTurnoViagemStore) GetByMunicipioDestinoTurno(ctx context.Cont
 	return s.getByMunicipioDestinoTurnoFn(ctx, municipioDestinoID, turno)
 }
 
-func (s fakeHorarioTurnoViagemStore) List(ctx context.Context) ([]viagens.HorarioTurnoViagem, error) {
+func (s fakeHorarioTurnoViagemStore) List(context.Context) ([]viagens.HorarioTurnoViagem, error) {
 	return nil, nil
 }
 
-func (s fakeHorarioTurnoViagemStore) Update(ctx context.Context, id int64, updateFunc func(*viagens.HorarioTurnoViagem) (bool, error)) (*viagens.HorarioTurnoViagem, error) {
+func (s fakeHorarioTurnoViagemStore) Update(context.Context, int64, func(*viagens.HorarioTurnoViagem) (bool, error)) (*viagens.HorarioTurnoViagem, error) {
 	return nil, nil
 }
 
-func (s fakeHorarioTurnoViagemStore) Delete(ctx context.Context, id int64) error {
+func (s fakeHorarioTurnoViagemStore) Delete(context.Context, int64) error {
 	return nil
 }
 
 type fakeVeiculoAlocador struct {
-	alocarFn func(ctx context.Context, input veiculos.AlocarVeiculosInput) (*veiculos.AlocacaoVeiculos, error)
+	alocarFn func(context.Context, veiculos.AlocarVeiculosInput) (*veiculos.AlocacaoVeiculos, error)
 }
 
 func (a fakeVeiculoAlocador) Alocar(ctx context.Context, input veiculos.AlocarVeiculosInput) (*veiculos.AlocacaoVeiculos, error) {
@@ -82,37 +99,28 @@ func (a fakeVeiculoAlocador) Alocar(ctx context.Context, input veiculos.AlocarVe
 }
 
 type fakeMotoristaAlocador struct {
-	alocarFn func(ctx context.Context, input motoristas.AlocarMotoristasInput) ([]motoristas.Motorista, error)
+	alocarFn func(context.Context, motoristas.AlocarMotoristasInput) ([]motoristas.Motorista, error)
 }
 
 func (a fakeMotoristaAlocador) Alocar(ctx context.Context, input motoristas.AlocarMotoristasInput) ([]motoristas.Motorista, error) {
 	return a.alocarFn(ctx, input)
 }
 
-func validPlanejamentoInput() viagens.PlanejamentoViagensInput {
+func validPlanejamentoInput(sentido viagens.SentidoViagem) viagens.PlanejamentoViagensInput {
 	return viagens.PlanejamentoViagensInput{
 		DataViagem:         time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC),
 		Turno:              viagens.TurnoNoturno,
 		MunicipioDestinoID: 2704302,
 		RotaInternaID:      2,
-	}
-}
-
-func validPartidas() map[viagens.SentidoViagem]time.Time {
-	return map[viagens.SentidoViagem]time.Time{
-		viagens.SentidoIda:   time.Date(2026, 6, 10, 18, 0, 0, 0, time.UTC),
-		viagens.SentidoVolta: time.Date(2026, 6, 10, 22, 0, 0, 0, time.UTC),
+		Sentido:            sentido,
 	}
 }
 
 func validHorarioStore() fakeHorarioTurnoViagemStore {
 	return fakeHorarioTurnoViagemStore{
 		getByMunicipioDestinoTurnoFn: func(_ context.Context, municipioDestinoID int64, turno viagens.TurnoViagem) (*viagens.HorarioTurnoViagem, error) {
-			if municipioDestinoID != 2704302 {
-				return nil, errors.New("unexpected municipio_destino_id")
-			}
-			if turno != viagens.TurnoNoturno {
-				return nil, errors.New("unexpected turno")
+			if municipioDestinoID != 2704302 || turno != viagens.TurnoNoturno {
+				return nil, errors.New("unexpected schedule lookup")
 			}
 			return &viagens.HorarioTurnoViagem{
 				MunicipioDestinoID: municipioDestinoID,
@@ -124,81 +132,81 @@ func validHorarioStore() fakeHorarioTurnoViagemStore {
 	}
 }
 
-func TestPlanejamentoService_Planejar(t *testing.T) {
-	t.Run("valid input delegates to store", func(t *testing.T) {
-		input := validPlanejamentoInput()
-		partidas := validPartidas()
-		svc := viagens.NewPlanejamentoService(fakeCicloViagemStore{
+func newPlanejamentoService(store viagens.CicloViagemStore, veiculoAlocador viagens.VeiculoAlocador, motoristaAlocador viagens.MotoristaAlocador) viagens.PlanejamentoService {
+	return viagens.NewPlanejamentoService(
+		store,
+		validHorarioStore(),
+		veiculoAlocador,
+		motoristaAlocador,
+		viagens.PlanejamentoServiceConfig{Location: planejamentoLocation},
+	)
+}
+
+func TestPlanejamentoService_PlanejarIda(t *testing.T) {
+	t.Run("creates only outbound planning", func(t *testing.T) {
+		input := validPlanejamentoInput(viagens.SentidoIda)
+		store := fakeCicloViagemStore{
 			listReservasFn: func(_ context.Context, filtro viagens.PlanejamentoReservasFiltro) ([]viagens.PlanejamentoReserva, error) {
-				if filtro.Sentido == viagens.SentidoIda {
-					return []viagens.PlanejamentoReserva{
-						{ID: 1, DestinoID: 100},
-						{ID: 2, DestinoID: 100},
-						{ID: 3, DestinoID: 100},
-					}, nil
-				}
-				return []viagens.PlanejamentoReserva{{ID: 4, DestinoID: 100}}, nil
+				requirePlanejamentoFiltro(t, filtro, viagens.SentidoIda)
+				return []viagens.PlanejamentoReserva{
+					{ID: 1, DestinoID: 100},
+					{ID: 2, DestinoID: 100},
+					{ID: 3, DestinoID: 100},
+				}, nil
 			},
-			createCiclosComViagensFn: func(_ context.Context, gotInputs []viagens.CicloViagemComReservasInput, gotPartidas map[viagens.SentidoViagem]time.Time) (*viagens.PlanejamentoViagens, error) {
-				if len(gotInputs) != 1 {
-					t.Fatalf("expected 1 ciclo input, got %d", len(gotInputs))
+			createIdaFn: func(_ context.Context, inputs []viagens.CicloIdaComReservasInput, partida time.Time) (*viagens.PlanejamentoViagens, error) {
+				if len(inputs) != 1 {
+					t.Fatalf("expected 1 cycle, got %d", len(inputs))
 				}
-				if gotInputs[0].Ciclo.VeiculoID != 10 {
-					t.Fatalf("unexpected veiculo id: %d", gotInputs[0].Ciclo.VeiculoID)
+				if inputs[0].Ciclo.VeiculoID != 10 || inputs[0].Ciclo.MotoristaID != 20 {
+					t.Fatalf("unexpected resources: %+v", inputs[0].Ciclo)
 				}
-				if gotInputs[0].Ciclo.MotoristaID != 20 {
-					t.Fatalf("unexpected motorista id: %d", gotInputs[0].Ciclo.MotoristaID)
+				assertSameIDs(t, inputs[0].ReservaIDs, []int64{1, 2, 3})
+				wantExpiresAt := time.Date(2026, 9, 10, 0, 0, 0, 0, planejamentoLocation)
+				if !inputs[0].Ciclo.ExpiresAt.Equal(wantExpiresAt) {
+					t.Fatalf("expected expires_at %v, got %v", wantExpiresAt, inputs[0].Ciclo.ExpiresAt)
 				}
-				if want := input.DataViagem.AddDate(0, 3, 0); !gotInputs[0].Ciclo.ExpiresAt.Equal(want) {
-					t.Fatalf("unexpected expires_at: want %v, got %v", want, gotInputs[0].Ciclo.ExpiresAt)
-				}
-				if len(gotInputs[0].ReservaIDsIda) != 3 {
-					t.Fatalf("unexpected ida reservas: %+v", gotInputs[0].ReservaIDsIda)
-				}
-				if !gotPartidas[viagens.SentidoVolta].Equal(partidas[viagens.SentidoVolta]) {
-					t.Fatalf("unexpected partidas: %+v", gotPartidas)
+				wantPartida := time.Date(2026, 6, 10, 18, 0, 0, 0, planejamentoLocation)
+				if !partida.Equal(wantPartida) {
+					t.Fatalf("expected departure %v, got %v", wantPartida, partida)
 				}
 				ciclo := sampleCicloComViagens()
+				ciclo.Viagens = ciclo.Viagens[:1]
 				return &viagens.PlanejamentoViagens{Ciclos: []viagens.CicloComViagens{ciclo}}, nil
 			},
-		}, validHorarioStore(), fakeVeiculoAlocador{
-			alocarFn: func(_ context.Context, gotInput veiculos.AlocarVeiculosInput) (*veiculos.AlocacaoVeiculos, error) {
-				if gotInput.QuantidadeAlunos != 3 {
-					t.Fatalf("unexpected quantidade alunos: %d", gotInput.QuantidadeAlunos)
+		}
+
+		svc := newPlanejamentoService(store, fakeVeiculoAlocador{
+			alocarFn: func(_ context.Context, got veiculos.AlocarVeiculosInput) (*veiculos.AlocacaoVeiculos, error) {
+				if got.QuantidadeAlunos != 3 {
+					t.Fatalf("expected 3 students, got %d", got.QuantidadeAlunos)
 				}
 				return &veiculos.AlocacaoVeiculos{
-					Veiculos:        []veiculos.Veiculo{{ID: 10, Capacidade: 7, Categoria: veiculos.CategoriaCarroSeteLugares}},
+					Veiculos:        []veiculos.Veiculo{{ID: 10, Capacidade: 7}},
 					CapacidadeTotal: 7,
 				}, nil
 			},
 		}, fakeMotoristaAlocador{
-			alocarFn: func(_ context.Context, gotInput motoristas.AlocarMotoristasInput) ([]motoristas.Motorista, error) {
-				if gotInput.Quantidade != 1 {
-					t.Fatalf("unexpected quantidade motoristas: %d", gotInput.Quantidade)
+			alocarFn: func(_ context.Context, got motoristas.AlocarMotoristasInput) ([]motoristas.Motorista, error) {
+				if got.Quantidade != 1 || got.MunicipioTrabalhoID != input.MunicipioDestinoID {
+					t.Fatalf("unexpected driver allocation: %+v", got)
 				}
 				return []motoristas.Motorista{{ID: 20}}, nil
 			},
 		})
 
-		planejamento, err := svc.Planejar(context.Background(), input)
-
+		planejamento, err := svc.Planejar(t.Context(), input)
 		if err != nil {
-			t.Fatalf("unexpected err: %v", err)
+			t.Fatalf("unexpected error: %v", err)
 		}
-		if len(planejamento.Ciclos) != 1 {
-			t.Fatalf("expected 1 ciclo, got %d", len(planejamento.Ciclos))
-		}
-		if planejamento.QuantidadeReservasIda != 3 {
-			t.Fatalf("expected 3 ida reservas, got %d", planejamento.QuantidadeReservasIda)
+		if planejamento.Sentido != viagens.SentidoIda || planejamento.QuantidadeReservas != 3 || planejamento.CapacidadeTotal != 7 {
+			t.Fatalf("unexpected planning result: %+v", planejamento)
 		}
 	})
 
-	t.Run("keeps same destino reservations together when possible", func(t *testing.T) {
-		svc := viagens.NewPlanejamentoService(fakeCicloViagemStore{
-			listReservasFn: func(_ context.Context, filtro viagens.PlanejamentoReservasFiltro) ([]viagens.PlanejamentoReserva, error) {
-				if filtro.Sentido == viagens.SentidoVolta {
-					return nil, nil
-				}
+	t.Run("keeps reservations for the same destination together when possible", func(t *testing.T) {
+		store := fakeCicloViagemStore{
+			listReservasFn: func(context.Context, viagens.PlanejamentoReservasFiltro) ([]viagens.PlanejamentoReserva, error) {
 				return []viagens.PlanejamentoReserva{
 					{ID: 1, DestinoID: 100},
 					{ID: 2, DestinoID: 200},
@@ -206,89 +214,187 @@ func TestPlanejamentoService_Planejar(t *testing.T) {
 					{ID: 4, DestinoID: 200},
 				}, nil
 			},
-			createCiclosComViagensFn: func(_ context.Context, gotInputs []viagens.CicloViagemComReservasInput, _ map[viagens.SentidoViagem]time.Time) (*viagens.PlanejamentoViagens, error) {
-				if len(gotInputs) != 2 {
-					t.Fatalf("expected 2 ciclo inputs, got %d", len(gotInputs))
+			createIdaFn: func(_ context.Context, inputs []viagens.CicloIdaComReservasInput, _ time.Time) (*viagens.PlanejamentoViagens, error) {
+				if len(inputs) != 2 {
+					t.Fatalf("expected 2 cycles, got %d", len(inputs))
 				}
-
-				assertSameIDs(t, gotInputs[0].ReservaIDsIda, []int64{1, 3})
-				assertSameIDs(t, gotInputs[1].ReservaIDsIda, []int64{2, 4})
-
+				assertSameIDs(t, inputs[0].ReservaIDs, []int64{1, 3})
+				assertSameIDs(t, inputs[1].ReservaIDs, []int64{2, 4})
 				return &viagens.PlanejamentoViagens{}, nil
 			},
-		}, validHorarioStore(), fakeVeiculoAlocador{
-			alocarFn: func(_ context.Context, _ veiculos.AlocarVeiculosInput) (*veiculos.AlocacaoVeiculos, error) {
+		}
+		svc := newPlanejamentoService(store, fakeVeiculoAlocador{
+			alocarFn: func(context.Context, veiculos.AlocarVeiculosInput) (*veiculos.AlocacaoVeiculos, error) {
 				return &veiculos.AlocacaoVeiculos{
-					Veiculos: []veiculos.Veiculo{
-						{ID: 10, Capacidade: 2, Categoria: veiculos.CategoriaCarroSeteLugares},
-						{ID: 11, Capacidade: 2, Categoria: veiculos.CategoriaCarroSeteLugares},
-					},
+					Veiculos:        []veiculos.Veiculo{{ID: 10, Capacidade: 2}, {ID: 11, Capacidade: 2}},
 					CapacidadeTotal: 4,
 				}, nil
 			},
 		}, fakeMotoristaAlocador{
-			alocarFn: func(_ context.Context, _ motoristas.AlocarMotoristasInput) ([]motoristas.Motorista, error) {
+			alocarFn: func(context.Context, motoristas.AlocarMotoristasInput) ([]motoristas.Motorista, error) {
 				return []motoristas.Motorista{{ID: 20}, {ID: 21}}, nil
 			},
 		})
 
-		_, err := svc.Planejar(context.Background(), validPlanejamentoInput())
-
+		_, err := svc.Planejar(t.Context(), validPlanejamentoInput(viagens.SentidoIda))
 		if err != nil {
-			t.Fatalf("unexpected err: %v", err)
+			t.Fatalf("unexpected error: %v", err)
 		}
 	})
 
-	t.Run("invalid input does not call store", func(t *testing.T) {
-		svc := viagens.NewPlanejamentoService(fakeCicloViagemStore{
-			listReservasFn: func(_ context.Context, _ viagens.PlanejamentoReservasFiltro) ([]viagens.PlanejamentoReserva, error) {
-				t.Fatal("store should not be called")
-				return nil, nil
+	t.Run("returns persistence error", func(t *testing.T) {
+		store := fakeCicloViagemStore{
+			listReservasFn: func(context.Context, viagens.PlanejamentoReservasFiltro) ([]viagens.PlanejamentoReserva, error) {
+				return []viagens.PlanejamentoReserva{{ID: 1, DestinoID: 100}}, nil
 			},
-		}, validHorarioStore(), fakeVeiculoAlocador{}, fakeMotoristaAlocador{})
-
-		_, err := svc.Planejar(context.Background(), viagens.PlanejamentoViagensInput{})
-
-		if err == nil {
-			t.Fatal("expected validation error")
-		}
-	})
-
-	t.Run("store error is returned", func(t *testing.T) {
-		svc := viagens.NewPlanejamentoService(fakeCicloViagemStore{
-			listReservasFn: func(_ context.Context, filtro viagens.PlanejamentoReservasFiltro) ([]viagens.PlanejamentoReserva, error) {
-				if filtro.Sentido == viagens.SentidoIda {
-					return []viagens.PlanejamentoReserva{{ID: 1, DestinoID: 100}}, nil
-				}
-				return nil, nil
-			},
-			createCiclosComViagensFn: func(_ context.Context, _ []viagens.CicloViagemComReservasInput, _ map[viagens.SentidoViagem]time.Time) (*viagens.PlanejamentoViagens, error) {
+			createIdaFn: func(context.Context, []viagens.CicloIdaComReservasInput, time.Time) (*viagens.PlanejamentoViagens, error) {
 				return nil, brerror.ErrAlreadyExists
 			},
-		}, validHorarioStore(), fakeVeiculoAlocador{
-			alocarFn: func(_ context.Context, _ veiculos.AlocarVeiculosInput) (*veiculos.AlocacaoVeiculos, error) {
-				return &veiculos.AlocacaoVeiculos{
-					Veiculos:        []veiculos.Veiculo{{ID: 10, Capacidade: 7, Categoria: veiculos.CategoriaCarroSeteLugares}},
-					CapacidadeTotal: 7,
-				}, nil
+		}
+		svc := newPlanejamentoService(store, fakeVeiculoAlocador{
+			alocarFn: func(context.Context, veiculos.AlocarVeiculosInput) (*veiculos.AlocacaoVeiculos, error) {
+				return &veiculos.AlocacaoVeiculos{Veiculos: []veiculos.Veiculo{{ID: 10, Capacidade: 7}}, CapacidadeTotal: 7}, nil
 			},
 		}, fakeMotoristaAlocador{
-			alocarFn: func(_ context.Context, _ motoristas.AlocarMotoristasInput) ([]motoristas.Motorista, error) {
+			alocarFn: func(context.Context, motoristas.AlocarMotoristasInput) ([]motoristas.Motorista, error) {
 				return []motoristas.Motorista{{ID: 20}}, nil
 			},
 		})
 
-		_, err := svc.Planejar(context.Background(), validPlanejamentoInput())
-
+		_, err := svc.Planejar(t.Context(), validPlanejamentoInput(viagens.SentidoIda))
 		if !errors.Is(err, brerror.ErrAlreadyExists) {
 			t.Fatalf("expected already exists, got %v", err)
 		}
 	})
 }
 
+func TestPlanejamentoService_PlanejarVolta(t *testing.T) {
+	ciclo1 := sampleCiclo()
+	ciclo1.ID = 1
+	ciclo1.VeiculoID = 10
+	ciclo2 := sampleCiclo()
+	ciclo2.ID = 2
+	ciclo2.VeiculoID = 11
+
+	t.Run("reuses outbound cycles and only eligible reservations", func(t *testing.T) {
+		store := fakeCicloViagemStore{
+			listCiclosVoltaFn: func(_ context.Context, filtro viagens.PlanejamentoReservasFiltro) ([]viagens.CicloPlanejamentoVolta, error) {
+				requirePlanejamentoFiltro(t, filtro, viagens.SentidoVolta)
+				return []viagens.CicloPlanejamentoVolta{{Ciclo: ciclo1, Capacidade: 2}, {Ciclo: ciclo2, Capacidade: 2}}, nil
+			},
+			listReservasVoltaFn: func(_ context.Context, filtro viagens.PlanejamentoReservasFiltro) ([]viagens.PlanejamentoReserva, error) {
+				requirePlanejamentoFiltro(t, filtro, viagens.SentidoVolta)
+				return []viagens.PlanejamentoReserva{{ID: 30, DestinoID: 100}, {ID: 31, DestinoID: 100}, {ID: 32, DestinoID: 200}}, nil
+			},
+			createVoltaFn: func(_ context.Context, inputs []viagens.CicloVoltaComReservasInput, partida time.Time) (*viagens.PlanejamentoViagens, error) {
+				if len(inputs) != 2 || inputs[0].Ciclo.ID != ciclo1.ID || inputs[1].Ciclo.ID != ciclo2.ID {
+					t.Fatalf("unexpected outbound cycles: %+v", inputs)
+				}
+				assertSameIDs(t, inputs[0].ReservaIDs, []int64{30, 31})
+				assertSameIDs(t, inputs[1].ReservaIDs, []int64{32})
+				wantPartida := time.Date(2026, 6, 10, 22, 0, 0, 0, planejamentoLocation)
+				if !partida.Equal(wantPartida) {
+					t.Fatalf("expected departure %v, got %v", wantPartida, partida)
+				}
+				return &viagens.PlanejamentoViagens{Ciclos: []viagens.CicloComViagens{{Ciclo: ciclo1}, {Ciclo: ciclo2}}}, nil
+			},
+		}
+		svc := newPlanejamentoService(store, forbiddenVeiculoAlocador(t), forbiddenMotoristaAlocador(t))
+
+		planejamento, err := svc.Planejar(t.Context(), validPlanejamentoInput(viagens.SentidoVolta))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if planejamento.Sentido != viagens.SentidoVolta || planejamento.QuantidadeReservas != 3 || planejamento.CapacidadeTotal != 4 {
+			t.Fatalf("unexpected planning result: %+v", planejamento)
+		}
+	})
+
+	t.Run("creates return trips even without eligible passengers", func(t *testing.T) {
+		store := fakeCicloViagemStore{
+			listCiclosVoltaFn: func(context.Context, viagens.PlanejamentoReservasFiltro) ([]viagens.CicloPlanejamentoVolta, error) {
+				return []viagens.CicloPlanejamentoVolta{{Ciclo: ciclo1, Capacidade: 2}, {Ciclo: ciclo2, Capacidade: 2}}, nil
+			},
+			listReservasVoltaFn: func(context.Context, viagens.PlanejamentoReservasFiltro) ([]viagens.PlanejamentoReserva, error) {
+				return []viagens.PlanejamentoReserva{}, nil
+			},
+			createVoltaFn: func(_ context.Context, inputs []viagens.CicloVoltaComReservasInput, _ time.Time) (*viagens.PlanejamentoViagens, error) {
+				if len(inputs) != 2 || len(inputs[0].ReservaIDs) != 0 || len(inputs[1].ReservaIDs) != 0 {
+					t.Fatalf("expected two empty return trips, got %+v", inputs)
+				}
+				return &viagens.PlanejamentoViagens{Ciclos: []viagens.CicloComViagens{{Ciclo: ciclo1}, {Ciclo: ciclo2}}}, nil
+			},
+		}
+		svc := newPlanejamentoService(store, forbiddenVeiculoAlocador(t), forbiddenMotoristaAlocador(t))
+
+		planejamento, err := svc.Planejar(t.Context(), validPlanejamentoInput(viagens.SentidoVolta))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if planejamento.QuantidadeReservas != 0 || len(planejamento.Ciclos) != 2 {
+			t.Fatalf("unexpected planning result: %+v", planejamento)
+		}
+	})
+
+	t.Run("requires outbound cycles", func(t *testing.T) {
+		store := fakeCicloViagemStore{
+			listCiclosVoltaFn: func(context.Context, viagens.PlanejamentoReservasFiltro) ([]viagens.CicloPlanejamentoVolta, error) {
+				return []viagens.CicloPlanejamentoVolta{}, nil
+			},
+			listReservasVoltaFn: func(context.Context, viagens.PlanejamentoReservasFiltro) ([]viagens.PlanejamentoReserva, error) {
+				t.Fatal("return reservations should not be queried")
+				return nil, nil
+			},
+		}
+		svc := newPlanejamentoService(store, forbiddenVeiculoAlocador(t), forbiddenMotoristaAlocador(t))
+
+		_, err := svc.Planejar(t.Context(), validPlanejamentoInput(viagens.SentidoVolta))
+		if !errors.Is(err, brerror.ErrNotFound) {
+			t.Fatalf("expected not found, got %v", err)
+		}
+	})
+}
+
+func TestPlanejamentoService_RejectsInvalidInput(t *testing.T) {
+	store := fakeCicloViagemStore{
+		listReservasFn: func(context.Context, viagens.PlanejamentoReservasFiltro) ([]viagens.PlanejamentoReserva, error) {
+			t.Fatal("store should not be called")
+			return nil, nil
+		},
+	}
+	svc := newPlanejamentoService(store, fakeVeiculoAlocador{}, fakeMotoristaAlocador{})
+
+	_, err := svc.Planejar(t.Context(), viagens.PlanejamentoViagensInput{})
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+}
+
+func requirePlanejamentoFiltro(t *testing.T, got viagens.PlanejamentoReservasFiltro, sentido viagens.SentidoViagem) {
+	t.Helper()
+	if got.DataViagem.IsZero() || got.Turno != viagens.TurnoNoturno || got.MunicipioDestinoID != 2704302 || got.RotaInternaID != 2 || got.Sentido != sentido {
+		t.Fatalf("unexpected filter: %+v", got)
+	}
+}
+
+func forbiddenVeiculoAlocador(t *testing.T) fakeVeiculoAlocador {
+	t.Helper()
+	return fakeVeiculoAlocador{alocarFn: func(context.Context, veiculos.AlocarVeiculosInput) (*veiculos.AlocacaoVeiculos, error) {
+		t.Fatal("vehicle allocator must not run for return planning")
+		return nil, nil
+	}}
+}
+
+func forbiddenMotoristaAlocador(t *testing.T) fakeMotoristaAlocador {
+	t.Helper()
+	return fakeMotoristaAlocador{alocarFn: func(context.Context, motoristas.AlocarMotoristasInput) ([]motoristas.Motorista, error) {
+		t.Fatal("driver allocator must not run for return planning")
+		return nil, nil
+	}}
+}
+
 func assertSameIDs(t *testing.T, got, want []int64) {
 	t.Helper()
-
 	if len(got) != len(want) {
 		t.Fatalf("expected %d ids, got %d: %+v", len(want), len(got), got)
 	}

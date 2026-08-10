@@ -152,7 +152,12 @@ type PlanejamentoViagensInput struct {
 	Turno              TurnoViagem
 	MunicipioDestinoID int64
 	RotaInternaID      int64
+	Sentido            SentidoViagem
 	ExpiresAt          time.Time
+}
+
+type PlanejamentoServiceConfig struct {
+	Location *time.Location
 }
 
 type PlanejamentoReservasFiltro struct {
@@ -168,10 +173,19 @@ type PlanejamentoReserva struct {
 	DestinoID int64
 }
 
-type CicloViagemComReservasInput struct {
-	Ciclo           CicloViagemInput
-	ReservaIDsIda   []int64
-	ReservaIDsVolta []int64
+type CicloIdaComReservasInput struct {
+	Ciclo      CicloViagemInput
+	ReservaIDs []int64
+}
+
+type CicloPlanejamentoVolta struct {
+	Ciclo      CicloViagem
+	Capacidade int
+}
+
+type CicloVoltaComReservasInput struct {
+	Ciclo      CicloViagem
+	ReservaIDs []int64
 }
 
 type ViagemInput struct {
@@ -191,10 +205,10 @@ type CicloComViagens struct {
 }
 
 type PlanejamentoViagens struct {
-	Ciclos                  []CicloComViagens
-	QuantidadeReservasIda   int
-	QuantidadeReservasVolta int
-	CapacidadeTotal         int
+	Sentido            SentidoViagem
+	Ciclos             []CicloComViagens
+	QuantidadeReservas int
+	CapacidadeTotal    int
 }
 
 type ViagemComCiclo struct {
@@ -215,8 +229,11 @@ type ViagemReservaComReserva struct {
 
 type CicloViagemStore interface {
 	CreateCiclo(ctx context.Context, input CicloViagemInput) (*CicloViagem, error)
-	CreateCiclosComViagens(ctx context.Context, inputs []CicloViagemComReservasInput, partidas map[SentidoViagem]time.Time) (*PlanejamentoViagens, error)
+	CreatePlanejamentoIda(ctx context.Context, inputs []CicloIdaComReservasInput, partida time.Time) (*PlanejamentoViagens, error)
+	CreatePlanejamentoVolta(ctx context.Context, inputs []CicloVoltaComReservasInput, partida time.Time) (*PlanejamentoViagens, error)
 	ListReservasConfirmadasParaPlanejamento(ctx context.Context, filtro PlanejamentoReservasFiltro) ([]PlanejamentoReserva, error)
+	ListReservasElegiveisParaVolta(ctx context.Context, filtro PlanejamentoReservasFiltro) ([]PlanejamentoReserva, error)
+	ListCiclosParaPlanejamentoVolta(ctx context.Context, filtro PlanejamentoReservasFiltro) ([]CicloPlanejamentoVolta, error)
 	GetCicloByID(ctx context.Context, cicloID int64) (*CicloViagem, error)
 	ListCiclos(ctx context.Context) ([]CicloViagem, error)
 	UpdateCiclo(ctx context.Context, cicloID int64, updateFunc func(*CicloViagem) (bool, error)) (*CicloViagem, error)

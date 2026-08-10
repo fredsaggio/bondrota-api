@@ -70,7 +70,7 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService, storageConfig storage.
 	horarioTurnoStore := viagens.NewHorarioTurnoViagemStore(pool)
 	horarioTurnoSvc := viagens.NewHorarioTurnoViagemService(horarioTurnoStore)
 	horarioTurnoHandler := viagens.NewHorarioTurnoViagemHandler(horarioTurnoSvc)
-	planejamentoSvc := viagens.NewPlanejamentoService(cicloViagemStore, horarioTurnoStore, alocacaoVeiculoSvc, alocacaoMotoristaSvc)
+	planejamentoSvc := viagens.NewPlanejamentoService(cicloViagemStore, horarioTurnoStore, alocacaoVeiculoSvc, alocacaoMotoristaSvc, viagens.PlanejamentoServiceConfig{Location: appLocation})
 	planejamentoHandler := viagens.NewPlanejamentoHandler(planejamentoSvc)
 
 	viagemStore := viagens.NewViagemStore(pool)

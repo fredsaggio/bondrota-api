@@ -758,11 +758,11 @@ Response:
 
 Permissao: `admin`.
 
-Este endpoint e o integrador operacional. Ele nao e CRUD de viagem manual: ele planeja ciclos/viagens automaticamente a partir das reservas confirmadas, horario do turno, veiculos disponiveis e motoristas disponiveis.
+Este endpoint e o integrador operacional. Ele nao e CRUD de viagem manual: cada chamada planeja apenas um sentido a partir das reservas, do horario do turno e dos recursos disponiveis ou ja alocados.
 
 | Metodo | Path completo | Descricao | Body | Sucesso | Erros |
 | --- | --- | --- | --- | --- | --- |
-| `POST` | `BASE_URL/planejamentos/viagens` | Planeja ciclos e viagens para data/turno/municipio de destino/rota interna. | `PlanejarViagensRequest` | `201 PlanejamentoViagensResponse` | `400`, `401`, `403`, `404`, `409`, `422`, `500` |
+| `POST` | `BASE_URL/planejamentos/viagens` | Planeja a ida ou a volta para data/turno/municipio de destino/rota interna. | `PlanejarViagensRequest` | `201 PlanejamentoViagensResponse` | `400`, `401`, `403`, `404`, `409`, `422`, `500` |
 
 Request:
 
@@ -771,7 +771,8 @@ Request:
   "data_viagem": "2026-06-10",
   "turno": "NT",
   "municipio_destino_id": 2704302,
-  "rota_interna_id": 1
+  "rota_interna_id": 1,
+  "sentido": "ida"
 }
 ```
 
@@ -779,6 +780,7 @@ Response:
 
 ```json
 {
+  "sentido": "ida",
   "ciclos": [
     {
       "ciclo": {
@@ -802,33 +804,25 @@ Response:
           "status": "programada",
           "created_at": "2026-06-06T20:00:00Z",
           "updated_at": "2026-06-06T20:00:00Z"
-        },
-        {
-          "id": 2,
-          "ciclo_viagem_id": 1,
-          "sentido": "volta",
-          "status": "programada",
-          "created_at": "2026-06-06T20:00:00Z",
-          "updated_at": "2026-06-06T20:00:00Z"
         }
       ]
     }
   ],
-  "quantidade_reservas_ida": 25,
-  "quantidade_reservas_volta": 20,
+  "quantidade_reservas": 25,
   "capacidade_total": 46
 }
 ```
 
 Regras operacionais importantes:
 
-- Usa reservas `confirmada` do mesmo `data_viagem`, `turno`, `rota_interna_id`, `sentido` e cujo destino pertence a `municipio_destino_id`.
-- Usa `horarios_turno_viagem` para definir partida prevista da ida e da volta.
+- O request exige `sentido: "ida"` ou `sentido: "volta"` e cada chamada cria somente a viagem daquele sentido.
+- A ida usa reservas `confirmada` do mesmo `data_viagem`, `turno`, `rota_interna_id` e municipio de destino.
+- A volta usa apenas reservas confirmadas de clientes com presenca `embarcou` em uma ida do mesmo planejamento.
+- Usa `horarios_turno_viagem` para definir a partida prevista do sentido solicitado.
 - Calcula `expires_at` automaticamente como `data_viagem + 3 meses`. O frontend nao envia esse campo no request.
-- Aloca veiculos automaticamente por status, capacidade e disponibilidade.
-- Aloca motoristas automaticamente por cidade de destino, turno e disponibilidade.
-- Cria `ciclos_viagem`, `viagens`, `viagem_horarios` e `viagem_reservas`.
-- Um ciclo tem normalmente duas viagens: `ida` e `volta`.
+- Na ida, aloca veiculos por capacidade/disponibilidade e motoristas por cidade de destino, turno e disponibilidade; depois cria os ciclos.
+- Na volta, reutiliza os ciclos, veiculos e motoristas criados pela ida. Todos os ciclos da ida recebem uma viagem de volta, mesmo quando nao ha passageiro elegivel.
+- A ida deve ser planejada antes da volta. Repetir o mesmo planejamento retorna `409`.
 
 ### Viagens
 
@@ -1532,26 +1526,36 @@ Fluxo no app do cliente:
 
 ### 4. Admin planeja viagens
 
-Quando houver reservas para a data/turno/cidade de destino/rota interna:
+Quando houver reservas para a data/turno/cidade de destino/rota interna, planeje primeiro a ida:
 
 ```http
 POST /planejamentos/viagens
+
+{
+  "data_viagem": "2026-06-10",
+  "turno": "NT",
+  "municipio_destino_id": 2704302,
+  "rota_interna_id": 1,
+  "sentido": "ida"
+}
 ```
 
-O backend:
+Na ida, o backend:
 
-1. Busca reservas confirmadas de ida e volta. Reservas canceladas sao ignoradas.
-2. Busca horarios de ida/volta em `horarios_turno_viagem`.
+1. Busca reservas confirmadas de ida. Reservas canceladas sao ignoradas.
+2. Busca o horario de ida em `horarios_turno_viagem`.
 3. Calcula veiculos por capacidade.
 4. Aloca veiculos disponiveis.
 5. Aloca motoristas disponiveis.
 6. Calcula `expires_at` automaticamente para retencao de dados.
 7. Cria ciclos de viagem.
-8. Cria viagens de ida e volta.
-9. Cria horarios previstos.
+8. Cria as viagens de ida.
+9. Cria os horarios previstos.
 10. Cria `viagem_reservas` para as reservas alocadas.
 
-Para o frontend, o retorno ja informa quais `viagem_id`, `veiculo_id` e `motorista_id` foram definidos.
+Depois do registro de presenca na ida, uma segunda chamada com `sentido: "volta"` cria as viagens de volta nos mesmos ciclos. Os veiculos e motoristas nao sao recalculados, e somente clientes com presenca `embarcou` na ida entram como passageiros da volta.
+
+Para o frontend, cada retorno informa os `viagem_id` daquele sentido e os `veiculo_id` e `motorista_id` dos ciclos.
 
 **Regras de alocacao de veiculos:**
 

@@ -167,6 +167,7 @@ func TestEndToEndPlanejamentoViagem(t *testing.T) {
 		"data_viagem":          dataViagem,
 		"turno":                "NT",
 		"rota_interna_id":      rotaInternaID,
+		"sentido":              "ida",
 	}, http.StatusCreated)
 
 	ciclos := planejamento["ciclos"].([]any)
@@ -175,8 +176,8 @@ func TestEndToEndPlanejamentoViagem(t *testing.T) {
 	}
 	ciclo := ciclos[0].(map[string]any)
 	viagensResp := ciclo["viagens"].([]any)
-	if len(viagensResp) != 2 {
-		t.Fatalf("expected ida and volta viagens, got %d", len(viagensResp))
+	if len(viagensResp) != 1 {
+		t.Fatalf("expected only ida viagem, got %d", len(viagensResp))
 	}
 	cicloData := ciclo["ciclo"].(map[string]any)
 	cicloID := int64(cicloData["id"].(float64))
@@ -188,22 +189,7 @@ func TestEndToEndPlanejamentoViagem(t *testing.T) {
 	if cicloMotoristaID != motoristaID {
 		t.Fatalf("expected same motorista on ciclo: got %d, want %d", cicloMotoristaID, motoristaID)
 	}
-	for _, viagem := range viagensResp {
-		viagemData := viagem.(map[string]any)
-		if int64(viagemData["ciclo_viagem_id"].(float64)) != cicloID {
-			t.Fatalf("expected ida/volta to share ciclo %d, got viagem %+v", cicloID, viagemData)
-		}
-	}
-
 	viagemID := int64(viagensResp[0].(map[string]any)["id"].(float64))
-	viagemVoltaID := int64(viagensResp[1].(map[string]any)["id"].(float64))
-	idaComCiclo := doJSON[map[string]any](t, router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%d", viagemID), adminToken, nil, http.StatusOK)
-	voltaComCiclo := doJSON[map[string]any](t, router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%d", viagemVoltaID), adminToken, nil, http.StatusOK)
-	idaCiclo := idaComCiclo["ciclo"].(map[string]any)
-	voltaCiclo := voltaComCiclo["ciclo"].(map[string]any)
-	if idaCiclo["veiculo_id"] != voltaCiclo["veiculo_id"] || idaCiclo["motorista_id"] != voltaCiclo["motorista_id"] {
-		t.Fatalf("expected ida/volta to share veiculo and motorista: ida=%+v volta=%+v", idaCiclo, voltaCiclo)
-	}
 	motoristaToken := loginMotorista(t, router, motoristaCPF, "senha123")
 
 	rota := doJSON[map[string]any](t, router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/rota-dinamica/calcular", viagemID), motoristaToken, nil, http.StatusCreated)
@@ -243,6 +229,28 @@ func TestEndToEndPlanejamentoViagem(t *testing.T) {
 	doJSON[map[string]any](t, router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%d/localizacao", viagemID), clienteToken, nil, http.StatusOK)
 
 	doJSON[map[string]any](t, router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/concluir", viagemID), motoristaToken, nil, http.StatusOK)
+
+	planejamentoVolta := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/planejamentos/viagens", adminToken, map[string]any{
+		"municipio_destino_id": e2eMunicipioID,
+		"data_viagem":          dataViagem,
+		"turno":                "NT",
+		"rota_interna_id":      rotaInternaID,
+		"sentido":              "volta",
+	}, http.StatusCreated)
+	ciclosVolta := planejamentoVolta["ciclos"].([]any)
+	if len(ciclosVolta) != 1 {
+		t.Fatalf("expected 1 return cycle, got %d", len(ciclosVolta))
+	}
+	cicloVolta := ciclosVolta[0].(map[string]any)
+	cicloVoltaData := cicloVolta["ciclo"].(map[string]any)
+	if int64(cicloVoltaData["id"].(float64)) != cicloID || int64(cicloVoltaData["veiculo_id"].(float64)) != veiculoID || int64(cicloVoltaData["motorista_id"].(float64)) != motoristaID {
+		t.Fatalf("expected return to reuse outbound cycle resources: ida=%+v volta=%+v", cicloData, cicloVoltaData)
+	}
+	viagensVolta := cicloVolta["viagens"].([]any)
+	if len(viagensVolta) != 1 {
+		t.Fatalf("expected only volta viagem, got %d", len(viagensVolta))
+	}
+	viagemVoltaID := int64(viagensVolta[0].(map[string]any)["id"].(float64))
 
 	doJSON[map[string]any](t, router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/iniciar", viagemVoltaID), motoristaToken, nil, http.StatusOK)
 	reservasVolta := doJSON[[]map[string]any](t, router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%d/reservas/", viagemVoltaID), motoristaToken, nil, http.StatusOK)
@@ -479,14 +487,15 @@ func TestEndToEndPlanejamentoMultiplosVeiculosPorCapacidade(t *testing.T) {
 		"data_viagem":          dataViagem,
 		"turno":                "NT",
 		"rota_interna_id":      rotaInternaID,
+		"sentido":              "ida",
 	}, http.StatusCreated)
 
 	ciclos := planejamento["ciclos"].([]any)
 	if len(ciclos) != 2 {
 		t.Fatalf("expected 2 ciclos for 48 students, got %d", len(ciclos))
 	}
-	if int(planejamento["quantidade_reservas_ida"].(float64)) != 48 {
-		t.Fatalf("unexpected ida reservation count: %v", planejamento["quantidade_reservas_ida"])
+	if int(planejamento["quantidade_reservas"].(float64)) != 48 {
+		t.Fatalf("unexpected ida reservation count: %v", planejamento["quantidade_reservas"])
 	}
 	if int(planejamento["capacidade_total"].(float64)) != 53 {
 		t.Fatalf("expected capacity 53, got %v", planejamento["capacidade_total"])
@@ -594,6 +603,7 @@ func TestEndToEndPlanejamentoIgnoraRecursosIndisponiveis(t *testing.T) {
 		"data_viagem":          dataViagem,
 		"turno":                "NT",
 		"rota_interna_id":      rotaInternaID,
+		"sentido":              "ida",
 	}, http.StatusCreated)
 	ciclo := planejamento["ciclos"].([]any)[0].(map[string]any)["ciclo"].(map[string]any)
 	if got := int64(ciclo["veiculo_id"].(float64)); got != activeEscolarID {
@@ -696,6 +706,7 @@ func TestEndToEndPlanejamentoNaoReutilizaRecursosJaAlocados(t *testing.T) {
 		"data_viagem":          dataViagem,
 		"turno":                "NT",
 		"rota_interna_id":      rotaInternaAID,
+		"sentido":              "ida",
 	}, http.StatusCreated)
 	ciclo := primeiro["ciclos"].([]any)[0].(map[string]any)["ciclo"].(map[string]any)
 	if got := int64(ciclo["veiculo_id"].(float64)); got != veiculoID {
@@ -710,6 +721,7 @@ func TestEndToEndPlanejamentoNaoReutilizaRecursosJaAlocados(t *testing.T) {
 		"data_viagem":          dataViagem,
 		"turno":                "NT",
 		"rota_interna_id":      rotaInternaBID,
+		"sentido":              "ida",
 	}, http.StatusNotFound)
 }
 
@@ -813,6 +825,7 @@ func TestEndToEndRotaDinamicaMultiplosDestinos(t *testing.T) {
 		"data_viagem":          dataViagem,
 		"turno":                "NT",
 		"rota_interna_id":      rotaInternaID,
+		"sentido":              "ida",
 	}, http.StatusCreated)
 	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
 
@@ -928,6 +941,7 @@ func TestEndToEndCancelarReservaInvalidaRotaDinamica(t *testing.T) {
 		"data_viagem":          dataViagem,
 		"turno":                "NT",
 		"rota_interna_id":      rotaInternaID,
+		"sentido":              "ida",
 	}, http.StatusCreated)
 	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
 
@@ -1032,9 +1046,10 @@ func TestEndToEndReservaCanceladaAntesDoPlanejamentoNaoEntraNaViagem(t *testing.
 		"data_viagem":          dataViagem,
 		"turno":                "NT",
 		"rota_interna_id":      rotaInternaID,
+		"sentido":              "ida",
 	}, http.StatusCreated)
-	if int(planejamento["quantidade_reservas_ida"].(float64)) != 1 {
-		t.Fatalf("expected only 1 confirmed ida reservation, got %v", planejamento["quantidade_reservas_ida"])
+	if int(planejamento["quantidade_reservas"].(float64)) != 1 {
+		t.Fatalf("expected only 1 confirmed ida reservation, got %v", planejamento["quantidade_reservas"])
 	}
 	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
 	reservasViagem := doJSON[[]map[string]any](t, h.Router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%d/reservas/", viagemID), h.AdminToken, nil, http.StatusOK)
@@ -1085,6 +1100,7 @@ func TestEndToEndFalhaOSRMNaoPersisteRotaDinamica(t *testing.T) {
 		"data_viagem":          dataViagem,
 		"turno":                "NT",
 		"rota_interna_id":      rotaInternaID,
+		"sentido":              "ida",
 	}, http.StatusCreated)
 	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
 
@@ -1197,6 +1213,7 @@ func TestEndToEndAutorizacaoPorDono(t *testing.T) {
 		"data_viagem":          dataViagem,
 		"turno":                "NT",
 		"rota_interna_id":      rotaInternaID,
+		"sentido":              "ida",
 	}, http.StatusCreated)
 	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
 	motoristaToken := loginMotorista(t, h.Router, motoristaCPF, "senha123")
@@ -1349,6 +1366,7 @@ func TestEndToEndPlanejamentoErrosSemRecursos(t *testing.T) {
 			"data_viagem":          dataViagem,
 			"turno":                "NT",
 			"rota_interna_id":      rotaInternaID,
+			"sentido":              "ida",
 		}, http.StatusNotFound)
 	})
 
@@ -1378,6 +1396,7 @@ func TestEndToEndPlanejamentoErrosSemRecursos(t *testing.T) {
 			"data_viagem":          dataViagem,
 			"turno":                "NT",
 			"rota_interna_id":      rotaInternaID,
+			"sentido":              "ida",
 		}, http.StatusNotFound)
 	})
 
@@ -1407,6 +1426,7 @@ func TestEndToEndPlanejamentoErrosSemRecursos(t *testing.T) {
 			"data_viagem":          dataViagem,
 			"turno":                "NT",
 			"rota_interna_id":      rotaInternaID,
+			"sentido":              "ida",
 		}, http.StatusNotFound)
 	})
 }
@@ -1440,6 +1460,7 @@ func TestEndToEndViagemCanceladaNaoInicia(t *testing.T) {
 		"data_viagem":          dataViagem,
 		"turno":                "NT",
 		"rota_interna_id":      rotaInternaID,
+		"sentido":              "ida",
 	}, http.StatusCreated)
 	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
 
@@ -1642,7 +1663,7 @@ func buildE2ERouter(pool *pgxpool.Pool, authSvc *auth.AuthService, options e2eRo
 	cicloViagemStore := viagens.NewCicloViagemStore(pool)
 	horarioTurnoStore := viagens.NewHorarioTurnoViagemStore(pool)
 	horarioTurnoSvc := viagens.NewHorarioTurnoViagemService(horarioTurnoStore)
-	planejamentoSvc := viagens.NewPlanejamentoService(cicloViagemStore, horarioTurnoStore, alocacaoVeiculoSvc, alocacaoMotoristaSvc)
+	planejamentoSvc := viagens.NewPlanejamentoService(cicloViagemStore, horarioTurnoStore, alocacaoVeiculoSvc, alocacaoMotoristaSvc, viagens.PlanejamentoServiceConfig{Location: time.Local})
 
 	viagemStore := viagens.NewViagemStore(pool)
 	viagemSvc := viagens.NewViagemService(viagemStore)
