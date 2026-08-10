@@ -165,7 +165,7 @@ Observacao importante: as rotas de colecao foram registradas com `/` dentro de c
 | Clientes | `POST /clientes/login`, `POST /clientes/`, `GET /clientes/`, `GET /clientes/{clienteID}`, `PUT /clientes/{clienteID}`, `DELETE /clientes/{clienteID}` |
 | Cliente vinculos | `POST /clientes/{clienteID}/vinculos/`, `GET /clientes/{clienteID}/vinculos/`, `GET /clientes/{clienteID}/vinculos/{vinculoID}`, `PUT /clientes/{clienteID}/vinculos/{vinculoID}`, `DELETE /clientes/{clienteID}/vinculos/{vinculoID}` |
 | Reservas | `POST /clientes/{clienteID}/vinculos/{vinculoID}/reservas/`, `GET /clientes/{clienteID}/vinculos/{vinculoID}/reservas/`, `GET /clientes/{clienteID}/reservas/`, `GET /reservas/`, `GET /reservas/{reservaID}`, `PUT /reservas/{reservaID}`, `POST /reservas/{reservaID}/cancelar`, `DELETE /reservas/{reservaID}` |
-| Viagens | Implementado em `/viagens` e `/planejamentos/viagens` |
+| Viagens | Implementado em `/viagens`; o planejamento e disparado automaticamente pelo endpoint interno do cron |
 | Rotas dinamicas | Implementado em `/viagens/{viagemID}/rota-dinamica` |
 
 O `server.go` aplica middleware de autenticacao nas rotas protegidas. Apenas `GET /health`, `GET /config`, `POST /admin/login`, `POST /clientes/login` e `POST /motoristas/login` ficam publicos. Os demais endpoints devem enviar `Authorization: Bearer <token>`.

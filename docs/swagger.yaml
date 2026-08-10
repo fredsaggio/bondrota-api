@@ -815,39 +815,6 @@ components:
           type: string
           format: date-time
           example: '2026-06-06T20:00:00Z'
-    PlanejarViagensRequest:
-      type: object
-      required:
-      - data_viagem
-      - turno
-      - municipio_destino_id
-      - rota_interna_id
-      - sentido
-      properties:
-        data_viagem:
-          type: string
-          format: date
-          example: '2026-06-10'
-        turno:
-          type: string
-          enum:
-          - MT
-          - VT
-          - NT
-          example: NT
-        municipio_destino_id:
-          type: integer
-          format: int64
-          example: 2704302
-        rota_interna_id:
-          type: integer
-          example: 1
-        sentido:
-          type: string
-          enum:
-          - ida
-          - volta
-          example: ida
     CicloViagemResponse:
       type: object
       properties:
@@ -936,32 +903,6 @@ components:
           $ref: '#/components/schemas/ViagemResponse'
         ciclo:
           $ref: '#/components/schemas/CicloViagemResponse'
-    PlanejamentoViagensResponse:
-      type: object
-      properties:
-        sentido:
-          type: string
-          enum:
-          - ida
-          - volta
-          example: ida
-        ciclos:
-          type: array
-          items:
-            type: object
-            properties:
-              ciclo:
-                $ref: '#/components/schemas/CicloViagemResponse'
-              viagens:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ViagemResponse'
-        quantidade_reservas:
-          type: integer
-          example: 25
-        capacidade_total:
-          type: integer
-          example: 46
     ResumoProcessamentoPlanejamentoResponse:
       type: object
       required:
@@ -2593,25 +2534,6 @@ paths:
         required: true
         schema:
           type: integer
-  /planejamentos/viagens:
-    post:
-      summary: Planeja viagens de ida ou de volta
-      description: A ida cria ciclos e aloca veiculos e motoristas. A volta reutiliza os ciclos da ida e inclui apenas clientes que embarcaram na ida.
-      tags:
-      - Planejamento
-      responses:
-        '201':
-          description: Criado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PlanejamentoViagensResponse'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PlanejarViagensRequest'
   /planejamentos/execucoes/falhas:
     get:
       summary: Lista falhas do planejamento automatico

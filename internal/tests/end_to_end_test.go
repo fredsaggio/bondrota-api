@@ -163,7 +163,7 @@ func TestEndToEndPlanejamentoViagem(t *testing.T) {
 		"turno":       "NT",
 		"sentido":     "volta",
 	})
-	planejamento := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/planejamentos/viagens", adminToken, map[string]any{
+	planejamento := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/test/planejamentos/viagens", adminToken, map[string]any{
 		"municipio_destino_id": e2eMunicipioID,
 		"data_viagem":          dataViagem,
 		"turno":                "NT",
@@ -231,7 +231,7 @@ func TestEndToEndPlanejamentoViagem(t *testing.T) {
 
 	doJSON[map[string]any](t, router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/concluir", viagemID), motoristaToken, nil, http.StatusOK)
 
-	planejamentoVolta := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/planejamentos/viagens", adminToken, map[string]any{
+	planejamentoVolta := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/test/planejamentos/viagens", adminToken, map[string]any{
 		"municipio_destino_id": e2eMunicipioID,
 		"data_viagem":          dataViagem,
 		"turno":                "NT",
@@ -483,7 +483,7 @@ func TestEndToEndPlanejamentoMultiplosVeiculosPorCapacidade(t *testing.T) {
 			"sentido":     "ida",
 		})
 	}
-	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
+	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/test/planejamentos/viagens", h.AdminToken, map[string]any{
 		"municipio_destino_id": e2eMunicipioID,
 		"data_viagem":          dataViagem,
 		"turno":                "NT",
@@ -599,7 +599,7 @@ func TestEndToEndPlanejamentoIgnoraRecursosIndisponiveis(t *testing.T) {
 		"turno":       "NT",
 		"sentido":     "ida",
 	})
-	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
+	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/test/planejamentos/viagens", h.AdminToken, map[string]any{
 		"municipio_destino_id": e2eMunicipioID,
 		"data_viagem":          dataViagem,
 		"turno":                "NT",
@@ -702,7 +702,7 @@ func TestEndToEndPlanejamentoNaoReutilizaRecursosJaAlocados(t *testing.T) {
 			"sentido":     "ida",
 		})
 	}
-	primeiro := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
+	primeiro := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/test/planejamentos/viagens", h.AdminToken, map[string]any{
 		"municipio_destino_id": e2eMunicipioID,
 		"data_viagem":          dataViagem,
 		"turno":                "NT",
@@ -717,7 +717,7 @@ func TestEndToEndPlanejamentoNaoReutilizaRecursosJaAlocados(t *testing.T) {
 		t.Fatalf("expected first ciclo to use motorista %d, got %d", motoristaID, got)
 	}
 
-	doStatus(t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
+	doStatus(t, h.Router, http.MethodPost, "/api/v1/test/planejamentos/viagens", h.AdminToken, map[string]any{
 		"municipio_destino_id": e2eMunicipioID,
 		"data_viagem":          dataViagem,
 		"turno":                "NT",
@@ -821,7 +821,7 @@ func TestEndToEndRotaDinamicaMultiplosDestinos(t *testing.T) {
 			"sentido":     "ida",
 		})
 	}
-	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
+	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/test/planejamentos/viagens", h.AdminToken, map[string]any{
 		"municipio_destino_id": e2eMunicipioID,
 		"data_viagem":          dataViagem,
 		"turno":                "NT",
@@ -937,7 +937,7 @@ func TestEndToEndCancelarReservaInvalidaRotaDinamica(t *testing.T) {
 		"turno":       "NT",
 		"sentido":     "ida",
 	})
-	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
+	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/test/planejamentos/viagens", h.AdminToken, map[string]any{
 		"municipio_destino_id": e2eMunicipioID,
 		"data_viagem":          dataViagem,
 		"turno":                "NT",
@@ -1042,7 +1042,7 @@ func TestEndToEndReservaCanceladaAntesDoPlanejamentoNaoEntraNaViagem(t *testing.
 		reservaCanceladaID = reservaID
 		doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/reservas/%d/cancelar", reservaCanceladaID), h.AdminToken, nil, http.StatusOK)
 	}
-	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
+	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/test/planejamentos/viagens", h.AdminToken, map[string]any{
 		"municipio_destino_id": e2eMunicipioID,
 		"data_viagem":          dataViagem,
 		"turno":                "NT",
@@ -1096,7 +1096,7 @@ func TestEndToEndFalhaOSRMNaoPersisteRotaDinamica(t *testing.T) {
 		CriarHorario:    true,
 	})
 
-	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
+	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/test/planejamentos/viagens", h.AdminToken, map[string]any{
 		"municipio_destino_id": e2eMunicipioID,
 		"data_viagem":          dataViagem,
 		"turno":                "NT",
@@ -1209,7 +1209,7 @@ func TestEndToEndAutorizacaoPorDono(t *testing.T) {
 		"turno":       "NT",
 		"sentido":     "ida",
 	})
-	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
+	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/test/planejamentos/viagens", h.AdminToken, map[string]any{
 		"municipio_destino_id": e2eMunicipioID,
 		"data_viagem":          dataViagem,
 		"turno":                "NT",
@@ -1362,7 +1362,7 @@ func TestEndToEndPlanejamentoErrosSemRecursos(t *testing.T) {
 			CriarMotorista:  true,
 		})
 
-		doStatus(t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
+		doStatus(t, h.Router, http.MethodPost, "/api/v1/test/planejamentos/viagens", h.AdminToken, map[string]any{
 			"municipio_destino_id": e2eMunicipioID,
 			"data_viagem":          dataViagem,
 			"turno":                "NT",
@@ -1392,7 +1392,7 @@ func TestEndToEndPlanejamentoErrosSemRecursos(t *testing.T) {
 			CriarHorario:    true,
 		})
 
-		doStatus(t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
+		doStatus(t, h.Router, http.MethodPost, "/api/v1/test/planejamentos/viagens", h.AdminToken, map[string]any{
 			"municipio_destino_id": e2eMunicipioID,
 			"data_viagem":          dataViagem,
 			"turno":                "NT",
@@ -1422,7 +1422,7 @@ func TestEndToEndPlanejamentoErrosSemRecursos(t *testing.T) {
 			CriarHorario:  true,
 		})
 
-		doStatus(t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
+		doStatus(t, h.Router, http.MethodPost, "/api/v1/test/planejamentos/viagens", h.AdminToken, map[string]any{
 			"municipio_destino_id": e2eMunicipioID,
 			"data_viagem":          dataViagem,
 			"turno":                "NT",
@@ -1456,7 +1456,7 @@ func TestEndToEndViagemCanceladaNaoInicia(t *testing.T) {
 		CriarHorario:    true,
 	})
 
-	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
+	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/test/planejamentos/viagens", h.AdminToken, map[string]any{
 		"municipio_destino_id": e2eMunicipioID,
 		"data_viagem":          dataViagem,
 		"turno":                "NT",
@@ -1829,7 +1829,6 @@ func buildE2ERouter(pool *pgxpool.Pool, authSvc *auth.AuthService, options e2eRo
 		VinculoHandler:      clientes.NewVinculoHandler(vinculoSvc),
 		ReservaHandler:      reservas.NewReservaHandler(reservaSvc),
 		ViagemHandler:       viagens.NewViagemHandler(viagemSvc, presencaSvc, viagemLocalizacaoSvc),
-		PlanejamentoHandler: viagens.NewPlanejamentoHandler(planejamentoSvc),
 		ProcessadorHandler:  viagens.NewProcessadorPlanejamentoHandler(processadorPlanejamento),
 		ExecucaoHandler:     viagens.NewExecucaoPlanejamentoHandler(execucaoPlanejamentoStore),
 		HorarioTurnoHandler: viagens.NewHorarioTurnoViagemHandler(horarioTurnoSvc),
@@ -1842,6 +1841,10 @@ func buildE2ERouter(pool *pgxpool.Pool, authSvc *auth.AuthService, options e2eRo
 		BaseCity:           "Campo Alegre",
 		PlanningCronSecret: planningCronSecret,
 	}).RegisterRoutes(apiRouter)
+	apiRouter.With(authSvc.Authenticate, authSvc.RequireRole(auth.RoleAdmin)).Post(
+		"/test/planejamentos/viagens",
+		viagens.NewPlanejamentoHandler(planejamentoSvc).PlanejarViagens,
+	)
 
 	root := chi.NewRouter()
 	root.Mount("/api/v1", apiRouter)

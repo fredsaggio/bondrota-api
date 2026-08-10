@@ -84,29 +84,62 @@ func (s *execucaoPlanejamentoStore) TentarIniciar(ctx context.Context, input Ini
 			updated_at
 	`
 
-	rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{
-		"data_viagem":          input.Chave.DataViagem,
-		"turno":                input.Chave.Turno,
-		"municipio_destino_id": input.Chave.MunicipioDestinoID,
-		"rota_interna_id":      input.Chave.RotaInternaID,
-		"sentido":              input.Chave.Sentido,
-		"partida_em":           input.PartidaEm,
-		"fechamento_em":        input.FechamentoEm,
-		"agora":                input.Agora,
-		"bloqueio_expira_em":   input.BloqueioExpiraEm,
+	var execucao ExecucaoPlanejamento
+	var adquirida bool
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `
+			SELECT pg_advisory_xact_lock(
+				planejamento_advisory_lock_key(
+					@data_viagem::DATE,
+					@turno::TEXT,
+					@municipio_destino_id,
+					@rota_interna_id,
+					@sentido::TEXT
+				)
+			)
+		`, pgx.StrictNamedArgs{
+			"data_viagem":          input.Chave.DataViagem,
+			"turno":                input.Chave.Turno,
+			"municipio_destino_id": input.Chave.MunicipioDestinoID,
+			"rota_interna_id":      input.Chave.RotaInternaID,
+			"sentido":              input.Chave.Sentido,
+		})
+		if err != nil {
+			return fmt.Errorf("lock planejamento: %w", err)
+		}
+
+		rows, err := tx.Query(ctx, q, pgx.StrictNamedArgs{
+			"data_viagem":          input.Chave.DataViagem,
+			"turno":                input.Chave.Turno,
+			"municipio_destino_id": input.Chave.MunicipioDestinoID,
+			"rota_interna_id":      input.Chave.RotaInternaID,
+			"sentido":              input.Chave.Sentido,
+			"partida_em":           input.PartidaEm,
+			"fechamento_em":        input.FechamentoEm,
+			"agora":                input.Agora,
+			"bloqueio_expira_em":   input.BloqueioExpiraEm,
+		})
+		if err != nil {
+			return err
+		}
+
+		execucao, err = pgx.CollectExactlyOneRow(rows, scanExecucaoPlanejamento)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		adquirida = true
+		return nil
 	})
 	if err != nil {
 		return nil, false, fmt.Errorf("%s: %w", op, err)
 	}
 
-	execucao, err := pgx.CollectExactlyOneRow(rows, scanExecucaoPlanejamento)
-	if errors.Is(err, pgx.ErrNoRows) {
+	if !adquirida {
 		return nil, false, nil
 	}
-	if err != nil {
-		return nil, false, fmt.Errorf("%s: %w", op, err)
-	}
-
 	return &execucao, true, nil
 }
 

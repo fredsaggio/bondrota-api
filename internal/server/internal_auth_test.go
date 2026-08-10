@@ -94,3 +94,19 @@ func TestInternalPlanningRouteUsesDedicatedSecret(t *testing.T) {
 		}
 	})
 }
+
+func TestManualPlanningRouteIsNotRegistered(t *testing.T) {
+	srv := NewServer(Handlers{}, nil, Config{})
+	router := chi.NewRouter()
+	srv.RegisterRoutes(router)
+
+	err := chi.Walk(router, func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
+		if method == http.MethodPost && route == "/planejamentos/viagens" {
+			t.Fatalf("manual planning route must not be public")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk routes: %v", err)
+	}
+}

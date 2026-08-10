@@ -33,20 +33,28 @@ func (s *reservaStore) Create(ctx context.Context, input ReservaInput) (*Reserva
 			sentido, status, created_at, updated_at
 	`
 
-	rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{
-		"cliente_id":      input.ClienteID,
-		"vinculo_id":      input.VinculoID,
-		"data_viagem":     input.DataViagem,
-		"turno":           input.Turno,
-		"destino_id":      input.DestinoID,
-		"rota_interna_id": input.RotaInternaID,
-		"sentido":         input.Sentido,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
+	var reserva Reserva
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		if err := bloquearSePlanejamentoIniciado(ctx, tx, input.DataViagem, input.Turno, input.DestinoID, input.RotaInternaID, input.Sentido); err != nil {
+			return err
+		}
 
-	reserva, err := pgx.CollectExactlyOneRow(rows, scanReserva)
+		rows, err := tx.Query(ctx, q, pgx.StrictNamedArgs{
+			"cliente_id":      input.ClienteID,
+			"vinculo_id":      input.VinculoID,
+			"data_viagem":     input.DataViagem,
+			"turno":           input.Turno,
+			"destino_id":      input.DestinoID,
+			"rota_interna_id": input.RotaInternaID,
+			"sentido":         input.Sentido,
+		})
+		if err != nil {
+			return err
+		}
+
+		reserva, err = pgx.CollectExactlyOneRow(rows, scanReserva)
+		return err
+	})
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
@@ -207,6 +215,11 @@ func (s *reservaStore) Update(ctx context.Context, reservaID int64, updateFunc f
 		if !changed {
 			return nil
 		}
+		if reserva.Status == StatusConfirmada {
+			if err := bloquearSePlanejamentoIniciado(ctx, tx, reserva.DataViagem, reserva.Turno, reserva.DestinoID, reserva.RotaInternaID, reserva.Sentido); err != nil {
+				return err
+			}
+		}
 
 		const q = `
 			UPDATE reservas
@@ -243,6 +256,75 @@ func (s *reservaStore) Update(ctx context.Context, reservaID int64, updateFunc f
 	}
 
 	return &reserva, nil
+}
+
+func bloquearSePlanejamentoIniciado(
+	ctx context.Context,
+	tx pgx.Tx,
+	dataViagem time.Time,
+	turno TurnoReserva,
+	destinoID int64,
+	rotaInternaID int64,
+	sentido SentidoReserva,
+) error {
+	var municipioDestinoID int64
+	err := tx.QueryRow(ctx, `
+		SELECT municipio_id
+		FROM destinos
+		WHERE id = @destino_id
+		FOR SHARE
+	`, pgx.StrictNamedArgs{"destino_id": destinoID}).Scan(&municipioDestinoID)
+	if err != nil {
+		return fmt.Errorf("select municipio destino: %w", err)
+	}
+
+	_, err = tx.Exec(ctx, `
+		SELECT pg_advisory_xact_lock(
+			planejamento_advisory_lock_key(
+				@data_viagem::DATE,
+				@turno::TEXT,
+				@municipio_destino_id,
+				@rota_interna_id,
+				@sentido::TEXT
+			)
+		)
+	`, pgx.StrictNamedArgs{
+		"data_viagem":          dataViagem,
+		"turno":                turno,
+		"municipio_destino_id": municipioDestinoID,
+		"rota_interna_id":      rotaInternaID,
+		"sentido":              sentido,
+	})
+	if err != nil {
+		return fmt.Errorf("lock planejamento: %w", err)
+	}
+
+	var planejamentoIniciado bool
+	err = tx.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM execucoes_planejamento
+			WHERE data_viagem = @data_viagem
+				AND turno = @turno
+				AND municipio_destino_id = @municipio_destino_id
+				AND rota_interna_id = @rota_interna_id
+				AND sentido::TEXT = @sentido::TEXT
+		)
+	`, pgx.StrictNamedArgs{
+		"data_viagem":          dataViagem,
+		"turno":                turno,
+		"municipio_destino_id": municipioDestinoID,
+		"rota_interna_id":      rotaInternaID,
+		"sentido":              sentido,
+	}).Scan(&planejamentoIniciado)
+	if err != nil {
+		return fmt.Errorf("check planejamento: %w", err)
+	}
+	if planejamentoIniciado {
+		return ErrPrazoReservaEncerrado
+	}
+
+	return nil
 }
 
 func (s *reservaStore) GetVinculoSnapshot(ctx context.Context, vinculoID int64) (VinculoSnapshot, error) {

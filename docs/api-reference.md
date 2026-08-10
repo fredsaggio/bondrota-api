@@ -756,74 +756,22 @@ Response:
 
 ### Planejamento de Viagens
 
-Permissao: `admin`.
-
-Este endpoint e o integrador operacional. Ele nao e CRUD de viagem manual: cada chamada planeja apenas um sentido a partir das reservas, do horario do turno e dos recursos disponiveis ou ja alocados.
+O planejamento e iniciado exclusivamente pelo processador automatico. Nao existe endpoint publico para admin criar viagens manualmente.
 
 | Metodo | Path completo | Descricao | Body | Sucesso | Erros |
 | --- | --- | --- | --- | --- | --- |
-| `POST` | `BASE_URL/planejamentos/viagens` | Planeja a ida ou a volta para data/turno/municipio de destino/rota interna. | `PlanejarViagensRequest` | `201 PlanejamentoViagensResponse` | `400`, `401`, `403`, `404`, `409`, `422`, `500` |
 | `GET` | `BASE_URL/planejamentos/execucoes/falhas?limit=50` | Lista execucoes que aguardam retry. | - | `200 ExecucaoPlanejamentoFalhaResponse[]` | `400`, `401`, `403`, `500` |
-
-Request:
-
-```json
-{
-  "data_viagem": "2026-06-10",
-  "turno": "NT",
-  "municipio_destino_id": 2704302,
-  "rota_interna_id": 1,
-  "sentido": "ida"
-}
-```
-
-Response:
-
-```json
-{
-  "sentido": "ida",
-  "ciclos": [
-    {
-      "ciclo": {
-        "id": 1,
-        "data_viagem": "2026-06-10",
-        "turno": "NT",
-        "municipio_destino_id": 2704302,
-        "rota_interna_id": 1,
-        "veiculo_id": 1,
-        "motorista_id": 1,
-        "status": "planejado",
-        "expires_at": "2026-09-10T00:00:00Z",
-        "created_at": "2026-06-06T20:00:00Z",
-        "updated_at": "2026-06-06T20:00:00Z"
-      },
-      "viagens": [
-        {
-          "id": 1,
-          "ciclo_viagem_id": 1,
-          "sentido": "ida",
-          "status": "programada",
-          "created_at": "2026-06-06T20:00:00Z",
-          "updated_at": "2026-06-06T20:00:00Z"
-        }
-      ]
-    }
-  ],
-  "quantidade_reservas": 25,
-  "capacidade_total": 46
-}
-```
 
 Regras operacionais importantes:
 
-- O request exige `sentido: "ida"` ou `sentido: "volta"` e cada chamada cria somente a viagem daquele sentido.
+- Cada execucao processa somente um sentido: `ida` ou `volta`.
 - A ida usa reservas `confirmada` do mesmo `data_viagem`, `turno`, `rota_interna_id` e municipio de destino.
 - A volta usa apenas reservas confirmadas de clientes com presenca `embarcou` em uma ida do mesmo planejamento.
 - Usa `horarios_turno_viagem` para definir a partida prevista do sentido solicitado.
 - Calcula `expires_at` automaticamente como `data_viagem + 3 meses`. O frontend nao envia esse campo no request.
 - Na ida, aloca veiculos por capacidade/disponibilidade e motoristas por cidade de destino, turno e disponibilidade; depois cria os ciclos.
 - Na volta, reutiliza os ciclos, veiculos e motoristas criados pela ida. Todos os ciclos da ida recebem uma viagem de volta, mesmo quando nao ha passageiro elegivel.
-- A ida deve ser planejada antes da volta. Repetir o mesmo planejamento retorna `409`.
+- A ida deve ser planejada antes da volta.
 
 O processador interno de planejamento executa todos os candidatos devidos encontrados em uma unica chamada, inclusive quando varias cidades ou rotas possuem o mesmo horario. Ele usa `execucoes_planejamento` para impedir duplicidade e permitir recuperacao de falhas. Os retries usam intervalos progressivos de 1, 2, 4 e no maximo 5 minutos; `proxima_tentativa_em` informa quando uma falha volta a ser elegivel.
 
@@ -1568,21 +1516,9 @@ Fluxo no app do cliente:
    - uma com `sentido: "ida"`
    - outra com `sentido: "volta"`
 
-### 4. Admin planeja viagens
+### 4. Sistema planeja viagens automaticamente
 
-Quando houver reservas para a data/turno/cidade de destino/rota interna, planeje primeiro a ida:
-
-```http
-POST /planejamentos/viagens
-
-{
-  "data_viagem": "2026-06-10",
-  "turno": "NT",
-  "municipio_destino_id": 2704302,
-  "rota_interna_id": 1,
-  "sentido": "ida"
-}
-```
+O Supabase Cron chama `POST /internal/planejamentos/processar` a cada minuto. Ao atingir 30 minutos antes da partida, o processador fecha as reservas daquela data, turno, cidade de destino, rota interna e sentido e inicia o planejamento.
 
 Na ida, o backend:
 
@@ -1597,9 +1533,7 @@ Na ida, o backend:
 9. Cria os horarios previstos.
 10. Cria `viagem_reservas` para as reservas alocadas.
 
-Depois do registro de presenca na ida, uma segunda chamada com `sentido: "volta"` cria as viagens de volta nos mesmos ciclos. Os veiculos e motoristas nao sao recalculados, e somente clientes com presenca `embarcou` na ida entram como passageiros da volta.
-
-Para o frontend, cada retorno informa os `viagem_id` daquele sentido e os `veiculo_id` e `motorista_id` dos ciclos.
+No horario de fechamento da volta, o processador reutiliza os ciclos da ida. Os veiculos e motoristas nao sao recalculados, e somente clientes com presenca `embarcou` na ida entram como passageiros da volta.
 
 **Regras de alocacao de veiculos:**
 

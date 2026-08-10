@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/fredsaggio/bondrota-api/internal/reservas"
+	"github.com/fredsaggio/bondrota-api/internal/viagens"
 	"github.com/stretchr/testify/require"
 )
 
@@ -85,4 +86,92 @@ func TestReservaRepository_EnforcesOneActiveReservationPerDirection(t *testing.T
 	require.NoError(t, err)
 	_, err = store.Create(ctx, input)
 	require.Error(t, err)
+}
+
+func TestReservaRepository_RejectsConfirmedReservationAfterPlanningStarts(t *testing.T) {
+	ctx, tx := beginTestTx(t)
+	fixture := seedFixtureWithVinculo(t, ctx, tx)
+	reservaStore := reservas.NewReservaStore(tx)
+	execucaoStore := viagens.NewExecucaoPlanejamentoStore(tx)
+	dataViagem := futureTripDate()
+	agora := time.Date(dataViagem.Year(), dataViagem.Month(), dataViagem.Day(), 16, 30, 0, 0, time.UTC)
+
+	_, adquirida, err := execucaoStore.TentarIniciar(ctx, viagens.IniciarExecucaoPlanejamentoInput{
+		Chave: viagens.ChaveExecucaoPlanejamento{
+			DataViagem:         dataViagem,
+			Turno:              viagens.TurnoNoturno,
+			MunicipioDestinoID: testMunicipioID,
+			RotaInternaID:      fixture.RotaInternaID,
+			Sentido:            viagens.SentidoIda,
+		},
+		PartidaEm:        agora.Add(30 * time.Minute),
+		FechamentoEm:     agora,
+		Agora:            agora,
+		BloqueioExpiraEm: agora.Add(2 * time.Minute),
+	})
+	require.NoError(t, err)
+	require.True(t, adquirida)
+
+	_, err = reservaStore.Create(ctx, reservas.ReservaInput{
+		ClienteID:     fixture.ClienteID,
+		VinculoID:     fixture.VinculoID,
+		DataViagem:    dataViagem,
+		Turno:         reservas.TurnoNoturno,
+		DestinoID:     fixture.DestinoID,
+		RotaInternaID: fixture.RotaInternaID,
+		Sentido:       reservas.SentidoIda,
+	})
+	require.ErrorIs(t, err, reservas.ErrPrazoReservaEncerrado)
+}
+
+func TestReservaRepository_RejectsReactivationAfterPlanningStarts(t *testing.T) {
+	ctx, tx := beginTestTx(t)
+	fixture := seedFixtureWithVinculo(t, ctx, tx)
+	reservaStore := reservas.NewReservaStore(tx)
+	execucaoStore := viagens.NewExecucaoPlanejamentoStore(tx)
+	dataViagem := futureTripDate()
+
+	created, err := reservaStore.Create(ctx, reservas.ReservaInput{
+		ClienteID:     fixture.ClienteID,
+		VinculoID:     fixture.VinculoID,
+		DataViagem:    dataViagem,
+		Turno:         reservas.TurnoNoturno,
+		DestinoID:     fixture.DestinoID,
+		RotaInternaID: fixture.RotaInternaID,
+		Sentido:       reservas.SentidoVolta,
+	})
+	require.NoError(t, err)
+
+	_, err = reservaStore.Update(ctx, created.ID, func(current *reservas.Reserva) (bool, error) {
+		current.Status = reservas.StatusCancelada
+		return true, nil
+	})
+	require.NoError(t, err)
+
+	agora := time.Date(dataViagem.Year(), dataViagem.Month(), dataViagem.Day(), 21, 30, 0, 0, time.UTC)
+	_, adquirida, err := execucaoStore.TentarIniciar(ctx, viagens.IniciarExecucaoPlanejamentoInput{
+		Chave: viagens.ChaveExecucaoPlanejamento{
+			DataViagem:         dataViagem,
+			Turno:              viagens.TurnoNoturno,
+			MunicipioDestinoID: testMunicipioID,
+			RotaInternaID:      fixture.RotaInternaID,
+			Sentido:            viagens.SentidoVolta,
+		},
+		PartidaEm:        agora.Add(30 * time.Minute),
+		FechamentoEm:     agora,
+		Agora:            agora,
+		BloqueioExpiraEm: agora.Add(2 * time.Minute),
+	})
+	require.NoError(t, err)
+	require.True(t, adquirida)
+
+	_, err = reservaStore.Update(ctx, created.ID, func(current *reservas.Reserva) (bool, error) {
+		current.Status = reservas.StatusConfirmada
+		return true, nil
+	})
+	require.ErrorIs(t, err, reservas.ErrPrazoReservaEncerrado)
+
+	stored, err := reservaStore.GetByID(ctx, created.ID)
+	require.NoError(t, err)
+	require.Equal(t, reservas.StatusCancelada, stored.Status)
 }

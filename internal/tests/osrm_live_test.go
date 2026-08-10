@@ -36,7 +36,7 @@ func TestLiveOSRMRotaDinamica(t *testing.T) {
 		CriarHorario:    true,
 	})
 
-	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
+	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/test/planejamentos/viagens", h.AdminToken, map[string]any{
 		"data_viagem":          dataViagem,
 		"turno":                "NT",
 		"municipio_destino_id": e2eMunicipioID,
