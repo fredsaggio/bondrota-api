@@ -1,8 +1,10 @@
 package viagens
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
 )
@@ -25,14 +27,34 @@ type ResumoProcessamentoPlanejamentoResponse struct {
 }
 
 func (h *ProcessadorPlanejamentoHandler) Processar(w http.ResponseWriter, r *http.Request) {
+	inicio := time.Now()
 	resumo, err := h.processador.Processar(r.Context())
 	if err != nil {
-		slog.Error("failed to process scheduled planejamentos", "error", err, "summary", resumo)
+		logResumoProcessamentoPlanejamento(r.Context(), slog.LevelError, resumo, time.Since(inicio), err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
+	if resumo.Devidos > 0 {
+		logResumoProcessamentoPlanejamento(r.Context(), slog.LevelInfo, resumo, time.Since(inicio), nil)
+	}
 
 	httputils.Respond(w, http.StatusOK, toResumoProcessamentoPlanejamentoResponse(resumo))
+}
+
+func logResumoProcessamentoPlanejamento(ctx context.Context, level slog.Level, resumo ResumoProcessamentoPlanejamento, duracao time.Duration, err error) {
+	attrs := []any{
+		"candidatos", resumo.Candidatos,
+		"devidos", resumo.Devidos,
+		"adquiridos", resumo.Adquiridos,
+		"concluidos", resumo.Concluidos,
+		"sem_demanda", resumo.SemDemanda,
+		"falhos", resumo.Falhos,
+		"duracao_ms", duracao.Milliseconds(),
+	}
+	if err != nil {
+		attrs = append(attrs, "error", err)
+	}
+	slog.Log(ctx, level, "scheduled planning processing completed", attrs...)
 }
 
 func toResumoProcessamentoPlanejamentoResponse(resumo ResumoProcessamentoPlanejamento) ResumoProcessamentoPlanejamentoResponse {

@@ -7,9 +7,10 @@ import (
 )
 
 var (
-	ErrExecucaoNaoProcessando = errors.New("execucao planejamento is not processing")
-	ErrResultadoInvalido      = errors.New("resultado execucao planejamento must be concluido or sem_demanda")
-	ErrUltimoErroObrigatorio  = errors.New("ultimo erro is required")
+	ErrExecucaoNaoProcessando   = errors.New("execucao planejamento is not processing")
+	ErrResultadoInvalido        = errors.New("resultado execucao planejamento must be concluido or sem_demanda")
+	ErrUltimoErroObrigatorio    = errors.New("ultimo erro is required")
+	ErrProximaTentativaInvalida = errors.New("proxima tentativa must be after failure time")
 )
 
 type StatusExecucaoPlanejamento string
@@ -42,10 +43,18 @@ type ExecucaoPlanejamento struct {
 	Tentativas         int
 	UltimoErro         *string
 	BloqueioExpiraEm   *time.Time
+	ProximaTentativaEm *time.Time
 	IniciadoEm         time.Time
 	FinalizadoEm       *time.Time
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
+}
+
+type FalharExecucaoPlanejamentoInput struct {
+	ExecucaoID         int64
+	Mensagem           string
+	FalhouEm           time.Time
+	ProximaTentativaEm time.Time
 }
 
 type IniciarExecucaoPlanejamentoInput struct {
@@ -60,5 +69,14 @@ type ExecucaoPlanejamentoStore interface {
 	TentarIniciar(ctx context.Context, input IniciarExecucaoPlanejamentoInput) (*ExecucaoPlanejamento, bool, error)
 	GetByChave(ctx context.Context, chave ChaveExecucaoPlanejamento) (*ExecucaoPlanejamento, error)
 	Finalizar(ctx context.Context, execucaoID int64, resultado StatusExecucaoPlanejamento) (*ExecucaoPlanejamento, error)
-	Falhar(ctx context.Context, execucaoID int64, mensagem string) (*ExecucaoPlanejamento, error)
+	Falhar(ctx context.Context, input FalharExecucaoPlanejamentoInput) (*ExecucaoPlanejamento, error)
+}
+
+type ExecucaoPlanejamentoFalhaStore interface {
+	ListFalhas(ctx context.Context, limit int) ([]ExecucaoPlanejamento, error)
+}
+
+type ExecucaoPlanejamentoRepository interface {
+	ExecucaoPlanejamentoStore
+	ExecucaoPlanejamentoFalhaStore
 }

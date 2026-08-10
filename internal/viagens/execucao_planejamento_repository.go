@@ -15,7 +15,7 @@ type execucaoPlanejamentoStore struct {
 	db db.DB
 }
 
-func NewExecucaoPlanejamentoStore(database db.DB) ExecucaoPlanejamentoStore {
+func NewExecucaoPlanejamentoStore(database db.DB) ExecucaoPlanejamentoRepository {
 	return &execucaoPlanejamentoStore{db: database}
 }
 
@@ -53,9 +53,13 @@ func (s *execucaoPlanejamentoStore) TentarIniciar(ctx context.Context, input Ini
 			tentativas = execucoes_planejamento.tentativas + 1,
 			ultimo_erro = NULL,
 			bloqueio_expira_em = EXCLUDED.bloqueio_expira_em,
+			proxima_tentativa_em = NULL,
 			iniciado_em = EXCLUDED.iniciado_em,
 			finalizado_em = NULL
-		WHERE execucoes_planejamento.status = 'falhou'
+		WHERE (
+				execucoes_planejamento.status = 'falhou'
+				AND COALESCE(execucoes_planejamento.proxima_tentativa_em, @agora) <= @agora
+			)
 			OR (
 				execucoes_planejamento.status = 'processando'
 				AND execucoes_planejamento.bloqueio_expira_em <= @agora
@@ -73,6 +77,7 @@ func (s *execucaoPlanejamentoStore) TentarIniciar(ctx context.Context, input Ini
 			tentativas,
 			ultimo_erro,
 			bloqueio_expira_em,
+			proxima_tentativa_em,
 			iniciado_em,
 			finalizado_em,
 			created_at,
@@ -122,6 +127,7 @@ func (s *execucaoPlanejamentoStore) GetByChave(ctx context.Context, chave ChaveE
 			tentativas,
 			ultimo_erro,
 			bloqueio_expira_em,
+			proxima_tentativa_em,
 			iniciado_em,
 			finalizado_em,
 			created_at,
@@ -156,6 +162,52 @@ func (s *execucaoPlanejamentoStore) GetByChave(ctx context.Context, chave ChaveE
 	return &execucao, nil
 }
 
+func (s *execucaoPlanejamentoStore) ListFalhas(ctx context.Context, limit int) ([]ExecucaoPlanejamento, error) {
+	const op = "db/execucaoPlanejamentoStore.ListFalhas"
+	if limit <= 0 {
+		limit = 50
+	}
+
+	const q = `
+		SELECT
+			id,
+			data_viagem,
+			turno,
+			municipio_destino_id,
+			rota_interna_id,
+			sentido,
+			partida_em,
+			fechamento_em,
+			status,
+			tentativas,
+			ultimo_erro,
+			bloqueio_expira_em,
+			proxima_tentativa_em,
+			iniciado_em,
+			finalizado_em,
+			created_at,
+			updated_at
+		FROM execucoes_planejamento
+		WHERE status = 'falhou'
+		ORDER BY proxima_tentativa_em, id
+		LIMIT @limit
+	`
+
+	rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{"limit": limit})
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	execucoes, err := pgx.CollectRows(rows, scanExecucaoPlanejamento)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	if execucoes == nil {
+		return []ExecucaoPlanejamento{}, nil
+	}
+	return execucoes, nil
+}
+
 func (s *execucaoPlanejamentoStore) Finalizar(ctx context.Context, execucaoID int64, resultado StatusExecucaoPlanejamento) (*ExecucaoPlanejamento, error) {
 	const op = "db/execucaoPlanejamentoStore.Finalizar"
 
@@ -168,6 +220,7 @@ func (s *execucaoPlanejamentoStore) Finalizar(ctx context.Context, execucaoID in
 		SET status = @status,
 			ultimo_erro = NULL,
 			bloqueio_expira_em = NULL,
+			proxima_tentativa_em = NULL,
 			finalizado_em = NOW()
 		WHERE id = @id
 			AND status = 'processando'
@@ -184,6 +237,7 @@ func (s *execucaoPlanejamentoStore) Finalizar(ctx context.Context, execucaoID in
 			tentativas,
 			ultimo_erro,
 			bloqueio_expira_em,
+			proxima_tentativa_em,
 			iniciado_em,
 			finalizado_em,
 			created_at,
@@ -200,12 +254,15 @@ func (s *execucaoPlanejamentoStore) Finalizar(ctx context.Context, execucaoID in
 	return execucao, nil
 }
 
-func (s *execucaoPlanejamentoStore) Falhar(ctx context.Context, execucaoID int64, mensagem string) (*ExecucaoPlanejamento, error) {
+func (s *execucaoPlanejamentoStore) Falhar(ctx context.Context, input FalharExecucaoPlanejamentoInput) (*ExecucaoPlanejamento, error) {
 	const op = "db/execucaoPlanejamentoStore.Falhar"
 
-	mensagem = strings.TrimSpace(mensagem)
+	mensagem := strings.TrimSpace(input.Mensagem)
 	if mensagem == "" {
 		return nil, ErrUltimoErroObrigatorio
+	}
+	if input.FalhouEm.IsZero() || !input.ProximaTentativaEm.After(input.FalhouEm) {
+		return nil, ErrProximaTentativaInvalida
 	}
 
 	const q = `
@@ -213,7 +270,8 @@ func (s *execucaoPlanejamentoStore) Falhar(ctx context.Context, execucaoID int64
 		SET status = 'falhou',
 			ultimo_erro = @ultimo_erro,
 			bloqueio_expira_em = NULL,
-			finalizado_em = NOW()
+			proxima_tentativa_em = @proxima_tentativa_em,
+			finalizado_em = @falhou_em
 		WHERE id = @id
 			AND status = 'processando'
 		RETURNING
@@ -229,6 +287,7 @@ func (s *execucaoPlanejamentoStore) Falhar(ctx context.Context, execucaoID int64
 			tentativas,
 			ultimo_erro,
 			bloqueio_expira_em,
+			proxima_tentativa_em,
 			iniciado_em,
 			finalizado_em,
 			created_at,
@@ -236,8 +295,10 @@ func (s *execucaoPlanejamentoStore) Falhar(ctx context.Context, execucaoID int64
 	`
 
 	execucao, err := s.updateExecucao(ctx, q, pgx.StrictNamedArgs{
-		"id":          execucaoID,
-		"ultimo_erro": mensagem,
+		"id":                   input.ExecucaoID,
+		"ultimo_erro":          mensagem,
+		"falhou_em":            input.FalhouEm,
+		"proxima_tentativa_em": input.ProximaTentativaEm,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
@@ -288,6 +349,7 @@ func scanExecucaoPlanejamento(row pgx.CollectableRow) (ExecucaoPlanejamento, err
 		&execucao.Tentativas,
 		&execucao.UltimoErro,
 		&execucao.BloqueioExpiraEm,
+		&execucao.ProximaTentativaEm,
 		&execucao.IniciadoEm,
 		&execucao.FinalizadoEm,
 		&execucao.CreatedAt,

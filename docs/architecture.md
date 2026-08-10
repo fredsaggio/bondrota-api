@@ -63,7 +63,8 @@ Projeto escrito em Go, organizado como uma API HTTP REST leve. A aplicação seg
 - `ProcessadorPlanejamento.Processar` executa uma varredura unica. Ele considera o dia atual e o seguinte no fuso de `APP_TIMEZONE`, necessario para partidas logo apos a meia-noite.
 - Um candidato so e processado entre `partida - 30 minutos` e o instante da partida.
 - `ExecucaoPlanejamentoStore` adquire cada combinacao de data, turno, municipio de destino, rota e sentido. Isso impede processamento duplicado por chamadas concorrentes.
-- Uma execucao termina como `concluido`, `sem_demanda` ou `falhou`. Falhas podem ser adquiridas novamente; execucoes interrompidas liberam o bloqueio depois de cinco minutos.
+- Uma execucao termina como `concluido`, `sem_demanda` ou `falhou`. Falhas usam backoff persistido de 1, 2, 4 e no maximo 5 minutos; execucoes interrompidas liberam o bloqueio depois de cinco minutos.
+- `GET /planejamentos/execucoes/falhas` permite ao admin acompanhar erro, tentativas e proximo retry. O processador tambem emite um resumo estruturado quando encontra trabalho devido ou falha.
 - A volta reutiliza os ciclos da ida. Por isso, ela e processada mesmo sem passageiros elegiveis, garantindo a criacao da viagem de retorno dos veiculos.
 - `POST /internal/planejamentos/processar` chama o processador com autenticacao Bearer propria, separada dos JWTs de usuarios.
 - O Supabase Cron chama o endpoint a cada minuto usando `pg_cron` e `pg_net`. A URL e o segredo ficam criptografados no Vault.

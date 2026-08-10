@@ -22,6 +22,8 @@ type ProcessadorPlanejamentoConfig struct {
 	Now                    func() time.Time
 	AntecedenciaFechamento time.Duration
 	DuracaoBloqueio        time.Duration
+	IntervaloRetryInicial  time.Duration
+	IntervaloRetryMaximo   time.Duration
 }
 
 type ResumoProcessamentoPlanejamento struct {

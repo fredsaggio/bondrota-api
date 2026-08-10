@@ -23,7 +23,7 @@ type fakeExecucaoPlanejamentoStore struct {
 	tentarIniciarFn func(context.Context, viagens.IniciarExecucaoPlanejamentoInput) (*viagens.ExecucaoPlanejamento, bool, error)
 	getByChaveFn    func(context.Context, viagens.ChaveExecucaoPlanejamento) (*viagens.ExecucaoPlanejamento, error)
 	finalizarFn     func(context.Context, int64, viagens.StatusExecucaoPlanejamento) (*viagens.ExecucaoPlanejamento, error)
-	falharFn        func(context.Context, int64, string) (*viagens.ExecucaoPlanejamento, error)
+	falharFn        func(context.Context, viagens.FalharExecucaoPlanejamentoInput) (*viagens.ExecucaoPlanejamento, error)
 }
 
 func (s fakeExecucaoPlanejamentoStore) TentarIniciar(ctx context.Context, input viagens.IniciarExecucaoPlanejamentoInput) (*viagens.ExecucaoPlanejamento, bool, error) {
@@ -38,8 +38,8 @@ func (s fakeExecucaoPlanejamentoStore) Finalizar(ctx context.Context, execucaoID
 	return s.finalizarFn(ctx, execucaoID, resultado)
 }
 
-func (s fakeExecucaoPlanejamentoStore) Falhar(ctx context.Context, execucaoID int64, mensagem string) (*viagens.ExecucaoPlanejamento, error) {
-	return s.falharFn(ctx, execucaoID, mensagem)
+func (s fakeExecucaoPlanejamentoStore) Falhar(ctx context.Context, input viagens.FalharExecucaoPlanejamentoInput) (*viagens.ExecucaoPlanejamento, error) {
+	return s.falharFn(ctx, input)
 }
 
 func TestProcessadorPlanejamento_Processar(t *testing.T) {
@@ -78,7 +78,7 @@ func TestProcessadorPlanejamento_Processar(t *testing.T) {
 				finalizados[execucaoID] = resultado
 				return &viagens.ExecucaoPlanejamento{ID: execucaoID, Status: resultado}, nil
 			},
-			falharFn: func(context.Context, int64, string) (*viagens.ExecucaoPlanejamento, error) {
+			falharFn: func(context.Context, viagens.FalharExecucaoPlanejamentoInput) (*viagens.ExecucaoPlanejamento, error) {
 				t.Fatal("no execution should fail")
 				return nil, nil
 			},
@@ -188,20 +188,25 @@ func TestProcessadorPlanejamento_PersistsPlanningFailure(t *testing.T) {
 	agora := time.Date(2026, time.August, 12, 21, 30, 0, 0, location)
 	planningErr := errors.New("vehicles unavailable")
 	failureMessage := ""
+	var proximaTentativa time.Time
 	processador := viagens.NewProcessadorPlanejamento(
 		fakeAgendadorPlanejamentoStore{listFn: func(context.Context, time.Time, time.Time) ([]viagens.CandidatoPlanejamento, error) {
 			return []viagens.CandidatoPlanejamento{novoCandidatoPlanejamento(agora, 4, viagens.SentidoIda, 22*time.Hour)}, nil
 		}},
 		fakeExecucaoPlanejamentoStore{
 			tentarIniciarFn: func(context.Context, viagens.IniciarExecucaoPlanejamentoInput) (*viagens.ExecucaoPlanejamento, bool, error) {
-				return &viagens.ExecucaoPlanejamento{ID: 40}, true, nil
+				return &viagens.ExecucaoPlanejamento{ID: 40, Tentativas: 3}, true, nil
 			},
-			falharFn: func(_ context.Context, execucaoID int64, mensagem string) (*viagens.ExecucaoPlanejamento, error) {
-				if execucaoID != 40 {
-					t.Fatalf("unexpected execution id: %d", execucaoID)
+			falharFn: func(_ context.Context, input viagens.FalharExecucaoPlanejamentoInput) (*viagens.ExecucaoPlanejamento, error) {
+				if input.ExecucaoID != 40 {
+					t.Fatalf("unexpected execution id: %d", input.ExecucaoID)
 				}
-				failureMessage = mensagem
-				return &viagens.ExecucaoPlanejamento{ID: execucaoID, Status: viagens.StatusExecucaoFalhou}, nil
+				if !input.FalhouEm.Equal(agora) {
+					t.Fatalf("unexpected failure time: %v", input.FalhouEm)
+				}
+				failureMessage = input.Mensagem
+				proximaTentativa = input.ProximaTentativaEm
+				return &viagens.ExecucaoPlanejamento{ID: input.ExecucaoID, Status: viagens.StatusExecucaoFalhou}, nil
 			},
 		},
 		fakePlanejamentoService{planejarFn: func(context.Context, viagens.PlanejamentoViagensInput) (*viagens.PlanejamentoViagens, error) {
@@ -216,6 +221,9 @@ func TestProcessadorPlanejamento_PersistsPlanningFailure(t *testing.T) {
 	}
 	if !strings.Contains(failureMessage, planningErr.Error()) || resumo.Falhos != 1 {
 		t.Fatalf("failure was not persisted: message=%q summary=%+v", failureMessage, resumo)
+	}
+	if !proximaTentativa.Equal(agora.Add(4 * time.Minute)) {
+		t.Fatalf("unexpected retry time: %v", proximaTentativa)
 	}
 }
 

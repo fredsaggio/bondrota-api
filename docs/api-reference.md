@@ -763,6 +763,7 @@ Este endpoint e o integrador operacional. Ele nao e CRUD de viagem manual: cada 
 | Metodo | Path completo | Descricao | Body | Sucesso | Erros |
 | --- | --- | --- | --- | --- | --- |
 | `POST` | `BASE_URL/planejamentos/viagens` | Planeja a ida ou a volta para data/turno/municipio de destino/rota interna. | `PlanejarViagensRequest` | `201 PlanejamentoViagensResponse` | `400`, `401`, `403`, `404`, `409`, `422`, `500` |
+| `GET` | `BASE_URL/planejamentos/execucoes/falhas?limit=50` | Lista execucoes que aguardam retry. | - | `200 ExecucaoPlanejamentoFalhaResponse[]` | `400`, `401`, `403`, `500` |
 
 Request:
 
@@ -824,7 +825,27 @@ Regras operacionais importantes:
 - Na volta, reutiliza os ciclos, veiculos e motoristas criados pela ida. Todos os ciclos da ida recebem uma viagem de volta, mesmo quando nao ha passageiro elegivel.
 - A ida deve ser planejada antes da volta. Repetir o mesmo planejamento retorna `409`.
 
-O processador interno de planejamento executa todos os candidatos devidos encontrados em uma unica chamada, inclusive quando varias cidades ou rotas possuem o mesmo horario. Ele usa `execucoes_planejamento` para impedir duplicidade e permitir recuperacao de falhas.
+O processador interno de planejamento executa todos os candidatos devidos encontrados em uma unica chamada, inclusive quando varias cidades ou rotas possuem o mesmo horario. Ele usa `execucoes_planejamento` para impedir duplicidade e permitir recuperacao de falhas. Os retries usam intervalos progressivos de 1, 2, 4 e no maximo 5 minutos; `proxima_tentativa_em` informa quando uma falha volta a ser elegivel.
+
+Exemplo de falha consultada pelo admin:
+
+```json
+{
+  "id": 7,
+  "data_viagem": "2026-08-12",
+  "turno": "NT",
+  "municipio_destino_id": 2704302,
+  "rota_interna_id": 3,
+  "sentido": "ida",
+  "partida_em": "2026-08-12T17:00:00-03:00",
+  "fechamento_em": "2026-08-12T16:30:00-03:00",
+  "status": "falhou",
+  "tentativas": 2,
+  "ultimo_erro": "vehicles unavailable",
+  "proxima_tentativa_em": "2026-08-12T16:32:00-03:00",
+  "finalizado_em": "2026-08-12T16:30:00-03:00"
+}
+```
 
 #### Disparo interno do planejamento
 

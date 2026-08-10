@@ -42,10 +42,29 @@ func TestExecucaoPlanejamentoRepository_ControlsIdempotencyAndRetry(t *testing.T
 	require.False(t, claimed)
 	require.Nil(t, duplicate)
 
-	failed, err := store.Falhar(ctx, created.ID, "temporary allocation failure")
+	proximaTentativa := agora.Add(time.Minute)
+	failed, err := store.Falhar(ctx, viagens.FalharExecucaoPlanejamentoInput{
+		ExecucaoID:         created.ID,
+		Mensagem:           "temporary allocation failure",
+		FalhouEm:           agora,
+		ProximaTentativaEm: proximaTentativa,
+	})
 	require.NoError(t, err)
 	require.Equal(t, viagens.StatusExecucaoFalhou, failed.Status)
 	require.Equal(t, "temporary allocation failure", *failed.UltimoErro)
+	require.True(t, proximaTentativa.Equal(*failed.ProximaTentativaEm))
+	falhas, err := store.ListFalhas(ctx, 10)
+	require.NoError(t, err)
+	require.Len(t, falhas, 1)
+	require.Equal(t, created.ID, falhas[0].ID)
+
+	beforeRetry := input
+	beforeRetry.Agora = agora.Add(30 * time.Second)
+	beforeRetry.BloqueioExpiraEm = agora.Add(3 * time.Minute)
+	notRetried, claimed, err := store.TentarIniciar(ctx, beforeRetry)
+	require.NoError(t, err)
+	require.False(t, claimed)
+	require.Nil(t, notRetried)
 
 	retryInput := input
 	retryInput.Agora = agora.Add(time.Minute)
@@ -56,11 +75,15 @@ func TestExecucaoPlanejamentoRepository_ControlsIdempotencyAndRetry(t *testing.T
 	require.Equal(t, created.ID, retried.ID)
 	require.Equal(t, 2, retried.Tentativas)
 	require.Nil(t, retried.UltimoErro)
+	require.Nil(t, retried.ProximaTentativaEm)
 
 	completed, err := store.Finalizar(ctx, retried.ID, viagens.StatusExecucaoConcluido)
 	require.NoError(t, err)
 	require.Equal(t, viagens.StatusExecucaoConcluido, completed.Status)
 	require.NotNil(t, completed.FinalizadoEm)
+	falhas, err = store.ListFalhas(ctx, 10)
+	require.NoError(t, err)
+	require.Empty(t, falhas)
 
 	afterCompletion, claimed, err := store.TentarIniciar(ctx, retryInput)
 	require.NoError(t, err)
@@ -74,7 +97,12 @@ func TestExecucaoPlanejamentoRepository_ControlsIdempotencyAndRetry(t *testing.T
 
 	_, err = store.Finalizar(ctx, completed.ID, viagens.StatusExecucaoSemDemanda)
 	require.ErrorIs(t, err, viagens.ErrExecucaoNaoProcessando)
-	_, err = store.Falhar(ctx, 999999, "not found")
+	_, err = store.Falhar(ctx, viagens.FalharExecucaoPlanejamentoInput{
+		ExecucaoID:         999999,
+		Mensagem:           "not found",
+		FalhouEm:           agora,
+		ProximaTentativaEm: agora.Add(time.Minute),
+	})
 	require.ErrorIs(t, err, brerror.ErrNotFound)
 }
 

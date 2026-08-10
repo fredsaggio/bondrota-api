@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -1472,6 +1473,119 @@ func TestEndToEndViagemCanceladaNaoInicia(t *testing.T) {
 	doStatus(t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/iniciar", viagemID), h.AdminToken, nil, http.StatusConflict)
 }
 
+func TestEndToEndProcessamentoAutomaticoPlanejamentoIdempotente(t *testing.T) {
+	const planningSecret = "e2e-cron-secret-0123456789abcdef"
+	location := time.FixedZone("America/Maceio", -3*60*60)
+	dataBase := time.Now().In(location).AddDate(0, 0, 6)
+	agora := time.Date(dataBase.Year(), dataBase.Month(), dataBase.Day(), 16, 0, 0, 0, location)
+	now := func() time.Time { return agora }
+
+	h := newE2EHarness(t, e2eRouterOptions{
+		Location:           location,
+		Now:                now,
+		PlanningCronSecret: planningSecret,
+	})
+	suffix := h.Suffix
+	cidade := "e2e-processador-" + suffix
+	motoristaPrefix := "91" + suffix[len(suffix)-6:]
+	clientePrefix := "81" + suffix[len(suffix)-6:]
+	placaPrefix := "P" + suffix[len(suffix)-5:]
+	h.Cleanup(e2eCleanupData{
+		AdminEmail:      h.AdminEmail,
+		MotoristaPrefix: motoristaPrefix,
+		ClientePrefix:   clientePrefix,
+		PlacaPrefix:     placaPrefix,
+		CidadeDestino:   cidade,
+		DestinoPrefix:   "Destino Base E2E " + suffix,
+	})
+
+	rotaInternaID, dataViagem := setupPlanejamentoBase(t, h, planejamentoBaseOptions{
+		CidadeDestino:   cidade,
+		Prefixo:         suffix,
+		MotoristaPrefix: motoristaPrefix,
+		ClientePrefix:   clientePrefix,
+		PlacaPrefix:     placaPrefix,
+		CriarVeiculo:    true,
+		CriarMotorista:  true,
+		CriarHorario:    true,
+	})
+
+	dataPlanejamento, err := time.ParseInLocation("2006-01-02", dataViagem, location)
+	if err != nil {
+		t.Fatalf("parse trip date: %v", err)
+	}
+	agora = time.Date(dataPlanejamento.Year(), dataPlanejamento.Month(), dataPlanejamento.Day(), 16, 30, 0, 0, location)
+
+	type resultadoChamada struct {
+		status int
+		body   []byte
+	}
+	resultados := make(chan resultadoChamada, 2)
+	var wg sync.WaitGroup
+	for range 2 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/internal/planejamentos/processar", nil)
+			req.Header.Set("Authorization", "Bearer "+planningSecret)
+			rr := httptest.NewRecorder()
+			h.Router.ServeHTTP(rr, req)
+			resultados <- resultadoChamada{status: rr.Code, body: rr.Body.Bytes()}
+		}()
+	}
+	wg.Wait()
+	close(resultados)
+
+	totalAdquiridos := 0
+	totalConcluidos := 0
+	for resultado := range resultados {
+		if resultado.status != http.StatusOK {
+			t.Fatalf("expected processor status 200, got %d: %s", resultado.status, resultado.body)
+		}
+		var resumo viagens.ResumoProcessamentoPlanejamentoResponse
+		if err := json.Unmarshal(resultado.body, &resumo); err != nil {
+			t.Fatalf("decode processor response: %v", err)
+		}
+		totalAdquiridos += resumo.Adquiridos
+		totalConcluidos += resumo.Concluidos
+	}
+	if totalAdquiridos != 1 || totalConcluidos != 1 {
+		t.Fatalf("expected one planning execution, got adquiridos=%d concluidos=%d", totalAdquiridos, totalConcluidos)
+	}
+
+	var ciclos int
+	if err := h.Pool.QueryRow(t.Context(), `
+		SELECT COUNT(*)
+		FROM ciclos_viagem
+		WHERE data_viagem = $1 AND turno = 'NT' AND rota_interna_id = $2
+	`, dataViagem, rotaInternaID).Scan(&ciclos); err != nil {
+		t.Fatalf("count planned cycles: %v", err)
+	}
+	if ciclos != 1 {
+		t.Fatalf("expected one cycle, got %d", ciclos)
+	}
+
+	store := viagens.NewExecucaoPlanejamentoStore(h.Pool)
+	execucao, err := store.GetByChave(t.Context(), viagens.ChaveExecucaoPlanejamento{
+		DataViagem:         dataPlanejamento,
+		Turno:              viagens.TurnoNoturno,
+		MunicipioDestinoID: e2eMunicipioID,
+		RotaInternaID:      rotaInternaID,
+		Sentido:            viagens.SentidoIda,
+	})
+	if err != nil {
+		t.Fatalf("get planning execution: %v", err)
+	}
+	if execucao.Status != viagens.StatusExecucaoConcluido || execucao.Tentativas != 1 {
+		t.Fatalf("unexpected planning execution: %+v", execucao)
+	}
+
+	falhas := doJSON[[]viagens.ExecucaoPlanejamentoFalhaResponse](t, h.Router, http.MethodGet, "/api/v1/planejamentos/execucoes/falhas", h.AdminToken, nil, http.StatusOK)
+	if len(falhas) != 0 {
+		t.Fatalf("expected no planning failures, got %+v", falhas)
+	}
+}
+
 type planejamentoBaseOptions struct {
 	CidadeDestino   string
 	Prefixo         string
@@ -1569,8 +1683,11 @@ func setupPlanejamentoBase(t *testing.T, h *e2eHarness, options planejamentoBase
 }
 
 type e2eRouterOptions struct {
-	OSRMBaseURL   string
-	StorageConfig storage.SupabaseConfig
+	OSRMBaseURL        string
+	StorageConfig      storage.SupabaseConfig
+	Location           *time.Location
+	Now                func() time.Time
+	PlanningCronSecret string
 }
 
 type e2eHarness struct {
@@ -1630,6 +1747,15 @@ func (h *e2eHarness) Cleanup(data e2eCleanupData) {
 }
 
 func buildE2ERouter(pool *pgxpool.Pool, authSvc *auth.AuthService, options e2eRouterOptions) http.Handler {
+	location := options.Location
+	if location == nil {
+		location = time.Local
+	}
+	planningCronSecret := options.PlanningCronSecret
+	if planningCronSecret == "" {
+		planningCronSecret = "e2e-planning-secret-0123456789abcdef"
+	}
+
 	adminStore := admin.NewAdminStore(pool)
 	adminSvc := admin.NewAdminService(adminStore, authSvc)
 
@@ -1658,12 +1784,20 @@ func buildE2ERouter(pool *pgxpool.Pool, authSvc *auth.AuthService, options e2eRo
 	rotaDinamicaInvalidator := rotasdinamicas.NewInvalidadorRotaDinamicaService(calculadorRotaDinamicaStore, rotasdinamicas.DefaultJanelaBloqueioRotaDinamica)
 
 	reservaStore := reservas.NewReservaStore(pool)
-	reservaSvc := reservas.NewReservaService(reservaStore, reservas.ReservaServiceConfig{Location: time.Local}, rotaDinamicaInvalidator)
+	reservaSvc := reservas.NewReservaService(reservaStore, reservas.ReservaServiceConfig{Location: location, Now: options.Now}, rotaDinamicaInvalidator)
 
 	cicloViagemStore := viagens.NewCicloViagemStore(pool)
 	horarioTurnoStore := viagens.NewHorarioTurnoViagemStore(pool)
 	horarioTurnoSvc := viagens.NewHorarioTurnoViagemService(horarioTurnoStore)
-	planejamentoSvc := viagens.NewPlanejamentoService(cicloViagemStore, horarioTurnoStore, alocacaoVeiculoSvc, alocacaoMotoristaSvc, viagens.PlanejamentoServiceConfig{Location: time.Local})
+	planejamentoSvc := viagens.NewPlanejamentoService(cicloViagemStore, horarioTurnoStore, alocacaoVeiculoSvc, alocacaoMotoristaSvc, viagens.PlanejamentoServiceConfig{Location: location})
+	agendadorPlanejamentoStore := viagens.NewAgendadorPlanejamentoStore(pool)
+	execucaoPlanejamentoStore := viagens.NewExecucaoPlanejamentoStore(pool)
+	processadorPlanejamento := viagens.NewProcessadorPlanejamento(
+		agendadorPlanejamentoStore,
+		execucaoPlanejamentoStore,
+		planejamentoSvc,
+		viagens.ProcessadorPlanejamentoConfig{Location: location, Now: options.Now},
+	)
 
 	viagemStore := viagens.NewViagemStore(pool)
 	viagemSvc := viagens.NewViagemService(viagemStore)
@@ -1696,13 +1830,18 @@ func buildE2ERouter(pool *pgxpool.Pool, authSvc *auth.AuthService, options e2eRo
 		ReservaHandler:      reservas.NewReservaHandler(reservaSvc),
 		ViagemHandler:       viagens.NewViagemHandler(viagemSvc, presencaSvc, viagemLocalizacaoSvc),
 		PlanejamentoHandler: viagens.NewPlanejamentoHandler(planejamentoSvc),
+		ProcessadorHandler:  viagens.NewProcessadorPlanejamentoHandler(processadorPlanejamento),
+		ExecucaoHandler:     viagens.NewExecucaoPlanejamentoHandler(execucaoPlanejamentoStore),
 		HorarioTurnoHandler: viagens.NewHorarioTurnoViagemHandler(horarioTurnoSvc),
 		RotaDinamicaHandler: rotasdinamicas.NewRotaDinamicaHandler(rotaDinamicaSvc, calculadorRotaDinamicaSvc),
 		StorageHandler:      storageHandler,
 	}
 
 	apiRouter := chi.NewRouter()
-	server.NewServer(handlers, authSvc, server.Config{BaseCity: "Campo Alegre"}).RegisterRoutes(apiRouter)
+	server.NewServer(handlers, authSvc, server.Config{
+		BaseCity:           "Campo Alegre",
+		PlanningCronSecret: planningCronSecret,
+	}).RegisterRoutes(apiRouter)
 
 	root := chi.NewRouter()
 	root.Mount("/api/v1", apiRouter)
@@ -1753,6 +1892,8 @@ func cleanupE2EData(ctx context.Context, t *testing.T, pool *pgxpool.Pool, data 
 		query string
 		args  []any
 	}{
+		{query: `DELETE FROM execucoes_planejamento WHERE rota_interna_id IN (SELECT rota_interna_id FROM cliente_vinculos WHERE cliente_id IN (SELECT id FROM clientes WHERE cpf = $1))`, args: []any{data.ClienteCPF}},
+		{query: `DELETE FROM execucoes_planejamento WHERE rota_interna_id IN (SELECT rota_interna_id FROM cliente_vinculos WHERE cliente_id IN (SELECT id FROM clientes WHERE cpf LIKE $1 || '%'))`, args: []any{data.ClientePrefix}},
 		{query: `DELETE FROM ciclos_viagem WHERE motorista_id IN (SELECT id FROM motoristas WHERE cpf = $1)`, args: []any{data.MotoristaCPF}},
 		{query: `DELETE FROM ciclos_viagem WHERE motorista_id IN (SELECT id FROM motoristas WHERE cpf LIKE $1 || '%')`, args: []any{data.MotoristaPrefix}},
 		{query: `DELETE FROM ciclos_viagem WHERE veiculo_id IN (SELECT id FROM veiculos WHERE placa = $1)`, args: []any{data.Placa}},

@@ -36,6 +36,7 @@ type Handlers struct {
 	ViagemHandler       *viagens.ViagemHandler
 	PlanejamentoHandler *viagens.PlanejamentoHandler
 	ProcessadorHandler  *viagens.ProcessadorPlanejamentoHandler
+	ExecucaoHandler     *viagens.ExecucaoPlanejamentoHandler
 	HorarioTurnoHandler *viagens.HorarioTurnoViagemHandler
 	RotaDinamicaHandler *rotasdinamicas.RotaDinamicaHandler
 	StorageHandler      *storage.Handler
@@ -201,6 +202,7 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 		r.Route("/planejamentos", func(r chi.Router) {
 			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin))
 			r.Post("/viagens", srv.handlers.PlanejamentoHandler.PlanejarViagens)
+			r.Get("/execucoes/falhas", srv.handlers.ExecucaoHandler.ListFalhas)
 		})
 
 		r.Route("/horarios-turno-viagem", func(r chi.Router) {

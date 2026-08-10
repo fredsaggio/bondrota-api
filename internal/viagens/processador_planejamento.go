@@ -12,6 +12,8 @@ import (
 const (
 	DefaultAntecedenciaFechamentoPlanejamento = 30 * time.Minute
 	DefaultDuracaoBloqueioPlanejamento        = 5 * time.Minute
+	DefaultIntervaloRetryInicialPlanejamento  = time.Minute
+	DefaultIntervaloRetryMaximoPlanejamento   = 5 * time.Minute
 )
 
 type ProcessadorPlanejamento struct {
@@ -22,6 +24,8 @@ type ProcessadorPlanejamento struct {
 	now                    func() time.Time
 	antecedenciaFechamento time.Duration
 	duracaoBloqueio        time.Duration
+	intervaloRetryInicial  time.Duration
+	intervaloRetryMaximo   time.Duration
 }
 
 func NewProcessadorPlanejamento(
@@ -42,6 +46,15 @@ func NewProcessadorPlanejamento(
 	if config.DuracaoBloqueio <= 0 {
 		config.DuracaoBloqueio = DefaultDuracaoBloqueioPlanejamento
 	}
+	if config.IntervaloRetryInicial <= 0 {
+		config.IntervaloRetryInicial = DefaultIntervaloRetryInicialPlanejamento
+	}
+	if config.IntervaloRetryMaximo <= 0 {
+		config.IntervaloRetryMaximo = DefaultIntervaloRetryMaximoPlanejamento
+	}
+	if config.IntervaloRetryMaximo < config.IntervaloRetryInicial {
+		config.IntervaloRetryMaximo = config.IntervaloRetryInicial
+	}
 
 	return &ProcessadorPlanejamento{
 		agendador:              agendador,
@@ -51,6 +64,8 @@ func NewProcessadorPlanejamento(
 		now:                    config.Now,
 		antecedenciaFechamento: config.AntecedenciaFechamento,
 		duracaoBloqueio:        config.DuracaoBloqueio,
+		intervaloRetryInicial:  config.IntervaloRetryInicial,
+		intervaloRetryMaximo:   config.IntervaloRetryMaximo,
 	}
 }
 
@@ -138,7 +153,13 @@ func (p *ProcessadorPlanejamento) processarCandidato(
 
 	default:
 		resumo.Falhos++
-		_, falharErr := p.execucoes.Falhar(ctx, execucao.ID, err.Error())
+		proximaTentativaEm := agora.Add(p.intervaloRetry(execucao.Tentativas))
+		_, falharErr := p.execucoes.Falhar(ctx, FalharExecucaoPlanejamentoInput{
+			ExecucaoID:         execucao.ID,
+			Mensagem:           err.Error(),
+			FalhouEm:           agora,
+			ProximaTentativaEm: proximaTentativaEm,
+		})
 		if falharErr != nil {
 			return errors.Join(
 				fmt.Errorf("process planejamento %s: %w", formatarChavePlanejamento(candidato.Chave), err),
@@ -147,6 +168,17 @@ func (p *ProcessadorPlanejamento) processarCandidato(
 		}
 		return fmt.Errorf("process planejamento %s: %w", formatarChavePlanejamento(candidato.Chave), err)
 	}
+}
+
+func (p *ProcessadorPlanejamento) intervaloRetry(tentativa int) time.Duration {
+	intervalo := p.intervaloRetryInicial
+	for atual := 1; atual < tentativa && intervalo < p.intervaloRetryMaximo; atual++ {
+		intervalo *= 2
+		if intervalo > p.intervaloRetryMaximo {
+			return p.intervaloRetryMaximo
+		}
+	}
+	return intervalo
 }
 
 func formatarChavePlanejamento(chave ChaveExecucaoPlanejamento) string {

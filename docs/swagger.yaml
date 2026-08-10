@@ -990,6 +990,72 @@ components:
         falhos:
           type: integer
           example: 0
+    ExecucaoPlanejamentoFalhaResponse:
+      type: object
+      required:
+      - id
+      - data_viagem
+      - turno
+      - municipio_destino_id
+      - rota_interna_id
+      - sentido
+      - partida_em
+      - fechamento_em
+      - status
+      - tentativas
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 7
+        data_viagem:
+          type: string
+          format: date
+          example: '2026-08-12'
+        turno:
+          type: string
+          enum:
+          - MT
+          - VT
+          - NT
+        municipio_destino_id:
+          type: integer
+          format: int64
+          example: 2704302
+        rota_interna_id:
+          type: integer
+          format: int64
+          example: 3
+        sentido:
+          type: string
+          enum:
+          - ida
+          - volta
+        partida_em:
+          type: string
+          format: date-time
+        fechamento_em:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum:
+          - falhou
+        tentativas:
+          type: integer
+          example: 2
+        ultimo_erro:
+          type: string
+          nullable: true
+          example: vehicles unavailable
+        proxima_tentativa_em:
+          type: string
+          format: date-time
+          nullable: true
+        finalizado_em:
+          type: string
+          format: date-time
+          nullable: true
     ViagemHorarioResponse:
       type: object
       properties:
@@ -2546,6 +2612,37 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/PlanejarViagensRequest'
+  /planejamentos/execucoes/falhas:
+    get:
+      summary: Lista falhas do planejamento automatico
+      description: Retorna execucoes que aguardam uma nova tentativa do processador.
+      tags:
+      - Planejamento
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 50
+      responses:
+        '200':
+          description: Falhas pendentes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExecucaoPlanejamentoFalhaResponse'
+        '400':
+          description: Limite invalido
+        '401':
+          description: Nao autenticado
+        '403':
+          description: Apenas administradores
+        '500':
+          description: Erro interno
   /internal/planejamentos/processar:
     post:
       summary: Processa planejamentos devidos
