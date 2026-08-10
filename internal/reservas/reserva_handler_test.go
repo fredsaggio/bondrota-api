@@ -622,3 +622,65 @@ func TestHandler_Delete(t *testing.T) {
 		})
 	}
 }
+
+func TestRequireOwnerOrAdmin(t *testing.T) {
+	tests := []struct {
+		name       string
+		claims     *auth.Claims
+		setup      func(*mocks.MockReservaService)
+		wantStatus int
+	}{
+		{
+			name:   "owner",
+			claims: &auth.Claims{UserID: 10, Role: auth.RoleCliente},
+			setup: func(svc *mocks.MockReservaService) {
+				svc.EXPECT().GetByID(mock.Anything, int64(1)).Return(sampleReserva(), nil)
+			},
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name:   "other cliente",
+			claims: &auth.Claims{UserID: 11, Role: auth.RoleCliente},
+			setup: func(svc *mocks.MockReservaService) {
+				svc.EXPECT().GetByID(mock.Anything, int64(1)).Return(sampleReserva(), nil)
+			},
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name:       "admin bypass",
+			claims:     &auth.Claims{UserID: 1, Role: auth.RoleAdmin},
+			setup:      func(*mocks.MockReservaService) {},
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name:       "missing claims",
+			setup:      func(*mocks.MockReservaService) {},
+			wantStatus: http.StatusUnauthorized,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := mocks.NewMockReservaService(t)
+			tc.setup(svc)
+			h := reservas.NewReservaHandler(svc)
+			r := chi.NewRouter()
+			r.With(func(next http.Handler) http.Handler {
+				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if tc.claims != nil {
+						r = r.WithContext(context.WithValue(r.Context(), auth.ClaimsKey, tc.claims))
+					}
+					next.ServeHTTP(w, r)
+				})
+			}, h.RequireOwnerOrAdmin).Get("/reservas/{reservaID}", func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusNoContent)
+			})
+
+			rr := httptest.NewRecorder()
+			r.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/reservas/1", nil))
+			if rr.Code != tc.wantStatus {
+				t.Fatalf("want %d, got %d: %s", tc.wantStatus, rr.Code, rr.Body.String())
+			}
+		})
+	}
+}

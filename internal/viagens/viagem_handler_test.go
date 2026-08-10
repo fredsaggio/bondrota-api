@@ -2,12 +2,14 @@ package viagens_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/fredsaggio/bondrota-api/internal/auth"
 	"github.com/fredsaggio/bondrota-api/internal/brerror"
 	"github.com/fredsaggio/bondrota-api/internal/viagens"
 	"github.com/go-chi/chi/v5"
@@ -86,6 +88,99 @@ func TestViagemHandler_List(t *testing.T) {
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("want %d, got %d: %s", http.StatusOK, rr.Code, rr.Body.String())
+	}
+}
+
+func TestViagemHandler_ListFiltersByAuthenticatedMotorista(t *testing.T) {
+	assigned := sampleViagemComCiclo()
+	assigned.Ciclo.MotoristaID = 4
+	other := sampleViagemComCiclo()
+	other.Viagem.ID = 11
+	other.Ciclo.MotoristaID = 5
+
+	h := viagens.NewViagemHandler(fakeViagemService{
+		listFn: func(_ context.Context) ([]viagens.ViagemComCiclo, error) {
+			return []viagens.ViagemComCiclo{assigned, other}, nil
+		},
+	}, fakePresencaService{})
+
+	req := httptest.NewRequest(http.MethodGet, "/viagens", nil)
+	req = req.WithContext(context.WithValue(req.Context(), auth.ClaimsKey, &auth.Claims{
+		UserID: 4,
+		Role:   auth.RoleMotorista,
+	}))
+	rr := httptest.NewRecorder()
+
+	newViagemRouter(h).ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("want %d, got %d: %s", http.StatusOK, rr.Code, rr.Body.String())
+	}
+	var response []map[string]any
+	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(response) != 1 || response[0]["viagem"].(map[string]any)["id"] != float64(10) {
+		t.Fatalf("expected only assigned viagem, got %#v", response)
+	}
+}
+
+func TestRequireAssignedMotoristaOrAdmin(t *testing.T) {
+	tests := []struct {
+		name       string
+		claims     *auth.Claims
+		getFn      func(context.Context, int64) (*viagens.ViagemComCiclo, error)
+		wantStatus int
+	}{
+		{
+			name:   "assigned motorista",
+			claims: &auth.Claims{UserID: 4, Role: auth.RoleMotorista},
+			getFn: func(_ context.Context, _ int64) (*viagens.ViagemComCiclo, error) {
+				v := sampleViagemComCiclo()
+				return &v, nil
+			},
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name:   "other motorista",
+			claims: &auth.Claims{UserID: 5, Role: auth.RoleMotorista},
+			getFn: func(_ context.Context, _ int64) (*viagens.ViagemComCiclo, error) {
+				v := sampleViagemComCiclo()
+				return &v, nil
+			},
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name:       "admin bypass",
+			claims:     &auth.Claims{UserID: 1, Role: auth.RoleAdmin},
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name:       "missing claims",
+			wantStatus: http.StatusUnauthorized,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			h := viagens.NewViagemHandler(fakeViagemService{getFn: tc.getFn}, fakePresencaService{})
+			r := chi.NewRouter()
+			r.With(func(next http.Handler) http.Handler {
+				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if tc.claims != nil {
+						r = r.WithContext(context.WithValue(r.Context(), auth.ClaimsKey, tc.claims))
+					}
+					next.ServeHTTP(w, r)
+				})
+			}, h.RequireAssignedMotoristaOrAdmin).Get("/viagens/{viagemID}", func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusNoContent)
+			})
+
+			rr := httptest.NewRecorder()
+			r.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/viagens/10", nil))
+			if rr.Code != tc.wantStatus {
+				t.Fatalf("want %d, got %d: %s", tc.wantStatus, rr.Code, rr.Body.String())
+			}
+		})
 	}
 }
 

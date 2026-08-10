@@ -32,6 +32,41 @@ func NewViagemHandler(viagemSvc ViagemService, presencaSvc PresencaService, loca
 	}
 }
 
+func (h *ViagemHandler) RequireAssignedMotoristaOrAdmin(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		actor, err := actorFromRequest(r)
+		if err != nil {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if actor.Role == auth.RoleAdmin {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if actor.Role != auth.RoleMotorista {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+
+		viagemID, err := conv.ParseInt(r, "viagemID")
+		if err != nil {
+			http.Error(w, "invalid viagem id", http.StatusBadRequest)
+			return
+		}
+		viagem, err := h.viagemSvc.GetByID(r.Context(), viagemID)
+		if err != nil {
+			h.handleError(w, err, "failed to authorize viagem access")
+			return
+		}
+		if viagem.Ciclo.MotoristaID != actor.UserID {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 type AtualizarPresencaRequest struct {
 	StatusPresenca StatusPresencaViagem `json:"status_presenca"`
 }
@@ -121,6 +156,16 @@ func (h *ViagemHandler) List(w http.ResponseWriter, r *http.Request) {
 		slog.Error("failed to list viagens", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
+	}
+
+	if claims, ok := r.Context().Value(auth.ClaimsKey).(*auth.Claims); ok && claims.Role == auth.RoleMotorista {
+		assigned := make([]ViagemComCiclo, 0, len(viagens))
+		for _, viagem := range viagens {
+			if viagem.Ciclo.MotoristaID == claims.UserID {
+				assigned = append(assigned, viagem)
+			}
+		}
+		viagens = assigned
 	}
 
 	httputils.Respond(w, http.StatusOK, toViagemComCicloResponses(viagens))

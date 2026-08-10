@@ -496,7 +496,10 @@ Response:
 
 ### Clientes
 
-Permissao: `admin` ou `cliente`, exceto login publico.
+Permissoes:
+
+- `POST /clientes/` e `GET /clientes/`: somente `admin`.
+- Rotas com `{clienteID}`: `admin` ou o proprio cliente, quando `clienteID` for igual ao `user_id` do JWT.
 
 | Metodo | Path completo | Descricao | Body | Sucesso | Erros |
 | --- | --- | --- | --- | --- | --- |
@@ -568,7 +571,7 @@ Response de `GET /clientes/{clienteID}`:
 
 ### Vinculos de Cliente
 
-Permissao: `admin` ou `cliente`.
+Permissao: `admin` ou o proprio cliente identificado por `{clienteID}`.
 
 Vinculo liga um cliente a um destino e a uma rota interna. Ele representa a relacao operacional do cliente com faculdade/estagio, turno, comprovante e dias fixos.
 
@@ -628,7 +631,11 @@ Response:
 
 ### Reservas
 
-Permissao: `admin` ou `cliente`.
+Permissoes:
+
+- `GET /reservas/`: somente `admin`.
+- Rotas com `{reservaID}`: `admin` ou o cliente proprietario da reserva.
+- Rotas aninhadas em `/clientes/{clienteID}`: `admin` ou o proprio cliente.
 
 Reserva e criada a partir de um vinculo. Ela guarda snapshot de `cliente_id`, `vinculo_id`, `destino_id`, `rota_interna_id`, `data_viagem`, `turno` e `sentido`. Isso permite manter a reserva historica mesmo se o vinculo mudar depois.
 
@@ -818,7 +825,7 @@ Esse endpoint nao aceita JWT de admin, cliente ou motorista. O Supabase Cron o c
 
 ### Viagens
 
-Permissao: `admin` ou `motorista`.
+Permissao: `admin` ou `motorista`. O motorista lista apenas as viagens atribuidas a ele e recebe `403` ao tentar consultar ou operar uma viagem de outro motorista.
 
 Status de viagem: `programada`, `em_andamento`, `concluida`, `cancelada`.
 
@@ -989,7 +996,7 @@ Para o frontend mobile, um polling de `GET /viagens/{viagemID}/localizacao` a ca
 
 ### Rotas Dinamicas
 
-Permissao: `admin` ou `motorista`.
+Permissao: `admin` ou o motorista atribuido a viagem.
 
 A rota dinamica e a rota calculada para uma viagem especifica. Existe no maximo uma rota dinamica por `viagem_id`.
 

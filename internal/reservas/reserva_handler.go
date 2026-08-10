@@ -22,6 +22,41 @@ func NewReservaHandler(svc ReservaService) *ReservaHandler {
 	return &ReservaHandler{svc: svc}
 }
 
+func (h *ReservaHandler) RequireOwnerOrAdmin(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		claims, ok := r.Context().Value(auth.ClaimsKey).(*auth.Claims)
+		if !ok || claims.UserID <= 0 {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if claims.Role == auth.RoleAdmin {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if claims.Role != auth.RoleCliente {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+
+		reservaID, err := conv.ParseInt(r, "reservaID")
+		if err != nil {
+			http.Error(w, "invalid reserva id", http.StatusBadRequest)
+			return
+		}
+		reserva, err := h.svc.GetByID(r.Context(), reservaID)
+		if err != nil {
+			h.handleError(w, err, "failed to authorize reserva access")
+			return
+		}
+		if reserva.ClienteID != claims.UserID {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 type CreateReservaRequest struct {
 	DataViagem string         `json:"data_viagem"`
 	Turno      TurnoReserva   `json:"turno"`
