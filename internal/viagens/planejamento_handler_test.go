@@ -28,10 +28,10 @@ func newPlanejamentoRouter(h *viagens.PlanejamentoHandler) http.Handler {
 
 func validPlanejamentoBody() map[string]any {
 	return map[string]any{
-		"data_viagem":     "2026-06-10",
-		"turno":           "NT",
-		"cidade":          "Campo Alegre",
-		"rota_interna_id": 2,
+		"data_viagem":          "2026-06-10",
+		"turno":                "NT",
+		"municipio_destino_id": int64(2704302),
+		"rota_interna_id":      2,
 	}
 }
 
@@ -47,7 +47,7 @@ func TestPlanejamentoHandler_PlanejarViagens(t *testing.T) {
 			body: validPlanejamentoBody(),
 			svc: fakePlanejamentoService{
 				planejarFn: func(_ context.Context, input viagens.PlanejamentoViagensInput) (*viagens.PlanejamentoViagens, error) {
-					if input.Cidade != "Campo Alegre" || input.Turno != viagens.TurnoNoturno {
+					if input.MunicipioDestinoID != 2704302 || input.Turno != viagens.TurnoNoturno {
 						t.Fatalf("unexpected input: %+v", input)
 					}
 					ciclo := sampleCicloComViagens()

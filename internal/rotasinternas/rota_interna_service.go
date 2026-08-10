@@ -51,10 +51,6 @@ func (s *rotaInternaService) List(ctx context.Context) ([]RotaInterna, error) {
 	return s.store.List(ctx)
 }
 
-func (s *rotaInternaService) ListByCity(ctx context.Context, cidade string) ([]RotaInterna, error) {
-	return s.store.ListByCity(ctx, cidade)
-}
-
 func (s *rotaInternaService) Delete(ctx context.Context, rotaInternaID int64) error {
 	return s.store.Delete(ctx, rotaInternaID)
 }

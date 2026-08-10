@@ -14,7 +14,6 @@ import (
 
 type fakeCicloViagemStore struct {
 	createCicloFn            func(ctx context.Context, input viagens.CicloViagemInput) (*viagens.CicloViagem, error)
-	createCicloComViagensFn  func(ctx context.Context, input viagens.CicloViagemInput, partidas map[viagens.SentidoViagem]time.Time) (*viagens.CicloComViagens, error)
 	createCiclosComViagensFn func(ctx context.Context, inputs []viagens.CicloViagemComReservasInput, partidas map[viagens.SentidoViagem]time.Time) (*viagens.PlanejamentoViagens, error)
 	listReservasFn           func(ctx context.Context, filtro viagens.PlanejamentoReservasFiltro) ([]viagens.PlanejamentoReserva, error)
 	getCicloByIDFn           func(ctx context.Context, cicloID int64) (*viagens.CicloViagem, error)
@@ -24,10 +23,6 @@ type fakeCicloViagemStore struct {
 
 func (s fakeCicloViagemStore) CreateCiclo(ctx context.Context, input viagens.CicloViagemInput) (*viagens.CicloViagem, error) {
 	return s.createCicloFn(ctx, input)
-}
-
-func (s fakeCicloViagemStore) CreateCicloComViagens(ctx context.Context, input viagens.CicloViagemInput, partidas map[viagens.SentidoViagem]time.Time) (*viagens.CicloComViagens, error) {
-	return s.createCicloComViagensFn(ctx, input, partidas)
 }
 
 func (s fakeCicloViagemStore) CreateCiclosComViagens(ctx context.Context, inputs []viagens.CicloViagemComReservasInput, partidas map[viagens.SentidoViagem]time.Time) (*viagens.PlanejamentoViagens, error) {
@@ -51,7 +46,7 @@ func (s fakeCicloViagemStore) UpdateCiclo(ctx context.Context, cicloID int64, up
 }
 
 type fakeHorarioTurnoViagemStore struct {
-	getByCidadeTurnoFn func(ctx context.Context, cidade string, turno viagens.TurnoViagem) (*viagens.HorarioTurnoViagem, error)
+	getByMunicipioDestinoTurnoFn func(ctx context.Context, municipioDestinoID int64, turno viagens.TurnoViagem) (*viagens.HorarioTurnoViagem, error)
 }
 
 func (s fakeHorarioTurnoViagemStore) Create(ctx context.Context, input viagens.HorarioTurnoViagemInput) (*viagens.HorarioTurnoViagem, error) {
@@ -62,8 +57,8 @@ func (s fakeHorarioTurnoViagemStore) GetByID(ctx context.Context, id int64) (*vi
 	return nil, nil
 }
 
-func (s fakeHorarioTurnoViagemStore) GetByCidadeTurno(ctx context.Context, cidade string, turno viagens.TurnoViagem) (*viagens.HorarioTurnoViagem, error) {
-	return s.getByCidadeTurnoFn(ctx, cidade, turno)
+func (s fakeHorarioTurnoViagemStore) GetByMunicipioDestinoTurno(ctx context.Context, municipioDestinoID int64, turno viagens.TurnoViagem) (*viagens.HorarioTurnoViagem, error) {
+	return s.getByMunicipioDestinoTurnoFn(ctx, municipioDestinoID, turno)
 }
 
 func (s fakeHorarioTurnoViagemStore) List(ctx context.Context) ([]viagens.HorarioTurnoViagem, error) {
@@ -96,10 +91,10 @@ func (a fakeMotoristaAlocador) Alocar(ctx context.Context, input motoristas.Aloc
 
 func validPlanejamentoInput() viagens.PlanejamentoViagensInput {
 	return viagens.PlanejamentoViagensInput{
-		DataViagem:    time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC),
-		Turno:         viagens.TurnoNoturno,
-		Cidade:        "Campo Alegre",
-		RotaInternaID: 2,
+		DataViagem:         time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC),
+		Turno:              viagens.TurnoNoturno,
+		MunicipioDestinoID: 2704302,
+		RotaInternaID:      2,
 	}
 }
 
@@ -112,18 +107,18 @@ func validPartidas() map[viagens.SentidoViagem]time.Time {
 
 func validHorarioStore() fakeHorarioTurnoViagemStore {
 	return fakeHorarioTurnoViagemStore{
-		getByCidadeTurnoFn: func(_ context.Context, cidade string, turno viagens.TurnoViagem) (*viagens.HorarioTurnoViagem, error) {
-			if cidade != "Campo Alegre" {
-				return nil, errors.New("unexpected cidade")
+		getByMunicipioDestinoTurnoFn: func(_ context.Context, municipioDestinoID int64, turno viagens.TurnoViagem) (*viagens.HorarioTurnoViagem, error) {
+			if municipioDestinoID != 2704302 {
+				return nil, errors.New("unexpected municipio_destino_id")
 			}
 			if turno != viagens.TurnoNoturno {
 				return nil, errors.New("unexpected turno")
 			}
 			return &viagens.HorarioTurnoViagem{
-				Cidade:       cidade,
-				Turno:        turno,
-				HorarioIda:   18 * time.Hour,
-				HorarioVolta: 22 * time.Hour,
+				MunicipioDestinoID: municipioDestinoID,
+				Turno:              turno,
+				HorarioIda:         18 * time.Hour,
+				HorarioVolta:       22 * time.Hour,
 			}, nil
 		},
 	}

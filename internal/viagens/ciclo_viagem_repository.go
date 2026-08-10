@@ -25,24 +25,24 @@ func (s *cicloViagemStore) CreateCiclo(ctx context.Context, input CicloViagemInp
 
 	const q = `
 		INSERT INTO ciclos_viagem (
-			data_viagem, turno, cidade, rota_interna_id, veiculo_id, motorista_id, expires_at
+			data_viagem, turno, municipio_destino_id, rota_interna_id, veiculo_id, motorista_id, expires_at
 		)
 		VALUES (
-			@data_viagem, @turno, @cidade, @rota_interna_id, @veiculo_id, @motorista_id, @expires_at
+			@data_viagem, @turno, @municipio_destino_id, @rota_interna_id, @veiculo_id, @motorista_id, @expires_at
 		)
 		RETURNING
-			id, data_viagem, turno, cidade, rota_interna_id, veiculo_id, motorista_id,
+			id, data_viagem, turno, municipio_destino_id, rota_interna_id, veiculo_id, motorista_id,
 			status, expires_at, created_at, updated_at
 	`
 
 	rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{
-		"data_viagem":     input.DataViagem,
-		"turno":           input.Turno,
-		"cidade":          input.Cidade,
-		"rota_interna_id": input.RotaInternaID,
-		"veiculo_id":      input.VeiculoID,
-		"motorista_id":    input.MotoristaID,
-		"expires_at":      input.ExpiresAt,
+		"data_viagem":          input.DataViagem,
+		"turno":                input.Turno,
+		"municipio_destino_id": input.MunicipioDestinoID,
+		"rota_interna_id":      input.RotaInternaID,
+		"veiculo_id":           input.VeiculoID,
+		"motorista_id":         input.MotoristaID,
+		"expires_at":           input.ExpiresAt,
 	})
 	if err != nil {
 		if isCicloAlreadyAllocated(err) {
@@ -60,63 +60,6 @@ func (s *cicloViagemStore) CreateCiclo(ctx context.Context, input CicloViagemInp
 	}
 
 	return &ciclo, nil
-}
-
-func (s *cicloViagemStore) CreateCicloComViagens(ctx context.Context, input CicloViagemInput, partidas map[SentidoViagem]time.Time) (*CicloComViagens, error) {
-	const op = "db/cicloViagemStore.CreateCicloComViagens"
-
-	var ciclo CicloViagem
-	var viagemIda Viagem
-	var viagemVolta Viagem
-
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		var err error
-
-		ciclo, err = insertCicloViagem(ctx, tx, input)
-		if err != nil {
-			if isCicloAlreadyAllocated(err) {
-				return brerror.ErrAlreadyExists
-			}
-			return fmt.Errorf("insert ciclo viagem: %w", err)
-		}
-
-		viagemIda, err = insertViagemComPartida(ctx, tx, ViagemInput{
-			CicloViagemID:   ciclo.ID,
-			Sentido:         SentidoIda,
-			PartidaPrevista: partidas[SentidoIda],
-		})
-		if err != nil {
-			return fmt.Errorf("insert viagem ida: %w", err)
-		}
-		if err := insertViagemReservasConfirmadas(ctx, tx, viagemIda.ID, input, SentidoIda); err != nil {
-			return fmt.Errorf("insert reservas ida: %w", err)
-		}
-
-		viagemVolta, err = insertViagemComPartida(ctx, tx, ViagemInput{
-			CicloViagemID:   ciclo.ID,
-			Sentido:         SentidoVolta,
-			PartidaPrevista: partidas[SentidoVolta],
-		})
-		if err != nil {
-			return fmt.Errorf("insert viagem volta: %w", err)
-		}
-		if err := insertViagemReservasConfirmadas(ctx, tx, viagemVolta.ID, input, SentidoVolta); err != nil {
-			return fmt.Errorf("insert reservas volta: %w", err)
-		}
-
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
-
-	return &CicloComViagens{
-		Ciclo: ciclo,
-		Viagens: []Viagem{
-			viagemIda,
-			viagemVolta,
-		},
-	}, nil
 }
 
 func (s *cicloViagemStore) CreateCiclosComViagens(ctx context.Context, inputs []CicloViagemComReservasInput, partidas map[SentidoViagem]time.Time) (*PlanejamentoViagens, error) {
@@ -180,23 +123,24 @@ func (s *cicloViagemStore) ListReservasConfirmadasParaPlanejamento(ctx context.C
 	const op = "db/cicloViagemStore.ListReservasConfirmadasParaPlanejamento"
 
 	const q = `
-		SELECT id, destino_id
-		FROM reservas
-		WHERE data_viagem = @data_viagem
-			AND turno = @turno
-			AND cidade = @cidade
-			AND rota_interna_id = @rota_interna_id
-			AND sentido = @sentido
-			AND status = 'confirmada'
-		ORDER BY id
+		SELECT r.id, r.destino_id
+		FROM reservas r
+		JOIN destinos d ON d.id = r.destino_id
+		WHERE r.data_viagem = @data_viagem
+			AND r.turno = @turno
+			AND d.municipio_id = @municipio_destino_id
+			AND r.rota_interna_id = @rota_interna_id
+			AND r.sentido = @sentido
+			AND r.status = 'confirmada'
+		ORDER BY r.id
 	`
 
 	rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{
-		"data_viagem":     filtro.DataViagem,
-		"turno":           filtro.Turno,
-		"cidade":          filtro.Cidade,
-		"rota_interna_id": filtro.RotaInternaID,
-		"sentido":         filtro.Sentido,
+		"data_viagem":          filtro.DataViagem,
+		"turno":                filtro.Turno,
+		"municipio_destino_id": filtro.MunicipioDestinoID,
+		"rota_interna_id":      filtro.RotaInternaID,
+		"sentido":              filtro.Sentido,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
@@ -236,7 +180,7 @@ func (s *cicloViagemStore) ListCiclos(ctx context.Context) ([]CicloViagem, error
 
 	const q = `
 		SELECT
-			id, data_viagem, turno, cidade, rota_interna_id, veiculo_id, motorista_id,
+			id, data_viagem, turno, municipio_destino_id, rota_interna_id, veiculo_id, motorista_id,
 			status, expires_at, created_at, updated_at
 		FROM ciclos_viagem
 		ORDER BY data_viagem DESC, turno ASC, id DESC
@@ -285,7 +229,6 @@ func (s *cicloViagemStore) UpdateCiclo(ctx context.Context, cicloID int64, updat
 			UPDATE ciclos_viagem
 			SET data_viagem = @data_viagem,
 				turno = @turno,
-				cidade = @cidade,
 				rota_interna_id = @rota_interna_id,
 				veiculo_id = @veiculo_id,
 				motorista_id = @motorista_id,
@@ -293,7 +236,7 @@ func (s *cicloViagemStore) UpdateCiclo(ctx context.Context, cicloID int64, updat
 				expires_at = @expires_at
 			WHERE id = @id
 			RETURNING
-				id, data_viagem, turno, cidade, rota_interna_id, veiculo_id, motorista_id,
+				id, data_viagem, turno, municipio_destino_id, rota_interna_id, veiculo_id, motorista_id,
 				status, expires_at, created_at, updated_at
 		`
 
@@ -301,7 +244,6 @@ func (s *cicloViagemStore) UpdateCiclo(ctx context.Context, cicloID int64, updat
 			"id":              ciclo.ID,
 			"data_viagem":     ciclo.DataViagem,
 			"turno":           ciclo.Turno,
-			"cidade":          ciclo.Cidade,
 			"rota_interna_id": ciclo.RotaInternaID,
 			"veiculo_id":      ciclo.VeiculoID,
 			"motorista_id":    ciclo.MotoristaID,
@@ -337,7 +279,7 @@ func getCicloViagemByID(ctx context.Context, querier interface {
 }, cicloID int64, forUpdate bool) (*CicloViagem, error) {
 	q := `
 		SELECT
-			id, data_viagem, turno, cidade, rota_interna_id, veiculo_id, motorista_id,
+			id, data_viagem, turno, municipio_destino_id, rota_interna_id, veiculo_id, motorista_id,
 			status, expires_at, created_at, updated_at
 		FROM ciclos_viagem
 		WHERE id = @id
@@ -364,24 +306,24 @@ func insertCicloViagem(ctx context.Context, querier interface {
 }, input CicloViagemInput) (CicloViagem, error) {
 	const q = `
 		INSERT INTO ciclos_viagem (
-			data_viagem, turno, cidade, rota_interna_id, veiculo_id, motorista_id, expires_at
+			data_viagem, turno, municipio_destino_id, rota_interna_id, veiculo_id, motorista_id, expires_at
 		)
 		VALUES (
-			@data_viagem, @turno, @cidade, @rota_interna_id, @veiculo_id, @motorista_id, @expires_at
+			@data_viagem, @turno, @municipio_destino_id, @rota_interna_id, @veiculo_id, @motorista_id, @expires_at
 		)
 		RETURNING
-			id, data_viagem, turno, cidade, rota_interna_id, veiculo_id, motorista_id,
+			id, data_viagem, turno, municipio_destino_id, rota_interna_id, veiculo_id, motorista_id,
 			status, expires_at, created_at, updated_at
 	`
 
 	rows, err := querier.Query(ctx, q, pgx.StrictNamedArgs{
-		"data_viagem":     input.DataViagem,
-		"turno":           input.Turno,
-		"cidade":          input.Cidade,
-		"rota_interna_id": input.RotaInternaID,
-		"veiculo_id":      input.VeiculoID,
-		"motorista_id":    input.MotoristaID,
-		"expires_at":      input.ExpiresAt,
+		"data_viagem":          input.DataViagem,
+		"turno":                input.Turno,
+		"municipio_destino_id": input.MunicipioDestinoID,
+		"rota_interna_id":      input.RotaInternaID,
+		"veiculo_id":           input.VeiculoID,
+		"motorista_id":         input.MotoristaID,
+		"expires_at":           input.ExpiresAt,
 	})
 	if err != nil {
 		return CicloViagem{}, err
@@ -438,38 +380,6 @@ func insertViagemComPartida(ctx context.Context, querier interface {
 	return viagem, nil
 }
 
-func insertViagemReservasConfirmadas(ctx context.Context, querier interface {
-	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
-}, viagemID int64, input CicloViagemInput, sentido SentidoViagem) error {
-	const q = `
-		INSERT INTO viagem_reservas (viagem_id, reserva_id)
-		SELECT @viagem_id, id
-		FROM reservas
-		WHERE data_viagem = @data_viagem
-			AND turno = @turno
-			AND cidade = @cidade
-			AND rota_interna_id = @rota_interna_id
-			AND sentido = @sentido
-			AND status = 'confirmada'
-	`
-
-	if _, err := querier.Exec(ctx, q, pgx.StrictNamedArgs{
-		"viagem_id":       viagemID,
-		"data_viagem":     input.DataViagem,
-		"turno":           input.Turno,
-		"cidade":          input.Cidade,
-		"rota_interna_id": input.RotaInternaID,
-		"sentido":         sentido,
-	}); err != nil {
-		if isViagemReservaAlreadyAllocated(err) {
-			return brerror.ErrAlreadyExists
-		}
-		return err
-	}
-
-	return nil
-}
-
 func insertViagemReservasByIDs(ctx context.Context, querier interface {
 	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
 }, viagemID int64, reservaIDs []int64) error {
@@ -501,7 +411,7 @@ func scanCicloViagem(row pgx.CollectableRow) (CicloViagem, error) {
 		&ciclo.ID,
 		&ciclo.DataViagem,
 		&ciclo.Turno,
-		&ciclo.Cidade,
+		&ciclo.MunicipioDestinoID,
 		&ciclo.RotaInternaID,
 		&ciclo.VeiculoID,
 		&ciclo.MotoristaID,

@@ -17,7 +17,7 @@ func TestMotoristaRepository_CRUD(t *testing.T) {
 	created, err := store.Create(ctx, motoristas.MotoristaInput{
 		Nome: "Carlos", CPF: "40000000001", Senha: "hash", Telefone: "82999990000",
 		DataNasc: time.Date(1985, 5, 20, 0, 0, 0, 0, time.UTC), Turno: motoristas.TurnoIntegral,
-		CidadeTrabalho: testCity, Residencia: testCity,
+		MunicipioTrabalhoID: testMunicipioID, Residencia: testCity,
 	})
 	require.NoError(t, err)
 
@@ -44,13 +44,13 @@ func TestMotoristaRepository_CRUD(t *testing.T) {
 func TestMotoristaRepository_ListsOnlyAvailableDrivers(t *testing.T) {
 	ctx, tx := beginTestTx(t)
 	fixture := seedBaseFixture(t, ctx, tx)
-	availableID := seedMotorista(t, ctx, tx, "40000000002", testCity, "IN")
+	availableID := seedMotorista(t, ctx, tx, "40000000002", testMunicipioID, "IN")
 	tripDate := futureTripDate()
 	seedCiclo(t, ctx, tx, fixture, tripDate)
 
 	store := motoristas.NewAlocacaoMotoristaStore(tx)
 	available, err := store.ListDisponiveisParaAlocacao(ctx, motoristas.MotoristasDisponiveisFiltro{
-		Cidade: "maceio", DataViagem: tripDate, Turno: motoristas.TurnoNoturno, Limit: 10,
+		MunicipioTrabalhoID: testMunicipioID, DataViagem: tripDate, Turno: motoristas.TurnoNoturno, Limit: 10,
 	})
 	require.NoError(t, err)
 	require.Len(t, available, 1)

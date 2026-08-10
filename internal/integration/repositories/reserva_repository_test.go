@@ -18,7 +18,7 @@ func TestReservaRepository_CRUDAndVinculoSnapshot(t *testing.T) {
 	created, err := store.Create(ctx, reservas.ReservaInput{
 		ClienteID: fixture.ClienteID, VinculoID: fixture.VinculoID, DataViagem: tripDate,
 		Turno: reservas.TurnoNoturno, DestinoID: fixture.DestinoID,
-		RotaInternaID: fixture.RotaInternaID, Cidade: testCity, Sentido: reservas.SentidoIda,
+		RotaInternaID: fixture.RotaInternaID, Sentido: reservas.SentidoIda,
 	})
 	require.NoError(t, err)
 	require.Equal(t, reservas.StatusConfirmada, created.Status)
@@ -26,7 +26,6 @@ func TestReservaRepository_CRUDAndVinculoSnapshot(t *testing.T) {
 	snapshot, err := store.GetVinculoSnapshot(ctx, fixture.VinculoID)
 	require.NoError(t, err)
 	require.Equal(t, fixture.ClienteID, snapshot.ClienteID)
-	require.Equal(t, testCity, snapshot.Cidade)
 
 	byCliente, err := store.ListByCliente(ctx, fixture.ClienteID)
 	require.NoError(t, err)
@@ -54,7 +53,7 @@ func TestReservaRepository_EnforcesOneActiveReservationPerDirection(t *testing.T
 	input := reservas.ReservaInput{
 		ClienteID: fixture.ClienteID, VinculoID: fixture.VinculoID, DataViagem: futureTripDate(),
 		Turno: reservas.TurnoNoturno, DestinoID: fixture.DestinoID,
-		RotaInternaID: fixture.RotaInternaID, Cidade: testCity, Sentido: reservas.SentidoIda,
+		RotaInternaID: fixture.RotaInternaID, Sentido: reservas.SentidoIda,
 	}
 
 	_, err := store.Create(ctx, input)

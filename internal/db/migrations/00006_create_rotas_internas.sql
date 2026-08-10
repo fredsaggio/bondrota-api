@@ -3,7 +3,6 @@
 
 CREATE TABLE rotas_internas (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    cidade TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -12,8 +11,6 @@ CREATE TRIGGER set_updated_at_rotas_internas
     BEFORE UPDATE ON rotas_internas
     FOR EACH ROW
     EXECUTE FUNCTION trigger_set_updated_at();
-
-CREATE INDEX idx_rotas_internas_cidade ON rotas_internas(cidade);
 
 CREATE TABLE rota_interna_paradas (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

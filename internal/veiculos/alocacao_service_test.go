@@ -24,9 +24,6 @@ func TestAlocacaoService_Alocar(t *testing.T) {
 	t.Run("selects real vehicles from planned categories", func(t *testing.T) {
 		svc := veiculos.NewAlocacaoService(fakeAlocacaoVeiculoStore{
 			listDisponiveisFn: func(_ context.Context, filtro veiculos.VeiculosDisponiveisFiltro) ([]veiculos.Veiculo, error) {
-				if filtro.Cidade != "Campo Alegre" {
-					t.Fatalf("unexpected cidade: %s", filtro.Cidade)
-				}
 				if filtro.Turno != "NT" {
 					t.Fatalf("unexpected turno: %s", filtro.Turno)
 				}
@@ -46,7 +43,6 @@ func TestAlocacaoService_Alocar(t *testing.T) {
 		})
 
 		alocacao, err := svc.Alocar(context.Background(), veiculos.AlocarVeiculosInput{
-			Cidade:           "Campo Alegre",
 			DataViagem:       dataViagem,
 			Turno:            "NT",
 			QuantidadeAlunos: 48,
@@ -85,7 +81,6 @@ func TestAlocacaoService_Alocar(t *testing.T) {
 		})
 
 		alocacao, err := svc.Alocar(context.Background(), veiculos.AlocarVeiculosInput{
-			Cidade:           "Campo Alegre",
 			DataViagem:       dataViagem,
 			Turno:            "NT",
 			QuantidadeAlunos: 1,
@@ -115,7 +110,6 @@ func TestAlocacaoService_Alocar(t *testing.T) {
 		})
 
 		_, err := svc.Alocar(context.Background(), veiculos.AlocarVeiculosInput{
-			Cidade:           "Campo Alegre",
 			DataViagem:       dataViagem,
 			Turno:            "NT",
 			QuantidadeAlunos: 48,

@@ -33,6 +33,12 @@ invalid request body
 
 Deletes bem-sucedidos retornam `204 No Content`, sem corpo.
 
+`GET BASE_URL/config` e publico e retorna a cidade base da instancia:
+
+```json
+{ "cidade_base": "Campo Alegre" }
+```
+
 ### Autenticacao
 
 Existem tres logins publicos:
@@ -184,7 +190,7 @@ Erros: `400` body invalido ou CPF/senha ausentes, `401`, `500`.
 
 ## Endpoints
 
-Observacao: todos os endpoints abaixo, exceto logins e health, exigem `Authorization: Bearer <token>`.
+Observacao: todos os endpoints abaixo, exceto logins, health e config, exigem `Authorization: Bearer <token>`.
 
 ### Administradores
 
@@ -262,7 +268,6 @@ Create:
   "modelo": "Volare Escolar",
   "categoria": "escolar",
   "capacidade": 24,
-  "cidade_base": "campo alegre",
   "status": "ativo",
   "ar_condicionado": true,
   "banheiro": false,
@@ -281,7 +286,6 @@ Response:
   "modelo": "Volare Escolar",
   "categoria": "escolar",
   "capacidade": 24,
-  "cidade_base": "campo alegre",
   "status": "ativo",
   "ar_condicionado": true,
   "banheiro": false,
@@ -293,6 +297,34 @@ Response:
 
 Update aceita campos parciais. Campos booleanos podem ser enviados como `true` ou `false`.
 
+### Municipios
+
+Permissao: `admin`.
+
+O catalogo local e importado da API oficial de localidades do IBGE. O frontend consulta os municipios por UF para preencher dropdowns; os demais endpoints recebem o codigo IBGE selecionado.
+
+| Metodo | Path completo | Descricao | Body | Sucesso | Erros |
+| --- | --- | --- | --- | --- | --- |
+| `GET` | `BASE_URL/municipios/?uf=AL` | Lista municipios ativos da UF. | nenhum | `200 MunicipioResponse[]` | `400`, `401`, `403`, `500` |
+
+```json
+[
+  {
+    "codigo_ibge": 2704302,
+    "nome": "Maceio",
+    "uf": "AL"
+  }
+]
+```
+
+Importacao idempotente:
+
+```bash
+make municipios/import
+make municipios/import uf=AL
+make municipios/import/prod
+```
+
 ### Destinos
 
 Permissao: `admin`.
@@ -303,7 +335,7 @@ Destino representa a faculdade/local de desembarque do cliente. Tambem e o local
 | --- | --- | --- | --- | --- | --- |
 | `POST` | `BASE_URL/destinos/` | Cria destino. | `DestinoRequest` | `201 { "id": number }` | `400`, `401`, `403`, `500` |
 | `GET` | `BASE_URL/destinos/` | Lista destinos. | nenhum | `200 DestinoResponse[]` | `401`, `403`, `500` |
-| `GET` | `BASE_URL/destinos/cidade/{cidade}` | Lista destinos por cidade. | nenhum | `200 DestinoResponse[]` | `400`, `401`, `403`, `500` |
+| `GET` | `BASE_URL/destinos/municipio/{municipioID}` | Lista destinos por municipio. | nenhum | `200 DestinoResponse[]` | `400`, `401`, `403`, `500` |
 | `GET` | `BASE_URL/destinos/{id}` | Busca destino. | nenhum | `200 DestinoResponse` | `400`, `401`, `403`, `404`, `500` |
 | `PUT` | `BASE_URL/destinos/{id}` | Atualiza destino. | `DestinoRequest` parcial | `200 DestinoResponse` | `400`, `401`, `403`, `404`, `500` |
 | `DELETE` | `BASE_URL/destinos/{id}` | Remove destino. | nenhum | `204` | `400`, `401`, `403`, `404`, `500` |
@@ -314,7 +346,7 @@ Request:
 {
   "nome": "Universidade Federal de Alagoas",
   "rua": "Av. Lourival Melo Mota",
-  "cidade": "maceio",
+  "municipio_id": 2704302,
   "latitude": -9.5584,
   "longitude": -35.7777
 }
@@ -327,7 +359,7 @@ Response:
   "id": 1,
   "nome": "Universidade Federal de Alagoas",
   "rua": "Av. Lourival Melo Mota",
-  "cidade": "maceio",
+  "municipio_id": 2704302,
   "latitude": -9.5584,
   "longitude": -35.7777
 }
@@ -343,7 +375,6 @@ Parada representa um ponto de embarque dentro da rota interna da cidade de orige
 | --- | --- | --- | --- | --- | --- |
 | `POST` | `BASE_URL/paradas/` | Cria parada. | `ParadaRequest` | `201 ParadaResponse` | `400`, `401`, `403`, `500` |
 | `GET` | `BASE_URL/paradas/` | Lista paradas. | nenhum | `200 ParadaResponse[]` | `401`, `403`, `500` |
-| `GET` | `BASE_URL/paradas/cidade/{cidade}` | Lista paradas por cidade. | nenhum | `200 ParadaResponse[]` | `400`, `401`, `403`, `500` |
 | `GET` | `BASE_URL/paradas/{id}` | Busca parada. | nenhum | `200 ParadaResponse` | `400`, `401`, `403`, `404`, `500` |
 | `PUT` | `BASE_URL/paradas/{id}` | Atualiza parada. | `ParadaRequest` parcial | `200 ParadaResponse` | `400`, `401`, `403`, `404`, `500` |
 | `DELETE` | `BASE_URL/paradas/{id}` | Remove parada. | nenhum | `204` | `400`, `401`, `403`, `404`, `409` |
@@ -354,8 +385,7 @@ Request:
 {
   "nome": "Praca Central",
   "latitude": -9.7812,
-  "longitude": -36.3501,
-  "cidade": "campo alegre"
+  "longitude": -36.3501
 }
 ```
 
@@ -366,8 +396,7 @@ Response:
   "id": 1,
   "nome": "Praca Central",
   "latitude": -9.7812,
-  "longitude": -36.3501,
-  "cidade": "campo alegre"
+  "longitude": -36.3501
 }
 ```
 
@@ -381,7 +410,6 @@ Rota interna e a sequencia de paradas dentro da cidade de origem. Ela e usada pa
 | --- | --- | --- | --- | --- | --- |
 | `POST` | `BASE_URL/rotas-internas/` | Cria rota interna com paradas ordenadas. | `CreateRotaInternaRequest` | `201 RotaInternaResponse` | `400`, `401`, `403`, `422`, `500` |
 | `GET` | `BASE_URL/rotas-internas/` | Lista rotas internas. | nenhum | `200 RotaInternaResponse[]` | `401`, `403`, `500` |
-| `GET` | `BASE_URL/rotas-internas/cidade/{cidade}` | Lista rotas internas por cidade. | nenhum | `200 RotaInternaResponse[]` | `400`, `401`, `403`, `500` |
 | `GET` | `BASE_URL/rotas-internas/{id}` | Busca rota interna. | nenhum | `200 RotaInternaResponse` | `400`, `401`, `403`, `404`, `500` |
 | `PUT` | `BASE_URL/rotas-internas/{id}/paradas` | Substitui a sequencia de paradas. | `UpdateParadasRequest` | `200 RotaInternaResponse` | `400`, `401`, `403`, `404`, `422`, `500` |
 | `DELETE` | `BASE_URL/rotas-internas/{id}` | Remove rota interna. | nenhum | `204` | `400`, `401`, `403`, `404`, `500` |
@@ -390,7 +418,6 @@ Create:
 
 ```json
 {
-  "cidade": "campo alegre",
   "paradas": [
     {
       "parada_id": 1,
@@ -409,14 +436,12 @@ Response:
 ```json
 {
   "id": 1,
-  "cidade": "campo alegre",
   "paradas": [
     {
       "id": 1,
       "nome": "Praca Central",
       "latitude": -9.7812,
       "longitude": -36.3501,
-      "cidade": "campo alegre",
       "ordem": 1
     }
   ]
@@ -447,7 +472,7 @@ Create:
   "telefone": "82999990000",
   "data_nasc": "1980-05-20",
   "turno": "NT",
-  "cidade_trabalho": "campo alegre",
+  "municipio_trabalho_id": 2704302,
   "residencia": "campo alegre",
   "foto": "https://..."
 }
@@ -463,7 +488,7 @@ Response:
   "telefone": "82999990000",
   "data_nasc": "1980-05-20",
   "turno": "NT",
-  "cidade_trabalho": "campo alegre",
+  "municipio_trabalho_id": 2704302,
   "residencia": "campo alegre",
   "foto": "https://..."
 }
@@ -605,7 +630,7 @@ Response:
 
 Permissao: `admin` ou `cliente`.
 
-Reserva e criada a partir de um vinculo. Ela guarda snapshot de `cliente_id`, `vinculo_id`, `destino_id`, `rota_interna_id`, `cidade`, `data_viagem`, `turno` e `sentido`. Isso permite manter a reserva historica mesmo se o vinculo mudar depois.
+Reserva e criada a partir de um vinculo. Ela guarda snapshot de `cliente_id`, `vinculo_id`, `destino_id`, `rota_interna_id`, `data_viagem`, `turno` e `sentido`. Isso permite manter a reserva historica mesmo se o vinculo mudar depois.
 
 Status validos: `confirmada`, `cancelada`.
 
@@ -649,7 +674,6 @@ Response:
   "turno": "NT",
   "destino_id": 1,
   "rota_interna_id": 1,
-  "cidade": "campo alegre",
   "sentido": "ida",
   "status": "confirmada",
   "created_at": "2026-06-06T20:00:00Z",
@@ -674,11 +698,11 @@ Regra importante: nao pode existir mais de uma reserva ativa para o mesmo `vincu
 
 Permissao: `admin`.
 
-Define os horarios padrao que o planejamento usa para criar a partida prevista de ida e volta.
+Define os horarios padrao por municipio de destino que o planejamento usa para criar a partida prevista de ida e volta.
 
 | Metodo | Path completo | Descricao | Body | Sucesso | Erros |
 | --- | --- | --- | --- | --- | --- |
-| `POST` | `BASE_URL/horarios-turno-viagem/` | Cria horario por cidade/turno. | `HorarioTurnoViagemRequest` | `201 HorarioTurnoViagemResponse` | `400`, `401`, `403`, `409`, `422`, `500` |
+| `POST` | `BASE_URL/horarios-turno-viagem/` | Cria horario por municipio de destino/turno. | `HorarioTurnoViagemRequest` | `201 HorarioTurnoViagemResponse` | `400`, `401`, `403`, `409`, `422`, `500` |
 | `GET` | `BASE_URL/horarios-turno-viagem/` | Lista horarios. | nenhum | `200 HorarioTurnoViagemResponse[]` | `401`, `403`, `500` |
 | `GET` | `BASE_URL/horarios-turno-viagem/{horarioTurnoID}` | Busca horario. | nenhum | `200 HorarioTurnoViagemResponse` | `400`, `401`, `403`, `404`, `500` |
 | `PUT` | `BASE_URL/horarios-turno-viagem/{horarioTurnoID}` | Atualiza horario. | `HorarioTurnoViagemRequest` parcial | `200 HorarioTurnoViagemResponse` | `400`, `401`, `403`, `404`, `409`, `422`, `500` |
@@ -688,7 +712,7 @@ Request:
 
 ```json
 {
-  "cidade": "campo alegre",
+  "municipio_destino_id": 2704302,
   "turno": "NT",
   "horario_ida": "17:00",
   "horario_volta": "22:00"
@@ -700,7 +724,7 @@ Response:
 ```json
 {
   "id": 1,
-  "cidade": "campo alegre",
+  "municipio_destino_id": 2704302,
   "turno": "NT",
   "horario_ida": "17:00:00",
   "horario_volta": "22:00:00",
@@ -719,7 +743,7 @@ Este endpoint e o integrador operacional. Ele nao e CRUD de viagem manual: ele p
 
 | Metodo | Path completo | Descricao | Body | Sucesso | Erros |
 | --- | --- | --- | --- | --- | --- |
-| `POST` | `BASE_URL/planejamentos/viagens` | Planeja ciclos e viagens para data/turno/cidade/rota interna. | `PlanejarViagensRequest` | `201 PlanejamentoViagensResponse` | `400`, `401`, `403`, `404`, `409`, `422`, `500` |
+| `POST` | `BASE_URL/planejamentos/viagens` | Planeja ciclos e viagens para data/turno/municipio de destino/rota interna. | `PlanejarViagensRequest` | `201 PlanejamentoViagensResponse` | `400`, `401`, `403`, `404`, `409`, `422`, `500` |
 
 Request:
 
@@ -727,7 +751,7 @@ Request:
 {
   "data_viagem": "2026-06-10",
   "turno": "NT",
-  "cidade": "campo alegre",
+  "municipio_destino_id": 2704302,
   "rota_interna_id": 1
 }
 ```
@@ -742,7 +766,7 @@ Response:
         "id": 1,
         "data_viagem": "2026-06-10",
         "turno": "NT",
-        "cidade": "campo alegre",
+        "municipio_destino_id": 2704302,
         "rota_interna_id": 1,
         "veiculo_id": 1,
         "motorista_id": 1,
@@ -779,11 +803,11 @@ Response:
 
 Regras operacionais importantes:
 
-- Usa reservas `confirmada` do mesmo `data_viagem`, `turno`, `cidade`, `rota_interna_id` e `sentido`.
+- Usa reservas `confirmada` do mesmo `data_viagem`, `turno`, `rota_interna_id`, `sentido` e cujo destino pertence a `municipio_destino_id`.
 - Usa `horarios_turno_viagem` para definir partida prevista da ida e da volta.
 - Calcula `expires_at` automaticamente como `data_viagem + 3 meses`. O frontend nao envia esse campo no request.
-- Aloca veiculos automaticamente por cidade, status e capacidade.
-- Aloca motoristas automaticamente por cidade/turno/disponibilidade.
+- Aloca veiculos automaticamente por status, capacidade e disponibilidade.
+- Aloca motoristas automaticamente por cidade de destino, turno e disponibilidade.
 - Cria `ciclos_viagem`, `viagens`, `viagem_horarios` e `viagem_reservas`.
 - Um ciclo tem normalmente duas viagens: `ida` e `volta`.
 
@@ -822,7 +846,6 @@ Response de viagem com ciclo:
     "id": 1,
     "data_viagem": "2026-06-10",
     "turno": "NT",
-    "cidade": "campo alegre",
     "rota_interna_id": 1,
     "veiculo_id": 1,
     "motorista_id": 1,
@@ -902,7 +925,6 @@ Lista de reservas da viagem:
     "turno": "NT",
     "destino_id": 1,
     "rota_interna_id": 1,
-    "cidade": "campo alegre",
     "sentido": "ida"
   }
 ]
@@ -1122,12 +1144,23 @@ Relacionamento:
 
 Para telas: exibir dias recorrentes do vinculo.
 
+**municipios**
+
+- `codigo_ibge`
+- `nome`
+- `uf`
+- `ativo`
+- `created_at`
+- `updated_at`
+
+Catalogo oficial importado do IBGE e fonte unica para nomes e UFs dos municipios.
+
 **destinos**
 
 - `id`
 - `nome`
 - `rua`
-- `cidade`
+- `municipio_id`
 - `latitude`
 - `longitude`
 - `created_at`
@@ -1135,13 +1168,14 @@ Para telas: exibir dias recorrentes do vinculo.
 
 Destino e faculdade/local de desembarque. Na volta, tambem e o local onde o aluno embarca para retornar.
 
+Relacionamento: `destinos.municipio_id -> municipios.codigo_ibge`.
+
 **paradas**
 
 - `id`
 - `nome`
 - `latitude`
 - `longitude`
-- `cidade`
 - `created_at`
 - `updated_at`
 
@@ -1150,7 +1184,6 @@ Parada e local da rota interna onde o veiculo passa para pegar alunos na cidade.
 **rotas_internas**
 
 - `id`
-- `cidade`
 - `created_at`
 - `updated_at`
 
@@ -1175,13 +1208,12 @@ Para telas: rota interna e uma lista ordenada de paradas.
 - `modelo`
 - `categoria`
 - `capacidade`
-- `cidade_base`
 - `status`
 - opcionais booleanos de conforto
 - `created_at`
 - `updated_at`
 
-Para telas: veiculo fica disponivel para planejamento se estiver ativo e na cidade correta. A categoria determina capacidade fixa.
+Para telas: veiculo fica disponivel para planejamento se estiver ativo. A categoria determina capacidade fixa.
 
 **motoristas**
 
@@ -1192,13 +1224,15 @@ Para telas: veiculo fica disponivel para planejamento se estiver ativo e na cida
 - `telefone`
 - `data_nasc`
 - `turno`
-- `cidade_trabalho`
+- `municipio_trabalho_id`
 - `residencia`
 - `foto`
 - `created_at`
 - `updated_at`
 
 Para telas: motorista e atribuido automaticamente no planejamento.
+
+Relacionamento: `motoristas.municipio_trabalho_id -> municipios.codigo_ibge`.
 
 **reservas**
 
@@ -1209,7 +1243,6 @@ Para telas: motorista e atribuido automaticamente no planejamento.
 - `turno`
 - `destino_id`
 - `rota_interna_id`
-- `cidade`
 - `sentido`
 - `status`
 - `created_at`
@@ -1222,12 +1255,12 @@ Relacionamentos:
 - `reservas.destino_id -> destinos.id`
 - `reservas.rota_interna_id -> rotas_internas.id`
 
-Para telas: reservas sao o ponto central do app do cliente. A reserva sabe o dia, turno, sentido, destino e rota interna. `destino_id`, `rota_interna_id` e `cidade` sao snapshot do vinculo.
+Para telas: reservas sao o ponto central do app do cliente. A reserva sabe o dia, turno, sentido, destino e rota interna. `destino_id` e `rota_interna_id` sao snapshots do vinculo.
 
 **horarios_turno_viagem**
 
 - `id`
-- `cidade`
+- `municipio_destino_id`
 - `turno`
 - `horario_ida`
 - `horario_volta`
@@ -1236,12 +1269,14 @@ Para telas: reservas sao o ponto central do app do cliente. A reserva sabe o dia
 
 Para telas admin: configurar horario padrao antes de planejar viagens.
 
+Relacionamento: `horarios_turno_viagem.municipio_destino_id -> municipios.codigo_ibge`.
+
 **ciclos_viagem**
 
 - `id`
 - `data_viagem`
 - `turno`
-- `cidade`
+- `municipio_destino_id`
 - `rota_interna_id`
 - `veiculo_id`
 - `motorista_id`
@@ -1255,8 +1290,9 @@ Relacionamentos:
 - `ciclos_viagem.rota_interna_id -> rotas_internas.id`
 - `ciclos_viagem.veiculo_id -> veiculos.id`
 - `ciclos_viagem.motorista_id -> motoristas.id`
+- `ciclos_viagem.municipio_destino_id -> municipios.codigo_ibge`
 
-Para telas: ciclo representa o bloco operacional com o mesmo veiculo e motorista. Normalmente agrupa ida e volta.
+Para telas: ciclo representa o bloco operacional com o mesmo veiculo, motorista e municipio de destino. Normalmente agrupa ida e volta. `municipio_destino_id` preserva a identidade oficial do municipio no historico.
 
 **viagens**
 
@@ -1386,6 +1422,12 @@ clientes
           1 ── N horarios_fixos
           1 ── N reservas
 
+municipios
+  1 ── N destinos
+  1 ── N motoristas
+  1 ── N horarios_turno_viagem
+  1 ── N ciclos_viagem
+
 rotas_internas
   1 ── N rota_interna_paradas
           N ── 1 paradas
@@ -1436,20 +1478,21 @@ e guarda o JWT para as operacoes administrativas.
 
 Ordem recomendada:
 
-1. Criar destinos.
-2. Criar paradas.
-3. Criar rotas internas com paradas ordenadas.
-4. Criar veiculos.
-5. Criar motoristas.
-6. Criar horarios por cidade/turno em `horarios-turno-viagem`.
-7. Criar clientes.
-8. Criar vinculos dos clientes.
+1. Importar municipios com `make municipios/import`.
+2. Criar destinos.
+3. Criar paradas.
+4. Criar rotas internas com paradas ordenadas.
+5. Criar veiculos.
+6. Criar motoristas.
+7. Criar horarios por municipio de destino/turno em `horarios-turno-viagem`.
+8. Criar clientes.
+9. Criar vinculos dos clientes.
 
 Dependencias:
 
 - Vinculo precisa de `cliente_id`, `destino_id` e `rota_interna_id`.
 - Rota interna precisa de paradas existentes.
-- Planejamento precisa de horario configurado para `cidade + turno`.
+- Planejamento precisa de horario configurado para `municipio_destino_id + turno`.
 - Planejamento precisa de reservas confirmadas.
 - Planejamento precisa de veiculos ativos/disponiveis e motoristas disponiveis.
 
@@ -1470,7 +1513,7 @@ Fluxo no app do cliente:
 
 ### 4. Admin planeja viagens
 
-Quando houver reservas para a data/turno/cidade/rota interna:
+Quando houver reservas para a data/turno/cidade de destino/rota interna:
 
 ```http
 POST /planejamentos/viagens
@@ -1502,7 +1545,7 @@ Veiculos com status `inativo` ou `manutencao` nao sao alocados. Veiculos ja aloc
 
 **Regras de alocacao de motoristas:**
 
-- Motorista de outro turno ou cidade nao e alocado.
+- Motorista de outro turno ou cidade de destino nao e alocado.
 - Motorista ja alocado em outro ciclo no mesmo dia e turno nao e reutilizado.
 
 ### 5. Rota dinamica

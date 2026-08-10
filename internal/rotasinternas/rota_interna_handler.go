@@ -4,11 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/fredsaggio/bondrota-api/internal/conv"
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
-	"github.com/go-chi/chi/v5"
 )
 
 type ParadaRequest struct {
@@ -17,7 +15,6 @@ type ParadaRequest struct {
 }
 
 type CreateRotaInternaRequest struct {
-	Cidade  string          `json:"cidade"`
 	Paradas []ParadaRequest `json:"paradas"`
 }
 
@@ -30,13 +27,11 @@ type ParadaResponse struct {
 	Nome      string  `json:"nome"`
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
-	Cidade    string  `json:"cidade"`
 	Ordem     int     `json:"ordem"`
 }
 
 type RotaInternaResponse struct {
 	ID      int64            `json:"id"`
-	Cidade  string           `json:"cidade"`
 	Paradas []ParadaResponse `json:"paradas"`
 }
 
@@ -57,13 +52,7 @@ func (h *RotaInternaHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Cidade == "" {
-		http.Error(w, "cidade is required", http.StatusBadRequest)
-		return
-	}
-
 	input := CreateRotaInternaInput{
-		Cidade:  strings.TrimSpace(strings.ToLower(req.Cidade)),
 		Paradas: toParadaInputs(req.Paradas),
 	}
 
@@ -106,29 +95,6 @@ func (h *RotaInternaHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	rotas, err := h.svc.List(ctx)
-	if err != nil {
-		http.Error(w, "internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	resp := make([]RotaInternaResponse, 0, len(rotas))
-	for _, rota := range rotas {
-		resp = append(resp, toRotaInternaResponse(&rota))
-	}
-
-	httputils.Respond(w, http.StatusOK, resp)
-}
-
-func (h *RotaInternaHandler) ListByCity(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	cidade := strings.TrimSpace(strings.ToLower(chi.URLParam(r, "cidade")))
-	if cidade == "" {
-		http.Error(w, "cidade is required", http.StatusBadRequest)
-		return
-	}
-
-	rotas, err := h.svc.ListByCity(ctx, cidade)
 	if err != nil {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
@@ -218,13 +184,11 @@ func toRotaInternaResponse(r *RotaInterna) RotaInternaResponse {
 			Nome:      p.Nome,
 			Latitude:  p.Latitude,
 			Longitude: p.Longitude,
-			Cidade:    p.Cidade,
 			Ordem:     p.Ordem,
 		})
 	}
 	return RotaInternaResponse{
 		ID:      r.ID,
-		Cidade:  r.Cidade,
 		Paradas: paradas,
 	}
 }

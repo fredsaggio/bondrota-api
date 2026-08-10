@@ -34,7 +34,6 @@ type Veiculo struct {
 	Modelo         string           `json:"modelo"`
 	Categoria      CategoriaVeiculo `json:"categoria"`
 	Capacidade     int16            `json:"capacidade"`
-	CidadeBase     string           `json:"cidade_base"`
 	Status         StatusVeiculo    `json:"status"`
 	ArCondicionado bool             `json:"ar_condicionado"`
 	Banheiro       bool             `json:"banheiro"`
@@ -48,7 +47,6 @@ type VeiculoInput struct {
 	Modelo         string           `json:"modelo"`
 	Categoria      CategoriaVeiculo `json:"categoria"`
 	Capacidade     int16            `json:"capacidade"`
-	CidadeBase     string           `json:"cidade_base"`
 	Status         StatusVeiculo    `json:"status"`
 	ArCondicionado bool             `json:"ar_condicionado"`
 	Banheiro       bool             `json:"banheiro"`
@@ -58,14 +56,12 @@ type VeiculoInput struct {
 }
 
 type VeiculosDisponiveisFiltro struct {
-	Cidade     string
 	DataViagem time.Time
 	Turno      string
 	Categorias []CategoriaVeiculo
 }
 
 type AlocarVeiculosInput struct {
-	Cidade           string
 	DataViagem       time.Time
 	Turno            string
 	QuantidadeAlunos int

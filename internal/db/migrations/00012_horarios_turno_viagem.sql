@@ -3,7 +3,7 @@
 
 CREATE TABLE horarios_turno_viagem (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    cidade TEXT NOT NULL,
+    municipio_destino_id BIGINT NOT NULL REFERENCES municipios(codigo_ibge) ON DELETE RESTRICT,
     turno turno_cliente NOT NULL,
     horario_ida TIME NOT NULL,
     horario_volta TIME NOT NULL,
@@ -18,8 +18,8 @@ CREATE TRIGGER set_updated_at_horarios_turno_viagem
     FOR EACH ROW
     EXECUTE FUNCTION trigger_set_updated_at();
 
-CREATE UNIQUE INDEX uq_horarios_turno_viagem_cidade_turno
-    ON horarios_turno_viagem (LOWER(cidade), turno);
+CREATE UNIQUE INDEX uq_horarios_turno_viagem_municipio_destino_turno
+    ON horarios_turno_viagem (municipio_destino_id, turno);
 
 -- +goose StatementEnd
 

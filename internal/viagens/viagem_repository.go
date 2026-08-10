@@ -92,7 +92,7 @@ func (s *viagemStore) ListViagens(ctx context.Context) ([]ViagemComCiclo, error)
 	const q = `
 		SELECT
 			v.id, v.ciclo_viagem_id, v.sentido, v.status, v.created_at, v.updated_at,
-			c.id, c.data_viagem, c.turno, c.cidade, c.rota_interna_id,
+			c.id, c.data_viagem, c.turno, c.rota_interna_id,
 			c.veiculo_id, c.motorista_id, c.status, c.expires_at, c.created_at, c.updated_at
 		FROM viagens v
 		JOIN ciclos_viagem c ON c.id = v.ciclo_viagem_id
@@ -346,7 +346,7 @@ func getViagemComCicloByID(ctx context.Context, querier interface {
 	const q = `
 		SELECT
 			v.id, v.ciclo_viagem_id, v.sentido, v.status, v.created_at, v.updated_at,
-			c.id, c.data_viagem, c.turno, c.cidade, c.rota_interna_id,
+			c.id, c.data_viagem, c.turno, c.rota_interna_id,
 			c.veiculo_id, c.motorista_id, c.status, c.expires_at, c.created_at, c.updated_at
 		FROM viagens v
 		JOIN ciclos_viagem c ON c.id = v.ciclo_viagem_id
@@ -404,7 +404,6 @@ func scanViagemComCiclo(row pgx.CollectableRow) (ViagemComCiclo, error) {
 		&data.Ciclo.ID,
 		&data.Ciclo.DataViagem,
 		&data.Ciclo.Turno,
-		&data.Ciclo.Cidade,
 		&data.Ciclo.RotaInternaID,
 		&data.Ciclo.VeiculoID,
 		&data.Ciclo.MotoristaID,

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/fredsaggio/bondrota-api/internal/db"
 	"github.com/jackc/pgx/v5"
@@ -26,8 +25,8 @@ func (s *veiculoStore) Create(ctx context.Context, input VeiculoInput) (*Veiculo
 	const op = "db/veiculoStore.Create"
 
 	const q = `
-		INSERT INTO veiculos (placa, modelo, categoria, capacidade, cidade_base, status, ar_condicionado, banheiro, persiana, luz_leitura, tomada)
-		VALUES (@placa, @modelo, @categoria, @capacidade, @cidade_base, @status, @ar_condicionado, @banheiro, @persiana, @luz_leitura, @tomada)
+		INSERT INTO veiculos (placa, modelo, categoria, capacidade, status, ar_condicionado, banheiro, persiana, luz_leitura, tomada)
+		VALUES (@placa, @modelo, @categoria, @capacidade, @status, @ar_condicionado, @banheiro, @persiana, @luz_leitura, @tomada)
 		RETURNING id
 	`
 	args := pgx.StrictNamedArgs{
@@ -35,7 +34,6 @@ func (s *veiculoStore) Create(ctx context.Context, input VeiculoInput) (*Veiculo
 		"modelo":          input.Modelo,
 		"categoria":       input.Categoria,
 		"capacidade":      input.Capacidade,
-		"cidade_base":     input.CidadeBase,
 		"status":          input.Status,
 		"ar_condicionado": input.ArCondicionado,
 		"banheiro":        input.Banheiro,
@@ -56,7 +54,6 @@ func (s *veiculoStore) Create(ctx context.Context, input VeiculoInput) (*Veiculo
 		Modelo:         input.Modelo,
 		Categoria:      input.Categoria,
 		Capacidade:     input.Capacidade,
-		CidadeBase:     input.CidadeBase,
 		Status:         input.Status,
 		ArCondicionado: input.ArCondicionado,
 		Banheiro:       input.Banheiro,
@@ -84,7 +81,7 @@ func getVeiculoByID(ctx context.Context, querier interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 }, id int64, forUpdate bool) (*Veiculo, error) {
 	q := `
-		SELECT id, placa, modelo, categoria, capacidade, cidade_base, status, ar_condicionado, banheiro, persiana, luz_leitura, tomada
+		SELECT id, placa, modelo, categoria, capacidade, status, ar_condicionado, banheiro, persiana, luz_leitura, tomada
 		FROM veiculos
 		WHERE id = @id
 	`
@@ -111,7 +108,7 @@ func (s *veiculoStore) List(ctx context.Context) ([]Veiculo, error) {
 	const op = "db/veiculoStore.List"
 
 	const q = `
-		SELECT id, placa, modelo, categoria, capacidade, cidade_base, status, ar_condicionado, banheiro, persiana, luz_leitura, tomada
+		SELECT id, placa, modelo, categoria, capacidade, status, ar_condicionado, banheiro, persiana, luz_leitura, tomada
 		FROM veiculos
 		ORDER BY id DESC
 	`
@@ -142,11 +139,10 @@ func (s *veiculoStore) ListDisponiveisParaAlocacao(ctx context.Context, filtro V
 	}
 
 	const q = `
-		SELECT v.id, v.placa, v.modelo, v.categoria, v.capacidade, v.cidade_base, v.status,
+		SELECT v.id, v.placa, v.modelo, v.categoria, v.capacidade, v.status,
 		       v.ar_condicionado, v.banheiro, v.persiana, v.luz_leitura, v.tomada
 		FROM veiculos v
 		WHERE v.status = 'ativo'
-		  AND LOWER(v.cidade_base) = LOWER(@cidade)
 		  AND v.categoria::text = ANY(@categorias)
 		  AND NOT EXISTS (
 		      SELECT 1
@@ -166,9 +162,8 @@ func (s *veiculoStore) ListDisponiveisParaAlocacao(ctx context.Context, filtro V
 		  v.id
 	`
 	args := pgx.StrictNamedArgs{
-		"cidade":      strings.TrimSpace(filtro.Cidade),
 		"data_viagem": filtro.DataViagem,
-		"turno":       strings.TrimSpace(filtro.Turno),
+		"turno":       filtro.Turno,
 		"categorias":  categorias,
 	}
 
@@ -210,7 +205,7 @@ func (s *veiculoStore) Update(ctx context.Context, id int64, updateFunc func(*Ve
 
 		const updateQ = `
 			UPDATE veiculos
-			SET placa = @placa, modelo = @modelo, categoria = @categoria, capacidade = @capacidade, cidade_base = @cidade_base,
+			SET placa = @placa, modelo = @modelo, categoria = @categoria, capacidade = @capacidade,
 			    status = @status, ar_condicionado = @ar_condicionado, banheiro = @banheiro,
 			    persiana = @persiana, luz_leitura = @luz_leitura, tomada = @tomada
 			WHERE id = @id
@@ -221,7 +216,6 @@ func (s *veiculoStore) Update(ctx context.Context, id int64, updateFunc func(*Ve
 			"modelo":          veiculo.Modelo,
 			"categoria":       veiculo.Categoria,
 			"capacidade":      veiculo.Capacidade,
-			"cidade_base":     veiculo.CidadeBase,
 			"status":          veiculo.Status,
 			"ar_condicionado": veiculo.ArCondicionado,
 			"banheiro":        veiculo.Banheiro,
@@ -246,7 +240,7 @@ func (s *veiculoStore) Update(ctx context.Context, id int64, updateFunc func(*Ve
 
 func getVeiculoByIDForUpdate(ctx context.Context, tx pgx.Tx, id int64) (*Veiculo, error) {
 	const q = `
-		SELECT id, placa, modelo, categoria, capacidade, cidade_base, status, ar_condicionado, banheiro, persiana, luz_leitura, tomada
+		SELECT id, placa, modelo, categoria, capacidade, status, ar_condicionado, banheiro, persiana, luz_leitura, tomada
 		FROM veiculos
 		WHERE id = @id
 		FOR UPDATE
@@ -289,6 +283,6 @@ func (s *veiculoStore) Delete(ctx context.Context, id int64) error {
 
 func scanVeiculo(row pgx.CollectableRow) (Veiculo, error) {
 	var v Veiculo
-	err := row.Scan(&v.ID, &v.Placa, &v.Modelo, &v.Categoria, &v.Capacidade, &v.CidadeBase, &v.Status, &v.ArCondicionado, &v.Banheiro, &v.Persiana, &v.LuzLeitura, &v.Tomada)
+	err := row.Scan(&v.ID, &v.Placa, &v.Modelo, &v.Categoria, &v.Capacidade, &v.Status, &v.ArCondicionado, &v.Banheiro, &v.Persiana, &v.LuzLeitura, &v.Tomada)
 	return v, err
 }

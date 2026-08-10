@@ -23,42 +23,42 @@ const (
 )
 
 type Motorista struct {
-	ID             int64
-	Nome           string
-	CPF            string
-	Senha          string
-	Telefone       string
-	DataNasc       time.Time
-	Turno          Turno
-	CidadeTrabalho string
-	Residencia     string
-	Foto           string
+	ID                  int64
+	Nome                string
+	CPF                 string
+	Senha               string
+	Telefone            string
+	DataNasc            time.Time
+	Turno               Turno
+	MunicipioTrabalhoID int64
+	Residencia          string
+	Foto                string
 }
 
 type MotoristaInput struct {
-	Nome           string
-	CPF            string
-	Senha          string
-	Telefone       string
-	DataNasc       time.Time
-	Turno          Turno
-	CidadeTrabalho string
-	Residencia     string
-	Foto           string
+	Nome                string
+	CPF                 string
+	Senha               string
+	Telefone            string
+	DataNasc            time.Time
+	Turno               Turno
+	MunicipioTrabalhoID int64
+	Residencia          string
+	Foto                string
 }
 
 type MotoristasDisponiveisFiltro struct {
-	Cidade     string
-	DataViagem time.Time
-	Turno      Turno
-	Limit      int
+	MunicipioTrabalhoID int64
+	DataViagem          time.Time
+	Turno               Turno
+	Limit               int
 }
 
 type AlocarMotoristasInput struct {
-	Cidade     string
-	DataViagem time.Time
-	Turno      Turno
-	Quantidade int
+	MunicipioTrabalhoID int64
+	DataViagem          time.Time
+	Turno               Turno
+	Quantidade          int
 }
 
 type MotoristaStore interface {

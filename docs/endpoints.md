@@ -247,7 +247,7 @@ Authorization: Bearer <token>
   "telefone": "11999999999",
   "data_nasc": "1990-05-15",
   "turno": "MT",
-  "cidade_trabalho": "São Paulo",
+  "municipio_trabalho_id": 3550308,
   "residencia": "Rua das Flores, 123",
   "foto": "https://example.com/foto.jpg"
 }
@@ -263,7 +263,7 @@ Authorization: Bearer <token>
   "telefone": "11999999999",
   "data_nasc": "1990-05-15",
   "turno": "MT",
-  "cidade_trabalho": "São Paulo",
+  "municipio_trabalho_id": 3550308,
   "residencia": "Rua das Flores, 123",
   "foto": "https://example.com/foto.jpg"
 }
@@ -301,7 +301,7 @@ Authorization: Bearer <token>
     "telefone": "11999999999",
     "data_nasc": "1990-05-15",
     "turno": "MT",
-    "cidade_trabalho": "São Paulo",
+    "municipio_trabalho_id": 3550308,
     "residencia": "Rua das Flores, 123",
     "foto": "https://example.com/foto.jpg"
   },
@@ -312,7 +312,7 @@ Authorization: Bearer <token>
     "telefone": "11988888888",
     "data_nasc": "1988-03-20",
     "turno": "VT",
-    "cidade_trabalho": "Rio de Janeiro",
+    "municipio_trabalho_id": 3304557,
     "residencia": "Avenida Principal, 456",
     "foto": "https://example.com/foto2.jpg"
   }
@@ -343,7 +343,7 @@ Authorization: Bearer <token>
   "telefone": "11999999999",
   "data_nasc": "1990-05-15",
   "turno": "MT",
-  "cidade_trabalho": "São Paulo",
+  "municipio_trabalho_id": 3550308,
   "residencia": "Rua das Flores, 123",
   "foto": "https://example.com/foto.jpg"
 }
@@ -381,7 +381,7 @@ Authorization: Bearer <token>
   "telefone": "11987654321",
   "data_nasc": "1990-05-15",
   "turno": "VT",
-  "cidade_trabalho": "São Paulo",
+  "municipio_trabalho_id": 3550308,
   "residencia": "Rua Nova, 789",
   "foto": "https://example.com/foto.jpg"
 }
@@ -427,7 +427,6 @@ Authorization: Bearer <token>
   "placa": "ABC-1234",
   "modelo": "Mercedes Benz Sprinter",
   "capacidade": 45,
-  "cidade_base": "São Paulo",
   "status": "ativo",
   "ar_condicionado": true,
   "banheiro": true,
@@ -445,7 +444,6 @@ Authorization: Bearer <token>
   "placa": "ABC-1234",
   "modelo": "Mercedes Benz Sprinter",
   "capacidade": 45,
-  "cidade_base": "São Paulo",
   "status": "ativo",
   "ar_condicionado": true,
   "banheiro": true,
@@ -478,7 +476,6 @@ Authorization: Bearer <token>
     "placa": "ABC-1234",
     "modelo": "Mercedes Benz Sprinter",
     "capacidade": 45,
-    "cidade_base": "São Paulo",
     "status": "ativo",
     "ar_condicionado": true,
     "banheiro": true,
@@ -491,7 +488,6 @@ Authorization: Bearer <token>
     "placa": "XYZ-5678",
     "modelo": "Iveco Daily",
     "capacidade": 30,
-    "cidade_base": "Rio de Janeiro",
     "status": "ativo",
     "ar_condicionado": true,
     "banheiro": false,
@@ -524,7 +520,6 @@ Authorization: Bearer <token>
   "placa": "ABC-1234",
   "modelo": "Mercedes Benz Sprinter",
   "capacidade": 45,
-  "cidade_base": "São Paulo",
   "status": "ativo",
   "ar_condicionado": true,
   "banheiro": true,
@@ -552,7 +547,6 @@ Authorization: Bearer <token>
   "placa": "ABC-1234",
   "modelo": "Mercedes Benz Sprinter",
   "capacidade": 50,
-  "cidade_base": "São Paulo",
   "status": "manutencao",
   "ar_condicionado": true,
   "banheiro": true,
@@ -570,7 +564,6 @@ Authorization: Bearer <token>
   "placa": "ABC-1234",
   "modelo": "Mercedes Benz Sprinter",
   "capacidade": 50,
-  "cidade_base": "São Paulo",
   "status": "manutencao",
   "ar_condicionado": true,
   "banheiro": true,
@@ -608,6 +601,30 @@ Authorization: Bearer <token>
 
 ---
 
+## Municípios
+
+### GET /municipios/?uf={UF} - Listar Municípios por UF
+
+Lista os municípios ativos importados do IBGE para preencher os dropdowns administrativos.
+
+```http
+GET /municipios/?uf=AL HTTP/1.1
+Host: localhost:8080
+Authorization: Bearer <token>
+```
+
+```json
+[
+  {
+    "codigo_ibge": 2704302,
+    "nome": "Maceió",
+    "uf": "AL"
+  }
+]
+```
+
+---
+
 ## Destinos
 
 ### POST /destinos - Criar Destino
@@ -625,7 +642,7 @@ Authorization: Bearer <token>
 {
   "nome": "Universidade Federal de Alagoas",
   "rua": "Av. Lourival Melo Mota",
-  "cidade": "Maceió",
+  "municipio_id": 2704302,
   "latitude": -9.555000,
   "longitude": -35.775000
 }
@@ -638,7 +655,7 @@ Authorization: Bearer <token>
   "id": 1,
   "nome": "Universidade Federal de Alagoas",
   "rua": "Av. Lourival Melo Mota",
-  "cidade": "Maceió",
+  "municipio_id": 2704302,
   "latitude": -9.555000,
   "longitude": -35.775000
 }
@@ -666,7 +683,7 @@ Authorization: Bearer <token>
     "id": 1,
     "nome": "Terminal Rodoviário Central",
     "rua": "Avenida Paulista, 1000",
-    "cidade": "São Paulo",
+    "municipio_id": 3550308,
     "latitude": -23.5505,
     "longitude": -46.6333
   },
@@ -674,7 +691,7 @@ Authorization: Bearer <token>
     "id": 2,
     "nome": "Estação da Luz",
     "rua": "Avenida Tiradentes, 100",
-    "cidade": "São Paulo",
+    "municipio_id": 3550308,
     "latitude": -23.5407,
     "longitude": -46.6243
   }
@@ -683,14 +700,14 @@ Authorization: Bearer <token>
 
 ---
 
-### GET /destinos/cidade/{cidade} - Listar Destinos por Cidade
+### GET /destinos/municipio/{municipioID} - Listar Destinos por Município
 
-Lista todos os destinos de uma cidade específica.
+Lista todos os destinos vinculados ao código IBGE informado.
 
 **Request:**
 
 ```http
-GET /destinos/cidade/São%20Paulo HTTP/1.1
+GET /destinos/municipio/3550308 HTTP/1.1
 Host: localhost:8080
 Authorization: Bearer <token>
 ```
@@ -703,7 +720,7 @@ Authorization: Bearer <token>
     "id": 1,
     "nome": "Terminal Rodoviário Central",
     "rua": "Avenida Paulista, 1000",
-    "cidade": "São Paulo",
+    "municipio_id": 3550308,
     "latitude": -23.5505,
     "longitude": -46.6333
   },
@@ -711,7 +728,7 @@ Authorization: Bearer <token>
     "id": 2,
     "nome": "Estação da Luz",
     "rua": "Avenida Tiradentes, 100",
-    "cidade": "São Paulo",
+    "municipio_id": 3550308,
     "latitude": -23.5407,
     "longitude": -46.6243
   }
@@ -739,7 +756,7 @@ Authorization: Bearer <token>
   "id": 1,
   "nome": "Terminal Rodoviário Central",
   "rua": "Avenida Paulista, 1000",
-  "cidade": "São Paulo",
+  "municipio_id": 3550308,
   "latitude": -23.5505,
   "longitude": -46.6333
 }
@@ -762,7 +779,7 @@ Authorization: Bearer <token>
 {
   "nome": "Terminal Rodoviário Central - Atualizado",
   "rua": "Avenida Paulista, 1500",
-  "cidade": "São Paulo",
+  "municipio_id": 3550308,
   "latitude": -23.5505,
   "longitude": -46.6333
 }
@@ -775,7 +792,7 @@ Authorization: Bearer <token>
   "id": 1,
   "nome": "Terminal Rodoviário Central - Atualizado",
   "rua": "Avenida Paulista, 1500",
-  "cidade": "São Paulo",
+  "municipio_id": 3550308,
   "latitude": -23.5505,
   "longitude": -46.6333
 }
@@ -821,7 +838,6 @@ Authorization: Bearer <token>
   "nome": "Rodoviária de Campinas",
   "latitude": -22.8978,
   "longitude": -47.0739,
-  "cidade": "Campinas"
 }
 ```
 
@@ -833,7 +849,6 @@ Authorization: Bearer <token>
   "nome": "Rodoviária de Campinas",
   "latitude": -22.8978,
   "longitude": -47.0739,
-  "cidade": "Campinas"
 }
 ```
 
@@ -860,42 +875,12 @@ Authorization: Bearer <token>
     "nome": "Rodoviária de Campinas",
     "latitude": -22.8978,
     "longitude": -47.0739,
-    "cidade": "Campinas"
   },
   {
     "id": 2,
     "nome": "Rodoviária de Jundiaí",
     "latitude": -23.1897,
     "longitude": -46.8707,
-    "cidade": "Jundiaí"
-  }
-]
-```
-
----
-
-### GET /paradas/cidade/{cidade} - Listar Paradas por Cidade
-
-Lista todas as paradas de uma cidade específica.
-
-**Request:**
-
-```http
-GET /paradas/cidade/Campinas HTTP/1.1
-Host: localhost:8080
-Authorization: Bearer <token>
-```
-
-**Response:** `200 OK`
-
-```json
-[
-  {
-    "id": 1,
-    "nome": "Rodoviária de Campinas",
-    "latitude": -22.8978,
-    "longitude": -47.0739,
-    "cidade": "Campinas"
   }
 ]
 ```
@@ -922,7 +907,6 @@ Authorization: Bearer <token>
   "nome": "Rodoviária de Campinas",
   "latitude": -22.8978,
   "longitude": -47.0739,
-  "cidade": "Campinas"
 }
 ```
 
@@ -944,7 +928,6 @@ Authorization: Bearer <token>
   "nome": "Rodoviária de Campinas - Unidade Principal",
   "latitude": -22.8978,
   "longitude": -47.0739,
-  "cidade": "Campinas"
 }
 ```
 
@@ -956,7 +939,6 @@ Authorization: Bearer <token>
   "nome": "Rodoviária de Campinas - Unidade Principal",
   "latitude": -22.8978,
   "longitude": -47.0739,
-  "cidade": "Campinas"
 }
 ```
 
@@ -997,7 +979,6 @@ Content-Type: application/json
 Authorization: Bearer <token>
 
 {
-  "cidade": "São Paulo",
   "paradas": [
     {
       "parada_id": 1,
@@ -1020,14 +1001,12 @@ Authorization: Bearer <token>
 ```json
 {
   "id": 1,
-  "cidade": "São Paulo",
   "paradas": [
     {
       "id": 1,
       "nome": "Rodoviária Central",
       "latitude": -23.5505,
       "longitude": -46.6333,
-      "cidade": "São Paulo",
       "ordem": 1
     },
     {
@@ -1035,7 +1014,6 @@ Authorization: Bearer <token>
       "nome": "Estação da Luz",
       "latitude": -23.5407,
       "longitude": -46.6243,
-      "cidade": "São Paulo",
       "ordem": 2
     },
     {
@@ -1043,7 +1021,6 @@ Authorization: Bearer <token>
       "nome": "Shopping Imigrantes",
       "latitude": -23.5611,
       "longitude": -46.5841,
-      "cidade": "São Paulo",
       "ordem": 3
     }
   ]
@@ -1072,14 +1049,12 @@ Authorization: Bearer <token>
 [
   {
     "id": 1,
-    "cidade": "São Paulo",
     "paradas": [
       {
         "id": 1,
         "nome": "Rodoviária Central",
         "latitude": -23.5505,
         "longitude": -46.6333,
-        "cidade": "São Paulo",
         "ordem": 1
       },
       {
@@ -1087,65 +1062,19 @@ Authorization: Bearer <token>
         "nome": "Estação da Luz",
         "latitude": -23.5407,
         "longitude": -46.6243,
-        "cidade": "São Paulo",
         "ordem": 2
       }
     ]
   },
   {
     "id": 2,
-    "cidade": "Campinas",
     "paradas": [
       {
         "id": 4,
         "nome": "Rodoviária de Campinas",
         "latitude": -22.8978,
         "longitude": -47.0739,
-        "cidade": "Campinas",
         "ordem": 1
-      }
-    ]
-  }
-]
-```
-
----
-
-### GET /rotas-internas/cidade/{cidade} - Listar Rotas Internas por Cidade
-
-Lista todas as rotas internas de uma cidade específica.
-
-**Request:**
-
-```http
-GET /rotas-internas/cidade/São%20Paulo HTTP/1.1
-Host: localhost:8080
-Authorization: Bearer <token>
-```
-
-**Response:** `200 OK`
-
-```json
-[
-  {
-    "id": 1,
-    "cidade": "São Paulo",
-    "paradas": [
-      {
-        "id": 1,
-        "nome": "Rodoviária Central",
-        "latitude": -23.5505,
-        "longitude": -46.6333,
-        "cidade": "São Paulo",
-        "ordem": 1
-      },
-      {
-        "id": 2,
-        "nome": "Estação da Luz",
-        "latitude": -23.5407,
-        "longitude": -46.6243,
-        "cidade": "São Paulo",
-        "ordem": 2
       }
     ]
   }
@@ -1171,14 +1100,12 @@ Authorization: Bearer <token>
 ```json
 {
   "id": 1,
-  "cidade": "São Paulo",
   "paradas": [
     {
       "id": 1,
       "nome": "Rodoviária Central",
       "latitude": -23.5505,
       "longitude": -46.6333,
-      "cidade": "São Paulo",
       "ordem": 1
     },
     {
@@ -1186,7 +1113,6 @@ Authorization: Bearer <token>
       "nome": "Estação da Luz",
       "latitude": -23.5407,
       "longitude": -46.6243,
-      "cidade": "São Paulo",
       "ordem": 2
     }
   ]
@@ -1230,14 +1156,12 @@ Authorization: Bearer <token>
 ```json
 {
   "id": 1,
-  "cidade": "São Paulo",
   "paradas": [
     {
       "id": 1,
       "nome": "Rodoviária Central",
       "latitude": -23.5505,
       "longitude": -46.6333,
-      "cidade": "São Paulo",
       "ordem": 1
     },
     {
@@ -1245,7 +1169,6 @@ Authorization: Bearer <token>
       "nome": "Shopping Imigrantes",
       "latitude": -23.5611,
       "longitude": -46.5841,
-      "cidade": "São Paulo",
       "ordem": 2
     },
     {
@@ -1253,7 +1176,6 @@ Authorization: Bearer <token>
       "nome": "Estação da Luz",
       "latitude": -23.5407,
       "longitude": -46.6243,
-      "cidade": "São Paulo",
       "ordem": 3
     }
   ]
@@ -1319,7 +1241,7 @@ Use `GET /clientes/{clienteID}/vinculos/` quando a tela precisar escolher apenas
 
 Endpoints para gerenciar reservas feitas pelos clientes.
 
-Reservas copiam dados operacionais do vinculo no momento da criacao: `cliente_id`, `destino_id`, `rota_interna_id`, `cidade` e `turno`. Para vinculos integrais (`IN`), o campo `turno` deve ser informado como `MT`, `VT` ou `NT`.
+Reservas copiam dados operacionais do vinculo no momento da criacao: `cliente_id`, `destino_id`, `rota_interna_id` e `turno`. O municipio e obtido pelo destino. Para vinculos integrais (`IN`), o campo `turno` deve ser informado como `MT`, `VT` ou `NT`.
 
 ### POST /clientes/{clienteID}/vinculos/{vinculoID}/reservas/ - Criar reserva
 
@@ -1351,7 +1273,6 @@ O `clienteID` e o `vinculoID` vem da URL. O body nao recebe `vinculo_id`.
   "turno": "NT",
   "destino_id": 1,
   "rota_interna_id": 1,
-  "cidade": "maceio",
   "sentido": "ida",
   "status": "confirmada",
   "created_at": "2026-06-05T19:10:00-03:00",

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/fredsaggio/bondrota-api/internal/db"
 	"github.com/jackc/pgx/v5"
@@ -26,20 +25,20 @@ func (s *motoristaStore) Create(ctx context.Context, input MotoristaInput) (*Mot
 	const op = "db/motoristaStore.Create"
 
 	const q = `
-		INSERT INTO motoristas (nome, cpf, senha, telefone, data_nasc, turno, cidade_trabalho, residencia, foto)
-		VALUES (@nome, @cpf, @senha, @telefone, @data_nasc, @turno, @cidade_trabalho, @residencia, @foto)
-		RETURNING id, nome, cpf, telefone, data_nasc, turno, cidade_trabalho, residencia, foto
+		INSERT INTO motoristas (nome, cpf, senha, telefone, data_nasc, turno, municipio_trabalho_id, residencia, foto)
+		VALUES (@nome, @cpf, @senha, @telefone, @data_nasc, @turno, @municipio_trabalho_id, @residencia, @foto)
+		RETURNING id, nome, cpf, telefone, data_nasc, turno, municipio_trabalho_id, residencia, foto
 	`
 	args := pgx.StrictNamedArgs{
-		"nome":            input.Nome,
-		"cpf":             input.CPF,
-		"senha":           input.Senha,
-		"telefone":        input.Telefone,
-		"data_nasc":       input.DataNasc,
-		"turno":           input.Turno,
-		"cidade_trabalho": input.CidadeTrabalho,
-		"residencia":      input.Residencia,
-		"foto":            input.Foto,
+		"nome":                  input.Nome,
+		"cpf":                   input.CPF,
+		"senha":                 input.Senha,
+		"telefone":              input.Telefone,
+		"data_nasc":             input.DataNasc,
+		"turno":                 input.Turno,
+		"municipio_trabalho_id": input.MunicipioTrabalhoID,
+		"residencia":            input.Residencia,
+		"foto":                  input.Foto,
 	}
 
 	rows, err := s.db.Query(ctx, q, args)
@@ -59,7 +58,7 @@ func (s *motoristaStore) GetByID(ctx context.Context, motoristaID int64) (*Motor
 	const op = "db/motoristaStore.GetByID"
 
 	const q = `
-		SELECT id, nome, cpf, telefone, data_nasc, turno, cidade_trabalho, residencia, foto
+		SELECT id, nome, cpf, telefone, data_nasc, turno, municipio_trabalho_id, residencia, foto
 		FROM motoristas
 		WHERE id = @id
 	`
@@ -85,7 +84,7 @@ func (s *motoristaStore) List(ctx context.Context) ([]Motorista, error) {
 	const op = "db/motoristaStore.List"
 
 	const q = `
-		SELECT id, nome, cpf, telefone, data_nasc, turno, cidade_trabalho, residencia, foto
+		SELECT id, nome, cpf, telefone, data_nasc, turno, municipio_trabalho_id, residencia, foto
 		FROM motoristas
 		ORDER BY id DESC
 	`
@@ -107,13 +106,10 @@ func (s *motoristaStore) ListDisponiveisParaAlocacao(ctx context.Context, filtro
 	const op = "db/motoristaStore.ListDisponiveisParaAlocacao"
 
 	const q = `
-		SELECT m.id, m.nome, m.cpf, m.telefone, m.data_nasc, m.turno, m.cidade_trabalho, m.residencia, m.foto
+		SELECT m.id, m.nome, m.cpf, m.telefone, m.data_nasc, m.turno, m.municipio_trabalho_id, m.residencia, m.foto
 		FROM motoristas m
 		WHERE (m.turno::text = @turno OR m.turno = 'IN')
-		  AND (
-		      LOWER(m.residencia) = LOWER(@cidade)
-		      OR LOWER(m.cidade_trabalho) = LOWER(@cidade)
-		  )
+		  AND m.municipio_trabalho_id = @municipio_trabalho_id
 		  AND NOT EXISTS (
 		      SELECT 1
 		      FROM ciclos_viagem cv
@@ -126,10 +122,10 @@ func (s *motoristaStore) ListDisponiveisParaAlocacao(ctx context.Context, filtro
 		LIMIT @limit
 	`
 	rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{
-		"cidade":      strings.TrimSpace(filtro.Cidade),
-		"data_viagem": filtro.DataViagem,
-		"turno":       filtro.Turno,
-		"limit":       filtro.Limit,
+		"municipio_trabalho_id": filtro.MunicipioTrabalhoID,
+		"data_viagem":           filtro.DataViagem,
+		"turno":                 filtro.Turno,
+		"limit":                 filtro.Limit,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
@@ -153,7 +149,7 @@ func (s *motoristaStore) Update(ctx context.Context, motoristaID int64, updateFu
 
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		const selectQ = `
-			SELECT id, nome, cpf, telefone, data_nasc, turno, cidade_trabalho, residencia, foto
+			SELECT id, nome, cpf, telefone, data_nasc, turno, municipio_trabalho_id, residencia, foto
 			FROM motoristas
 			WHERE id = @id
 			FOR UPDATE
@@ -185,19 +181,19 @@ func (s *motoristaStore) Update(ctx context.Context, motoristaID int64, updateFu
 			UPDATE motoristas
 			SET nome = @nome, telefone = @telefone,
 			    data_nasc = @data_nasc, turno = @turno,
-			    cidade_trabalho = @cidade_trabalho, residencia = @residencia,
+			    municipio_trabalho_id = @municipio_trabalho_id, residencia = @residencia,
 			    foto = @foto
 			WHERE id = @id
 		`
 		_, err = tx.Exec(ctx, updateQ, pgx.StrictNamedArgs{
-			"id":              motorista.ID,
-			"nome":            motorista.Nome,
-			"telefone":        motorista.Telefone,
-			"data_nasc":       motorista.DataNasc,
-			"turno":           motorista.Turno,
-			"cidade_trabalho": motorista.CidadeTrabalho,
-			"residencia":      motorista.Residencia,
-			"foto":            motorista.Foto,
+			"id":                    motorista.ID,
+			"nome":                  motorista.Nome,
+			"telefone":              motorista.Telefone,
+			"data_nasc":             motorista.DataNasc,
+			"turno":                 motorista.Turno,
+			"municipio_trabalho_id": motorista.MunicipioTrabalhoID,
+			"residencia":            motorista.Residencia,
+			"foto":                  motorista.Foto,
 		})
 		if err != nil {
 			return fmt.Errorf("update: %w", err)
@@ -233,7 +229,7 @@ func (s *motoristaStore) GetByCPF(ctx context.Context, cpf string) (*Motorista, 
 	const op = "db/motoristaStore.GetByCPF"
 
 	const q = `
-		SELECT id, nome, cpf, senha, telefone, data_nasc, turno, cidade_trabalho, residencia, foto
+		SELECT id, nome, cpf, senha, telefone, data_nasc, turno, municipio_trabalho_id, residencia, foto
 		FROM motoristas
 		WHERE cpf = @cpf
 	`
@@ -259,7 +255,7 @@ func scanMotoristaComSenha(row pgx.CollectableRow) (Motorista, error) {
 	var m Motorista
 	err := row.Scan(
 		&m.ID, &m.Nome, &m.CPF, &m.Senha, &m.Telefone,
-		&m.DataNasc, &m.Turno, &m.CidadeTrabalho, &m.Residencia, &m.Foto,
+		&m.DataNasc, &m.Turno, &m.MunicipioTrabalhoID, &m.Residencia, &m.Foto,
 	)
 	return m, err
 }
@@ -268,7 +264,7 @@ func scanMotorista(row pgx.CollectableRow) (Motorista, error) {
 	var m Motorista
 	err := row.Scan(
 		&m.ID, &m.Nome, &m.CPF, &m.Telefone,
-		&m.DataNasc, &m.Turno, &m.CidadeTrabalho, &m.Residencia, &m.Foto,
+		&m.DataNasc, &m.Turno, &m.MunicipioTrabalhoID, &m.Residencia, &m.Foto,
 	)
 	return m, err
 }

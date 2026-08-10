@@ -55,17 +55,17 @@ type ViagemResponse struct {
 }
 
 type CicloViagemResponse struct {
-	ID            int64             `json:"id"`
-	DataViagem    string            `json:"data_viagem"`
-	Turno         TurnoViagem       `json:"turno"`
-	Cidade        string            `json:"cidade"`
-	RotaInternaID int64             `json:"rota_interna_id"`
-	VeiculoID     int64             `json:"veiculo_id"`
-	MotoristaID   int64             `json:"motorista_id"`
-	Status        StatusCicloViagem `json:"status"`
-	ExpiresAt     string            `json:"expires_at"`
-	CreatedAt     string            `json:"created_at"`
-	UpdatedAt     string            `json:"updated_at"`
+	ID                 int64             `json:"id"`
+	DataViagem         string            `json:"data_viagem"`
+	Turno              TurnoViagem       `json:"turno"`
+	MunicipioDestinoID int64             `json:"municipio_destino_id"`
+	RotaInternaID      int64             `json:"rota_interna_id"`
+	VeiculoID          int64             `json:"veiculo_id"`
+	MotoristaID        int64             `json:"motorista_id"`
+	Status             StatusCicloViagem `json:"status"`
+	ExpiresAt          string            `json:"expires_at"`
+	CreatedAt          string            `json:"created_at"`
+	UpdatedAt          string            `json:"updated_at"`
 }
 
 type ViagemComCicloResponse struct {
@@ -99,7 +99,6 @@ type ViagemReservaComReservaResponse struct {
 	Turno         TurnoViagem   `json:"turno"`
 	DestinoID     int64         `json:"destino_id"`
 	RotaInternaID int64         `json:"rota_interna_id"`
-	Cidade        string        `json:"cidade"`
 	Sentido       SentidoViagem `json:"sentido"`
 }
 
@@ -393,17 +392,17 @@ func toViagemResponse(v *Viagem) ViagemResponse {
 
 func toCicloViagemResponse(c *CicloViagem) CicloViagemResponse {
 	return CicloViagemResponse{
-		ID:            c.ID,
-		DataViagem:    c.DataViagem.Format("2006-01-02"),
-		Turno:         c.Turno,
-		Cidade:        c.Cidade,
-		RotaInternaID: c.RotaInternaID,
-		VeiculoID:     c.VeiculoID,
-		MotoristaID:   c.MotoristaID,
-		Status:        c.Status,
-		ExpiresAt:     c.ExpiresAt.Format(time.RFC3339),
-		CreatedAt:     c.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:     c.UpdatedAt.Format(time.RFC3339),
+		ID:                 c.ID,
+		DataViagem:         c.DataViagem.Format("2006-01-02"),
+		Turno:              c.Turno,
+		MunicipioDestinoID: c.MunicipioDestinoID,
+		RotaInternaID:      c.RotaInternaID,
+		VeiculoID:          c.VeiculoID,
+		MotoristaID:        c.MotoristaID,
+		Status:             c.Status,
+		ExpiresAt:          c.ExpiresAt.Format(time.RFC3339),
+		CreatedAt:          c.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:          c.UpdatedAt.Format(time.RFC3339),
 	}
 }
 
@@ -443,7 +442,6 @@ func toViagemReservaComReservaResponse(vr *ViagemReservaComReserva) ViagemReserv
 		Turno:                 vr.Turno,
 		DestinoID:             vr.DestinoID,
 		RotaInternaID:         vr.RotaInternaID,
-		Cidade:                vr.Cidade,
 		Sentido:               vr.Sentido,
 	}
 }

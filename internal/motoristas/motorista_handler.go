@@ -15,25 +15,25 @@ import (
 )
 
 type CreateMotoristaRequest struct {
-	Nome           string `json:"nome"`
-	CPF            string `json:"cpf"`
-	Senha          string `json:"senha"`
-	Telefone       string `json:"telefone"`
-	DataNasc       string `json:"data_nasc"`
-	Turno          Turno  `json:"turno"`
-	CidadeTrabalho string `json:"cidade_trabalho"`
-	Residencia     string `json:"residencia"`
-	Foto           string `json:"foto"`
+	Nome                string `json:"nome"`
+	CPF                 string `json:"cpf"`
+	Senha               string `json:"senha"`
+	Telefone            string `json:"telefone"`
+	DataNasc            string `json:"data_nasc"`
+	Turno               Turno  `json:"turno"`
+	MunicipioTrabalhoID int64  `json:"municipio_trabalho_id"`
+	Residencia          string `json:"residencia"`
+	Foto                string `json:"foto"`
 }
 
 type UpdateMotoristaRequest struct {
-	Nome           string `json:"nome"`
-	Telefone       string `json:"telefone"`
-	DataNasc       string `json:"data_nasc"`
-	Turno          Turno  `json:"turno"`
-	CidadeTrabalho string `json:"cidade_trabalho"`
-	Residencia     string `json:"residencia"`
-	Foto           string `json:"foto"`
+	Nome                string `json:"nome"`
+	Telefone            string `json:"telefone"`
+	DataNasc            string `json:"data_nasc"`
+	Turno               Turno  `json:"turno"`
+	MunicipioTrabalhoID int64  `json:"municipio_trabalho_id"`
+	Residencia          string `json:"residencia"`
+	Foto                string `json:"foto"`
 }
 
 type LoginRequest struct {
@@ -42,15 +42,15 @@ type LoginRequest struct {
 }
 
 type MotoristaResponse struct {
-	ID             int64  `json:"id"`
-	Nome           string `json:"nome"`
-	CPF            string `json:"cpf"`
-	Telefone       string `json:"telefone"`
-	DataNasc       string `json:"data_nasc"`
-	Turno          Turno  `json:"turno"`
-	CidadeTrabalho string `json:"cidade_trabalho"`
-	Residencia     string `json:"residencia"`
-	Foto           string `json:"foto"`
+	ID                  int64  `json:"id"`
+	Nome                string `json:"nome"`
+	CPF                 string `json:"cpf"`
+	Telefone            string `json:"telefone"`
+	DataNasc            string `json:"data_nasc"`
+	Turno               Turno  `json:"turno"`
+	MunicipioTrabalhoID int64  `json:"municipio_trabalho_id"`
+	Residencia          string `json:"residencia"`
+	Foto                string `json:"foto"`
 }
 
 type MotoristaHandler struct {
@@ -122,6 +122,10 @@ func (h *MotoristaHandler) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "data_nasc is required", http.StatusBadRequest)
 		return
 	}
+	if req.MunicipioTrabalhoID <= 0 {
+		http.Error(w, "municipio_trabalho_id is required", http.StatusBadRequest)
+		return
+	}
 
 	switch req.Turno {
 	case TurnoMatutino, TurnoVespertino, TurnoNoturno, TurnoIntegral:
@@ -138,15 +142,15 @@ func (h *MotoristaHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	input := MotoristaInput{
-		Nome:           strings.TrimSpace(req.Nome),
-		CPF:            strings.TrimSpace(req.CPF),
-		Senha:          req.Senha,
-		Telefone:       strings.TrimSpace(req.Telefone),
-		DataNasc:       dataNasc,
-		Turno:          req.Turno,
-		CidadeTrabalho: strings.TrimSpace(req.CidadeTrabalho),
-		Residencia:     strings.TrimSpace(req.Residencia),
-		Foto:           strings.TrimSpace(req.Foto),
+		Nome:                strings.TrimSpace(req.Nome),
+		CPF:                 strings.TrimSpace(req.CPF),
+		Senha:               req.Senha,
+		Telefone:            strings.TrimSpace(req.Telefone),
+		DataNasc:            dataNasc,
+		Turno:               req.Turno,
+		MunicipioTrabalhoID: req.MunicipioTrabalhoID,
+		Residencia:          strings.TrimSpace(req.Residencia),
+		Foto:                strings.TrimSpace(req.Foto),
 	}
 
 	motorista, err := h.svc.Create(ctx, input)
@@ -259,10 +263,9 @@ func (h *MotoristaHandler) Update(w http.ResponseWriter, r *http.Request) {
 				updated = true
 			}
 		}
-		if req.CidadeTrabalho != "" {
-			cidadeTrabalho := strings.TrimSpace(req.CidadeTrabalho)
-			if cidadeTrabalho != "" && cidadeTrabalho != m.CidadeTrabalho {
-				m.CidadeTrabalho = cidadeTrabalho
+		if req.MunicipioTrabalhoID > 0 {
+			if req.MunicipioTrabalhoID != m.MunicipioTrabalhoID {
+				m.MunicipioTrabalhoID = req.MunicipioTrabalhoID
 				updated = true
 			}
 		}
@@ -325,14 +328,14 @@ func (h *MotoristaHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 func toMotoristaResponse(m *Motorista) MotoristaResponse {
 	return MotoristaResponse{
-		ID:             m.ID,
-		Nome:           m.Nome,
-		CPF:            m.CPF,
-		Telefone:       m.Telefone,
-		DataNasc:       m.DataNasc.Format("2006-01-02"),
-		Turno:          m.Turno,
-		CidadeTrabalho: m.CidadeTrabalho,
-		Residencia:     m.Residencia,
-		Foto:           m.Foto,
+		ID:                  m.ID,
+		Nome:                m.Nome,
+		CPF:                 m.CPF,
+		Telefone:            m.Telefone,
+		DataNasc:            m.DataNasc.Format("2006-01-02"),
+		Turno:               m.Turno,
+		MunicipioTrabalhoID: m.MunicipioTrabalhoID,
+		Residencia:          m.Residencia,
+		Foto:                m.Foto,
 	}
 }

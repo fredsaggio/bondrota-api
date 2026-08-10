@@ -10,7 +10,7 @@ CREATE TABLE motoristas (
     telefone TEXT NOT NULL DEFAULT '',
     data_nasc DATE NOT NULL,
     turno turno_motorista NOT NULL,
-    cidade_trabalho TEXT NOT NULL DEFAULT '',
+    municipio_trabalho_id BIGINT NOT NULL REFERENCES municipios(codigo_ibge) ON DELETE RESTRICT,
     residencia TEXT NOT NULL DEFAULT '',
     foto TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -21,6 +21,9 @@ CREATE TRIGGER set_updated_at_motoristas
     BEFORE UPDATE ON motoristas
     FOR EACH ROW
     EXECUTE FUNCTION trigger_set_updated_at();
+
+CREATE INDEX idx_motoristas_municipio_trabalho_turno
+    ON motoristas (municipio_trabalho_id, turno);
 
 -- +goose StatementEnd
 

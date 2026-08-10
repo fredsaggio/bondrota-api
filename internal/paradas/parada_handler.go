@@ -9,14 +9,12 @@ import (
 
 	"github.com/fredsaggio/bondrota-api/internal/conv"
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
-	"github.com/go-chi/chi/v5"
 )
 
 type ParadaRequest struct {
 	Nome      string  `json:"nome"`
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
-	Cidade    string  `json:"cidade"`
 }
 
 type ParadaResponse struct {
@@ -24,7 +22,6 @@ type ParadaResponse struct {
 	Nome      string  `json:"nome"`
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
-	Cidade    string  `json:"cidade"`
 }
 
 type ParadaHandler struct {
@@ -48,16 +45,10 @@ func (h *ParadaHandler) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "nome is required", http.StatusBadRequest)
 		return
 	}
-	if req.Cidade == "" {
-		http.Error(w, "cidade is required", http.StatusBadRequest)
-		return
-	}
-
 	input := ParadaInput{
 		Nome:      strings.TrimSpace(req.Nome),
 		Latitude:  req.Latitude,
 		Longitude: req.Longitude,
-		Cidade:    strings.TrimSpace(strings.ToLower(req.Cidade)),
 	}
 
 	parada, err := h.store.Create(ctx, input)
@@ -111,30 +102,6 @@ func (h *ParadaHandler) List(w http.ResponseWriter, r *http.Request) {
 	httputils.Respond(w, http.StatusOK, resp)
 }
 
-func (h *ParadaHandler) ListByCity(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	cidade := strings.TrimSpace(strings.ToLower(chi.URLParam(r, "cidade")))
-	if cidade == "" {
-		http.Error(w, "cidade is required", http.StatusBadRequest)
-		return
-	}
-
-	paradas, err := h.store.ListByCity(ctx, cidade)
-	if err != nil {
-		slog.Error("failed to list paradas by city", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	resp := make([]ParadaResponse, 0, len(paradas))
-	for _, p := range paradas {
-		resp = append(resp, toParadaResponse(&p))
-	}
-
-	httputils.Respond(w, http.StatusOK, resp)
-}
-
 func (h *ParadaHandler) Update(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -154,10 +121,6 @@ func (h *ParadaHandler) Update(w http.ResponseWriter, r *http.Request) {
 		updated := false
 		if req.Nome != "" && req.Nome != p.Nome {
 			p.Nome = strings.TrimSpace(req.Nome)
-			updated = true
-		}
-		if req.Cidade != "" && req.Cidade != p.Cidade {
-			p.Cidade = strings.TrimSpace(strings.ToLower(req.Cidade))
 			updated = true
 		}
 		if req.Latitude != 0 && req.Latitude != p.Latitude {
@@ -211,6 +174,5 @@ func toParadaResponse(p *Parada) ParadaResponse {
 		Nome:      p.Nome,
 		Latitude:  p.Latitude,
 		Longitude: p.Longitude,
-		Cidade:    p.Cidade,
 	}
 }

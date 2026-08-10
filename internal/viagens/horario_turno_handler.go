@@ -21,20 +21,20 @@ func NewHorarioTurnoViagemHandler(svc HorarioTurnoViagemService) *HorarioTurnoVi
 }
 
 type HorarioTurnoViagemRequest struct {
-	Cidade       string      `json:"cidade"`
-	Turno        TurnoViagem `json:"turno"`
-	HorarioIda   string      `json:"horario_ida"`
-	HorarioVolta string      `json:"horario_volta"`
+	MunicipioDestinoID int64       `json:"municipio_destino_id"`
+	Turno              TurnoViagem `json:"turno"`
+	HorarioIda         string      `json:"horario_ida"`
+	HorarioVolta       string      `json:"horario_volta"`
 }
 
 type HorarioTurnoViagemResponse struct {
-	ID           int64       `json:"id"`
-	Cidade       string      `json:"cidade"`
-	Turno        TurnoViagem `json:"turno"`
-	HorarioIda   string      `json:"horario_ida"`
-	HorarioVolta string      `json:"horario_volta"`
-	CreatedAt    string      `json:"created_at"`
-	UpdatedAt    string      `json:"updated_at"`
+	ID                 int64       `json:"id"`
+	MunicipioDestinoID int64       `json:"municipio_destino_id"`
+	Turno              TurnoViagem `json:"turno"`
+	HorarioIda         string      `json:"horario_ida"`
+	HorarioVolta       string      `json:"horario_volta"`
+	CreatedAt          string      `json:"created_at"`
+	UpdatedAt          string      `json:"updated_at"`
 }
 
 func (h *HorarioTurnoViagemHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -100,8 +100,8 @@ func (h *HorarioTurnoViagemHandler) Update(w http.ResponseWriter, r *http.Reques
 	horario, err := h.svc.Update(r.Context(), id, func(horario *HorarioTurnoViagem) (bool, error) {
 		changed := false
 
-		if req.Cidade != "" && req.Cidade != horario.Cidade {
-			horario.Cidade = req.Cidade
+		if req.MunicipioDestinoID > 0 && req.MunicipioDestinoID != horario.MunicipioDestinoID {
+			horario.MunicipioDestinoID = req.MunicipioDestinoID
 			changed = true
 		}
 		if req.Turno != "" && req.Turno != horario.Turno {
@@ -189,21 +189,21 @@ func decodeHorarioTurnoInput(r *http.Request) (HorarioTurnoViagemInput, error) {
 	}
 
 	return HorarioTurnoViagemInput{
-		Cidade:       req.Cidade,
-		Turno:        req.Turno,
-		HorarioIda:   horarioIda,
-		HorarioVolta: horarioVolta,
+		MunicipioDestinoID: req.MunicipioDestinoID,
+		Turno:              req.Turno,
+		HorarioIda:         horarioIda,
+		HorarioVolta:       horarioVolta,
 	}, nil
 }
 
 func toHorarioTurnoViagemResponse(h *HorarioTurnoViagem) HorarioTurnoViagemResponse {
 	return HorarioTurnoViagemResponse{
-		ID:           h.ID,
-		Cidade:       h.Cidade,
-		Turno:        h.Turno,
-		HorarioIda:   formatHorarioTurno(h.HorarioIda),
-		HorarioVolta: formatHorarioTurno(h.HorarioVolta),
-		CreatedAt:    h.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:    h.UpdatedAt.Format(time.RFC3339),
+		ID:                 h.ID,
+		MunicipioDestinoID: h.MunicipioDestinoID,
+		Turno:              h.Turno,
+		HorarioIda:         formatHorarioTurno(h.HorarioIda),
+		HorarioVolta:       formatHorarioTurno(h.HorarioVolta),
+		CreatedAt:          h.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:          h.UpdatedAt.Format(time.RFC3339),
 	}
 }

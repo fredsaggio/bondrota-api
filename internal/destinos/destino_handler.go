@@ -5,31 +5,29 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"strings"
 
 	"github.com/fredsaggio/bondrota-api/internal/conv"
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
-	"github.com/go-chi/chi/v5"
 )
 
 type DestinoRequest struct {
-	Nome      string  `json:"nome"`
-	Rua       string  `json:"rua"`
-	Cidade    string  `json:"cidade"`
-	Latitude  float64 `json:"latitude"`
-	Longitude float64 `json:"longitude"`
+	Nome        string  `json:"nome"`
+	Rua         string  `json:"rua"`
+	MunicipioID int64   `json:"municipio_id"`
+	Latitude    float64 `json:"latitude"`
+	Longitude   float64 `json:"longitude"`
 }
 
 type CreateDestinoResponse struct {
 	ID int64 `json:"id"`
 }
 type DestinoResponse struct {
-	ID        int64   `json:"id"`
-	Nome      string  `json:"nome"`
-	Rua       string  `json:"rua"`
-	Cidade    string  `json:"cidade"`
-	Latitude  float64 `json:"latitude"`
-	Longitude float64 `json:"longitude"`
+	ID          int64   `json:"id"`
+	Nome        string  `json:"nome"`
+	Rua         string  `json:"rua"`
+	MunicipioID int64   `json:"municipio_id"`
+	Latitude    float64 `json:"latitude"`
+	Longitude   float64 `json:"longitude"`
 }
 
 type DestinoHandler struct {
@@ -57,8 +55,8 @@ func (h *DestinoHandler) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "street is required", http.StatusBadRequest)
 		return
 	}
-	if req.Cidade == "" {
-		http.Error(w, "city is required", http.StatusBadRequest)
+	if req.MunicipioID <= 0 {
+		http.Error(w, "municipio_id is required", http.StatusBadRequest)
 		return
 	}
 	if req.Latitude == 0 || req.Longitude == 0 {
@@ -66,14 +64,12 @@ func (h *DestinoHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cidade := strings.TrimSpace(strings.ToLower(req.Cidade))
-
 	input := DestinoInput{
-		Nome:      req.Nome,
-		Rua:       req.Rua,
-		Cidade:    cidade,
-		Latitude:  req.Latitude,
-		Longitude: req.Longitude,
+		Nome:        req.Nome,
+		Rua:         req.Rua,
+		MunicipioID: req.MunicipioID,
+		Latitude:    req.Latitude,
+		Longitude:   req.Longitude,
 	}
 
 	destino, err := h.store.Create(ctx, input)
@@ -125,16 +121,15 @@ func (h *DestinoHandler) List(w http.ResponseWriter, r *http.Request) {
 	httputils.Respond(w, http.StatusOK, resp)
 }
 
-func (h *DestinoHandler) ListByCity(w http.ResponseWriter, r *http.Request) {
+func (h *DestinoHandler) ListByMunicipio(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	cidade := strings.TrimSpace(strings.ToLower(chi.URLParam(r, "cidade")))
-
-	if cidade == "" {
-		http.Error(w, "cidade is required", http.StatusBadRequest)
+	municipioID, err := conv.ParseInt(r, "municipioID")
+	if err != nil {
+		http.Error(w, "invalid municipio id", http.StatusBadRequest)
 		return
 	}
 
-	destinos, err := h.store.ListByCity(ctx, cidade)
+	destinos, err := h.store.ListByMunicipio(ctx, municipioID)
 	if err != nil {
 		slog.Error("failed to list destinos by city", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -173,8 +168,8 @@ func (h *DestinoHandler) Update(w http.ResponseWriter, r *http.Request) {
 			p.Rua = req.Rua
 			updated = true
 		}
-		if req.Cidade != "" && req.Cidade != p.Cidade {
-			p.Cidade = req.Cidade
+		if req.MunicipioID > 0 && req.MunicipioID != p.MunicipioID {
+			p.MunicipioID = req.MunicipioID
 			updated = true
 		}
 		if req.Latitude != 0 && req.Latitude != p.Latitude {
@@ -225,11 +220,11 @@ func (h *DestinoHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 func toDestinoResponse(p *Destino) DestinoResponse {
 	return DestinoResponse{
-		ID:        p.ID,
-		Nome:      p.Nome,
-		Rua:       p.Rua,
-		Cidade:    p.Cidade,
-		Latitude:  p.Latitude,
-		Longitude: p.Longitude,
+		ID:          p.ID,
+		Nome:        p.Nome,
+		Rua:         p.Rua,
+		MunicipioID: p.MunicipioID,
+		Latitude:    p.Latitude,
+		Longitude:   p.Longitude,
 	}
 }

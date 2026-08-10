@@ -44,6 +44,25 @@ components:
         token:
           type: string
           example: eyJhbGciOiJIUzI1NiIs...
+    ConfigResponse:
+      type: object
+      properties:
+        cidade_base:
+          type: string
+          example: Campo Alegre
+    MunicipioResponse:
+      type: object
+      properties:
+        codigo_ibge:
+          type: integer
+          format: int64
+          example: 2704302
+        nome:
+          type: string
+          example: Maceio
+        uf:
+          type: string
+          example: AL
     AdminCreateRequest:
       type: object
       required:
@@ -86,7 +105,6 @@ components:
       - modelo
       - categoria
       - capacidade
-      - cidade_base
       - status
       properties:
         placa:
@@ -105,9 +123,6 @@ components:
         capacidade:
           type: integer
           example: 24
-        cidade_base:
-          type: string
-          example: campo alegre
         status:
           type: string
           enum:
@@ -149,9 +164,6 @@ components:
         capacidade:
           type: integer
           example: 24
-        cidade_base:
-          type: string
-          example: campo alegre
         status:
           type: string
           enum:
@@ -189,7 +201,7 @@ components:
       required:
       - nome
       - rua
-      - cidade
+      - municipio_id
       - latitude
       - longitude
       properties:
@@ -199,9 +211,10 @@ components:
         rua:
           type: string
           example: Av. Lourival Melo Mota
-        cidade:
-          type: string
-          example: maceio
+        municipio_id:
+          type: integer
+          format: int64
+          example: 2704302
         latitude:
           type: number
           example: -9.5584
@@ -224,7 +237,6 @@ components:
       - nome
       - latitude
       - longitude
-      - cidade
       properties:
         nome:
           type: string
@@ -235,9 +247,6 @@ components:
         longitude:
           type: number
           example: -36.3501
-        cidade:
-          type: string
-          example: campo alegre
     ParadaIDResponse:
       type: object
       properties:
@@ -251,12 +260,8 @@ components:
     CreateRotaInternaRequest:
       type: object
       required:
-      - cidade
       - paradas
       properties:
-        cidade:
-          type: string
-          example: campo alegre
         paradas:
           type: array
           items:
@@ -304,9 +309,6 @@ components:
         id:
           type: integer
           example: 1
-        cidade:
-          type: string
-          example: campo alegre
         paradas:
           type: array
           items:
@@ -319,7 +321,7 @@ components:
       - senha
       - data_nasc
       - turno
-      - cidade_trabalho
+      - municipio_trabalho_id
       - residencia
       properties:
         nome:
@@ -346,9 +348,10 @@ components:
           - NT
           - IN
           example: NT
-        cidade_trabalho:
-          type: string
-          example: campo alegre
+        municipio_trabalho_id:
+          type: integer
+          format: int64
+          example: 2704302
         residencia:
           type: string
           example: campo alegre
@@ -382,9 +385,10 @@ components:
           - NT
           - IN
           example: NT
-        cidade_trabalho:
-          type: string
-          example: campo alegre
+        municipio_trabalho_id:
+          type: integer
+          format: int64
+          example: 2704302
         residencia:
           type: string
           example: campo alegre
@@ -418,9 +422,10 @@ components:
           - NT
           - IN
           example: NT
-        cidade_trabalho:
-          type: string
-          example: campo alegre
+        municipio_trabalho_id:
+          type: integer
+          format: int64
+          example: 2704302
         residencia:
           type: string
           example: campo alegre
@@ -693,9 +698,6 @@ components:
         rota_interna_id:
           type: integer
           example: 1
-        cidade:
-          type: string
-          example: campo alegre
         sentido:
           type: string
           enum:
@@ -719,14 +721,15 @@ components:
     HorarioTurnoViagemRequest:
       type: object
       required:
-      - cidade
+      - municipio_destino_id
       - turno
       - horario_ida
       - horario_volta
       properties:
-        cidade:
-          type: string
-          example: campo alegre
+        municipio_destino_id:
+          type: integer
+          format: int64
+          example: 2704302
         turno:
           type: string
           enum:
@@ -746,9 +749,10 @@ components:
         id:
           type: integer
           example: 1
-        cidade:
-          type: string
-          example: campo alegre
+        municipio_destino_id:
+          type: integer
+          format: int64
+          example: 2704302
         turno:
           type: string
           enum:
@@ -775,7 +779,7 @@ components:
       required:
       - data_viagem
       - turno
-      - cidade
+      - municipio_destino_id
       - rota_interna_id
       properties:
         data_viagem:
@@ -789,9 +793,10 @@ components:
           - VT
           - NT
           example: NT
-        cidade:
-          type: string
-          example: campo alegre
+        municipio_destino_id:
+          type: integer
+          format: int64
+          example: 2704302
         rota_interna_id:
           type: integer
           example: 1
@@ -812,9 +817,10 @@ components:
           - VT
           - NT
           example: NT
-        cidade:
-          type: string
-          example: campo alegre
+        municipio_destino_id:
+          type: integer
+          format: int64
+          example: 2704302
         rota_interna_id:
           type: integer
           example: 1
@@ -1001,9 +1007,6 @@ components:
           rota_interna_id:
             type: integer
             example: 1
-          cidade:
-            type: string
-            example: campo alegre
           sentido:
             type: string
             enum:
@@ -1337,6 +1340,19 @@ paths:
         '200':
           description: OK
       security: []
+  /config:
+    get:
+      summary: Retorna a configuração pública da instância
+      tags:
+      - Configuração
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigResponse'
+      security: []
   /admin/login:
     post:
       summary: Autentica administrador
@@ -1564,6 +1580,29 @@ paths:
         required: true
         schema:
           type: integer
+  /municipios/:
+    get:
+      summary: Lista municipios ativos por UF
+      tags:
+      - Municipios
+      parameters:
+      - name: uf
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 2
+          maxLength: 2
+          example: AL
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MunicipioResponse'
   /destinos/:
     post:
       summary: Cria destino
@@ -1595,9 +1634,9 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/DestinoResponse'
-  /destinos/cidade/{cidade}:
+  /destinos/municipio/{municipioID}:
     get:
-      summary: Lista destinos por cidade
+      summary: Lista destinos por municipio
       tags:
       - Destinos
       responses:
@@ -1610,11 +1649,12 @@ paths:
                 items:
                   $ref: '#/components/schemas/DestinoResponse'
       parameters:
-      - name: cidade
+      - name: municipioID
         in: path
         required: true
         schema:
-          type: string
+          type: integer
+          format: int64
   /destinos/{id}:
     get:
       summary: Busca destino
@@ -1700,26 +1740,6 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ParadaResponse'
-  /paradas/cidade/{cidade}:
-    get:
-      summary: Lista paradas por cidade
-      tags:
-      - Paradas
-      responses:
-        '200':
-          description: Sucesso
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ParadaResponse'
-      parameters:
-      - name: cidade
-        in: path
-        required: true
-        schema:
-          type: string
   /paradas/{id}:
     get:
       summary: Busca parada
@@ -1805,26 +1825,6 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/RotaInternaResponse'
-  /rotas-internas/cidade/{cidade}:
-    get:
-      summary: Lista rotas internas por cidade
-      tags:
-      - Rotas Internas
-      responses:
-        '200':
-          description: Sucesso
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/RotaInternaResponse'
-      parameters:
-      - name: cidade
-        in: path
-        required: true
-        schema:
-          type: string
   /rotas-internas/{id}:
     get:
       summary: Busca rota interna
@@ -2324,7 +2324,7 @@ paths:
           type: integer
   /horarios-turno-viagem/:
     post:
-      summary: Cria horario por cidade/turno
+      summary: Cria horário por cidade de destino e turno
       tags:
       - Horários Turno
       responses:

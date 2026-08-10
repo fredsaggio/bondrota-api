@@ -22,7 +22,6 @@ func newParadaRouter(h *paradas.ParadaHandler) http.Handler {
 	r.Post("/paradas", h.Create)
 	r.Get("/paradas", h.List)
 	r.Get("/paradas/{id}", h.GetByID)
-	r.Get("/paradas/cidade/{cidade}", h.ListByCity)
 	r.Patch("/paradas/{id}", h.Update)
 	r.Delete("/paradas/{id}", h.Delete)
 	return r
@@ -40,7 +39,6 @@ func sampleParada() *paradas.Parada {
 		Nome:      "Terminal Recife",
 		Latitude:  -8.063,
 		Longitude: -34.871,
-		Cidade:    "recife",
 	}
 }
 
@@ -54,7 +52,6 @@ func TestParadaHandler_Create(t *testing.T) {
 			"nome":      "Terminal Recife",
 			"latitude":  -8.063,
 			"longitude": -34.871,
-			"cidade":    "Recife",
 		})
 	}
 
@@ -65,11 +62,11 @@ func TestParadaHandler_Create(t *testing.T) {
 		wantStatus int
 	}{
 		{
-			name: "sucesso → 201 (cidade normalizada para lowercase)",
+			name: "sucesso → 201",
 			body: validBody(),
 			setup: func(st *mocks.MockParadaStore) {
 				st.EXPECT().Create(mock.Anything, mock.MatchedBy(func(in paradas.ParadaInput) bool {
-					return in.Nome == "Terminal Recife" && in.Cidade == "recife"
+					return in.Nome == "Terminal Recife"
 				})).Return(sampleParada(), nil)
 			},
 			wantStatus: http.StatusCreated,
@@ -82,13 +79,7 @@ func TestParadaHandler_Create(t *testing.T) {
 		},
 		{
 			name:       "nome vazio → 400",
-			body:       jsonBuf(map[string]any{"cidade": "Recife", "latitude": -8.0, "longitude": -34.0}),
-			setup:      func(_ *mocks.MockParadaStore) {},
-			wantStatus: http.StatusBadRequest,
-		},
-		{
-			name:       "cidade vazia → 400",
-			body:       jsonBuf(map[string]any{"nome": "Terminal", "latitude": -8.0, "longitude": -34.0}),
+			body:       jsonBuf(map[string]any{"latitude": -8.0, "longitude": -34.0}),
 			setup:      func(_ *mocks.MockParadaStore) {},
 			wantStatus: http.StatusBadRequest,
 		},
@@ -207,56 +198,6 @@ func TestParadaHandler_List(t *testing.T) {
 			tc.setup(st)
 			h := paradas.NewParadaHandler(st)
 			req := httptest.NewRequest(http.MethodGet, "/paradas", nil)
-			rr := httptest.NewRecorder()
-			newParadaRouter(h).ServeHTTP(rr, req)
-			if rr.Code != tc.wantStatus {
-				t.Errorf("want %d, got %d", tc.wantStatus, rr.Code)
-			}
-		})
-	}
-}
-
-// --- ListByCity ---
-
-func TestParadaHandler_ListByCity(t *testing.T) {
-	tests := []struct {
-		name       string
-		cidade     string
-		setup      func(*mocks.MockParadaStore)
-		wantStatus int
-	}{
-		{
-			name:   "sucesso — normaliza para lowercase",
-			cidade: "Recife",
-			setup: func(st *mocks.MockParadaStore) {
-				st.EXPECT().ListByCity(mock.Anything, "recife").Return([]paradas.Parada{*sampleParada()}, nil)
-			},
-			wantStatus: http.StatusOK,
-		},
-		{
-			name:   "lista vazia",
-			cidade: "Olinda",
-			setup: func(st *mocks.MockParadaStore) {
-				st.EXPECT().ListByCity(mock.Anything, "olinda").Return([]paradas.Parada{}, nil)
-			},
-			wantStatus: http.StatusOK,
-		},
-		{
-			name:   "erro interno → 500",
-			cidade: "Recife",
-			setup: func(st *mocks.MockParadaStore) {
-				st.EXPECT().ListByCity(mock.Anything, "recife").Return(nil, errors.New("db"))
-			},
-			wantStatus: http.StatusInternalServerError,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			st := mocks.NewMockParadaStore(t)
-			tc.setup(st)
-			h := paradas.NewParadaHandler(st)
-			req := httptest.NewRequest(http.MethodGet, "/paradas/cidade/"+tc.cidade, nil)
 			rr := httptest.NewRecorder()
 			newParadaRouter(h).ServeHTTP(rr, req)
 			if rr.Code != tc.wantStatus {

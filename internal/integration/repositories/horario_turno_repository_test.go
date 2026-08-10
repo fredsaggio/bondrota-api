@@ -15,15 +15,15 @@ func TestHorarioTurnoRepository_CRUD(t *testing.T) {
 	ctx, tx := beginTestTx(t)
 	store := viagens.NewHorarioTurnoViagemStore(tx)
 	input := viagens.HorarioTurnoViagemInput{
-		Cidade: " Maceio ", Turno: viagens.TurnoNoturno,
+		MunicipioDestinoID: testMunicipioID, Turno: viagens.TurnoNoturno,
 		HorarioIda: 17 * time.Hour, HorarioVolta: 22 * time.Hour,
 	}
 
 	created, err := store.Create(ctx, input)
 	require.NoError(t, err)
-	require.Equal(t, testCity, created.Cidade)
+	require.Equal(t, testMunicipioID, created.MunicipioDestinoID)
 
-	got, err := store.GetByCidadeTurno(ctx, "maceio", viagens.TurnoNoturno)
+	got, err := store.GetByMunicipioDestinoTurno(ctx, testMunicipioID, viagens.TurnoNoturno)
 	require.NoError(t, err)
 	require.Equal(t, created.ID, got.ID)
 
@@ -39,11 +39,11 @@ func TestHorarioTurnoRepository_CRUD(t *testing.T) {
 	require.ErrorIs(t, err, brerror.ErrNotFound)
 }
 
-func TestHorarioTurnoRepository_RejectsDuplicateCityShift(t *testing.T) {
+func TestHorarioTurnoRepository_RejectsDuplicateMunicipioShift(t *testing.T) {
 	ctx, tx := beginTestTx(t)
 	store := viagens.NewHorarioTurnoViagemStore(tx)
 	input := viagens.HorarioTurnoViagemInput{
-		Cidade: testCity, Turno: viagens.TurnoNoturno,
+		MunicipioDestinoID: testMunicipioID, Turno: viagens.TurnoNoturno,
 		HorarioIda: 17 * time.Hour, HorarioVolta: 22 * time.Hour,
 	}
 

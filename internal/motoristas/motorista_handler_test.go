@@ -37,15 +37,15 @@ func jsonBuf(v any) *bytes.Buffer {
 
 func sampleMotorista() *motoristas.Motorista {
 	return &motoristas.Motorista{
-		ID:             1,
-		Nome:           "João Silva",
-		CPF:            "123.456.789-00",
-		Telefone:       "81999990000",
-		DataNasc:       time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
-		Turno:          motoristas.TurnoMatutino,
-		CidadeTrabalho: "Recife",
-		Residencia:     "Olinda",
-		Foto:           "",
+		ID:                  1,
+		Nome:                "João Silva",
+		CPF:                 "123.456.789-00",
+		Telefone:            "81999990000",
+		DataNasc:            time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
+		Turno:               motoristas.TurnoMatutino,
+		MunicipioTrabalhoID: 2611606,
+		Residencia:          "Olinda",
+		Foto:                "",
 	}
 }
 
@@ -125,11 +125,12 @@ func TestMotoristaHandler_Login(t *testing.T) {
 
 func validCreateBody() *bytes.Buffer {
 	return jsonBuf(map[string]any{
-		"nome":      "João Silva",
-		"cpf":       "123.456.789-00",
-		"senha":     "secret",
-		"turno":     "MT",
-		"data_nasc": "1990-01-01",
+		"nome":                  "João Silva",
+		"cpf":                   "123.456.789-00",
+		"senha":                 "secret",
+		"turno":                 "MT",
+		"data_nasc":             "1990-01-01",
+		"municipio_trabalho_id": int64(2611606),
 	})
 }
 
@@ -145,7 +146,7 @@ func TestMotoristaHandler_Create(t *testing.T) {
 			body: validCreateBody(),
 			setup: func(svc *mocks.MockMotoristaService) {
 				svc.EXPECT().Create(mock.Anything, mock.MatchedBy(func(in motoristas.MotoristaInput) bool {
-					return in.Nome == "João Silva" && in.CPF == "123.456.789-00" && in.Turno == motoristas.TurnoMatutino
+					return in.Nome == "João Silva" && in.CPF == "123.456.789-00" && in.Turno == motoristas.TurnoMatutino && in.MunicipioTrabalhoID == 2611606
 				})).Return(sampleMotorista(), nil)
 			},
 			wantStatus: http.StatusCreated,
@@ -195,6 +196,12 @@ func TestMotoristaHandler_Create(t *testing.T) {
 		{
 			name:       "data_nasc inválida → 400",
 			body:       jsonBuf(map[string]any{"nome": "João", "cpf": "123", "senha": "pw", "turno": "MT", "data_nasc": "not-a-date"}),
+			setup:      func(_ *mocks.MockMotoristaService) {},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "municipio trabalho ausente → 400",
+			body:       jsonBuf(map[string]any{"nome": "João", "cpf": "123", "senha": "pw", "turno": "MT", "data_nasc": "1990-01-01"}),
 			setup:      func(_ *mocks.MockMotoristaService) {},
 			wantStatus: http.StatusBadRequest,
 		},

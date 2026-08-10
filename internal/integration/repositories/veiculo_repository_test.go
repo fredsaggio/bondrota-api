@@ -14,7 +14,7 @@ func TestVeiculoRepository_CRUD(t *testing.T) {
 	store := veiculos.NewVeiculoStore(tx)
 	input := veiculos.VeiculoInput{
 		Placa: "INT1001", Modelo: "Van", Categoria: veiculos.CategoriaCarroSeteLugares,
-		Capacidade: 7, CidadeBase: testCity, Status: veiculos.StatusAtivo, ArCondicionado: true,
+		Capacidade: 7, Status: veiculos.StatusAtivo, ArCondicionado: true,
 	}
 
 	created, err := store.Create(ctx, input)
@@ -43,14 +43,14 @@ func TestVeiculoRepository_CRUD(t *testing.T) {
 func TestVeiculoRepository_ListsOnlyAvailableVehicles(t *testing.T) {
 	ctx, tx := beginTestTx(t)
 	fixture := seedBaseFixture(t, ctx, tx)
-	availableID := seedVeiculo(t, ctx, tx, "INT1002", testCity, "ativo")
-	seedVeiculo(t, ctx, tx, "INT1003", testCity, "manutencao")
+	availableID := seedVeiculo(t, ctx, tx, "INT1002", "ativo")
+	seedVeiculo(t, ctx, tx, "INT1003", "manutencao")
 	tripDate := futureTripDate()
 	seedCiclo(t, ctx, tx, fixture, tripDate)
 
 	store := veiculos.NewAlocacaoVeiculoStore(tx)
 	available, err := store.ListDisponiveisParaAlocacao(ctx, veiculos.VeiculosDisponiveisFiltro{
-		Cidade: "maceio", DataViagem: tripDate, Turno: "NT",
+		DataViagem: tripDate, Turno: "NT",
 		Categorias: []veiculos.CategoriaVeiculo{veiculos.CategoriaCarroSeteLugares},
 	})
 	require.NoError(t, err)

@@ -21,12 +21,12 @@ func TestLiveOSRMRotaDinamica(t *testing.T) {
 		MotoristaPrefix: "99" + suffix[len(suffix)-6:],
 		ClientePrefix:   "89" + suffix[len(suffix)-6:],
 		PlacaPrefix:     "O" + suffix[len(suffix)-5:],
-		Cidade:          cidade,
+		CidadeDestino:   cidade,
 		DestinoPrefix:   "Destino Base E2E " + suffix,
 	})
 
 	rotaInternaID, dataViagem := setupPlanejamentoBase(t, h, planejamentoBaseOptions{
-		Cidade:          cidade,
+		CidadeDestino:   cidade,
 		Prefixo:         suffix,
 		MotoristaPrefix: "99" + suffix[len(suffix)-6:],
 		ClientePrefix:   "89" + suffix[len(suffix)-6:],
@@ -37,10 +37,10 @@ func TestLiveOSRMRotaDinamica(t *testing.T) {
 	})
 
 	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
-		"data_viagem":     dataViagem,
-		"turno":           "NT",
-		"cidade":          cidade,
-		"rota_interna_id": rotaInternaID,
+		"data_viagem":          dataViagem,
+		"turno":                "NT",
+		"municipio_destino_id": e2eMunicipioID,
+		"rota_interna_id":      rotaInternaID,
 	}, http.StatusCreated)
 	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
 

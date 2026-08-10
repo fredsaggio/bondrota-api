@@ -15,7 +15,7 @@ import (
 func TestRotaDinamicaRepository_PersistsOrderedDestinations(t *testing.T) {
 	ctx, tx := beginTestTx(t)
 	fixture := seedBaseFixture(t, ctx, tx)
-	secondDestinoID := seedDestino(t, ctx, tx, "IFAL", testCity)
+	secondDestinoID := seedDestino(t, ctx, tx, "IFAL", testMunicipioID)
 	tripDate := futureTripDate()
 	cicloID := seedCiclo(t, ctx, tx, fixture, tripDate)
 	viagemID := seedViagem(t, ctx, tx, cicloID, "ida")

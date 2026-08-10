@@ -7,7 +7,9 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/auth"
 	"github.com/fredsaggio/bondrota-api/internal/clientes"
 	"github.com/fredsaggio/bondrota-api/internal/destinos"
+	"github.com/fredsaggio/bondrota-api/internal/httputils"
 	"github.com/fredsaggio/bondrota-api/internal/motoristas"
+	"github.com/fredsaggio/bondrota-api/internal/municipios"
 	"github.com/fredsaggio/bondrota-api/internal/paradas"
 	"github.com/fredsaggio/bondrota-api/internal/reservas"
 	"github.com/fredsaggio/bondrota-api/internal/rotasdinamicas"
@@ -24,6 +26,7 @@ type Handlers struct {
 	AdminHandler        *admin.AdminHandler
 	VeiculoHandler      *veiculos.VeiculoHandler
 	DestinoHandler      *destinos.DestinoHandler
+	MunicipioHandler    *municipios.Handler
 	ParadaHandler       *paradas.ParadaHandler
 	RotaInternaHandler  *rotasinternas.RotaInternaHandler
 	MotoristaHandler    *motoristas.MotoristaHandler
@@ -40,12 +43,18 @@ type Handlers struct {
 type Server struct {
 	handlers Handlers
 	authSvc  *auth.AuthService
+	config   Config
 }
 
-func NewServer(handlers Handlers, authSvc *auth.AuthService) *Server {
+type Config struct {
+	BaseCity string `json:"cidade_base"`
+}
+
+func NewServer(handlers Handlers, authSvc *auth.AuthService, config Config) *Server {
 	return &Server{
 		handlers: handlers,
 		authSvc:  authSvc,
+		config:   config,
 	}
 }
 
@@ -54,6 +63,9 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
+	})
+	r.Get("/config", func(w http.ResponseWriter, r *http.Request) {
+		httputils.Respond(w, http.StatusOK, srv.config)
 	})
 
 	r.Post("/admin/login", srv.handlers.AdminHandler.Login)
@@ -85,17 +97,21 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin))
 			r.Post("/", srv.handlers.DestinoHandler.Create)
 			r.Get("/", srv.handlers.DestinoHandler.List)
-			r.Get("/cidade/{cidade}", srv.handlers.DestinoHandler.ListByCity)
+			r.Get("/municipio/{municipioID}", srv.handlers.DestinoHandler.ListByMunicipio)
 			r.Get("/{id}", srv.handlers.DestinoHandler.GetByID)
 			r.Put("/{id}", srv.handlers.DestinoHandler.Update)
 			r.Delete("/{id}", srv.handlers.DestinoHandler.Delete)
+		})
+
+		r.Route("/municipios", func(r chi.Router) {
+			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin))
+			r.Get("/", srv.handlers.MunicipioHandler.ListByUF)
 		})
 
 		r.Route("/paradas", func(r chi.Router) {
 			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin))
 			r.Post("/", srv.handlers.ParadaHandler.Create)
 			r.Get("/", srv.handlers.ParadaHandler.List)
-			r.Get("/cidade/{cidade}", srv.handlers.ParadaHandler.ListByCity)
 			r.Get("/{id}", srv.handlers.ParadaHandler.GetByID)
 			r.Put("/{id}", srv.handlers.ParadaHandler.Update)
 			r.Delete("/{id}", srv.handlers.ParadaHandler.Delete)
@@ -105,7 +121,6 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin))
 			r.Post("/", srv.handlers.RotaInternaHandler.Create)
 			r.Get("/", srv.handlers.RotaInternaHandler.List)
-			r.Get("/cidade/{cidade}", srv.handlers.RotaInternaHandler.ListByCity)
 			r.Get("/{id}", srv.handlers.RotaInternaHandler.GetByID)
 			r.Put("/{id}/paradas", srv.handlers.RotaInternaHandler.UpdateParadas)
 			r.Delete("/{id}", srv.handlers.RotaInternaHandler.Delete)

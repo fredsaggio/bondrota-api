@@ -43,7 +43,6 @@ type ReservaResponse struct {
 	Turno         TurnoReserva   `json:"turno"`
 	DestinoID     int64          `json:"destino_id"`
 	RotaInternaID int64          `json:"rota_interna_id"`
-	Cidade        string         `json:"cidade"`
 	Sentido       SentidoReserva `json:"sentido"`
 	Status        StatusReserva  `json:"status"`
 	CreatedAt     string         `json:"created_at"`
@@ -368,7 +367,6 @@ func toReservaResponse(r *Reserva) ReservaResponse {
 		Turno:         r.Turno,
 		DestinoID:     r.DestinoID,
 		RotaInternaID: r.RotaInternaID,
-		Cidade:        r.Cidade,
 		Sentido:       r.Sentido,
 		Status:        r.Status,
 		CreatedAt:     r.CreatedAt.Format(time.RFC3339),

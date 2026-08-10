@@ -45,6 +45,11 @@ func Run(ctx context.Context, getEnv func(string) string) error {
 		return fmt.Errorf("JWT_SECRET is required")
 	}
 
+	baseCity := strings.TrimSpace(getEnv("BASE_CITY"))
+	if baseCity == "" {
+		return fmt.Errorf("BASE_CITY is required")
+	}
+
 	hasher := crypto.NewBcryptHasher(crypto.DefaultCost)
 
 	authSvc := auth.NewAuthService(hasher, jwtSecret)
@@ -86,7 +91,7 @@ func Run(ctx context.Context, getEnv func(string) string) error {
 	}
 
 	handlers, rotaDinamicaWorker := buildHandlers(pool, authSvc, storageConfig, getEnv("OSRM_BASE_URL"))
-	srv := server.NewServer(handlers, authSvc)
+	srv := server.NewServer(handlers, authSvc, server.Config{BaseCity: baseCity})
 	apiRouter := chi.NewRouter()
 	srv.RegisterRoutes(apiRouter)
 	r.Mount("/api/v1", apiRouter)

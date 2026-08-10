@@ -44,7 +44,6 @@ type Reserva struct {
 	Turno         TurnoReserva
 	DestinoID     int64
 	RotaInternaID int64
-	Cidade        string
 	Sentido       SentidoReserva
 	Status        StatusReserva
 	CreatedAt     time.Time
@@ -58,7 +57,6 @@ type ReservaInput struct {
 	Turno         TurnoReserva
 	DestinoID     int64
 	RotaInternaID int64
-	Cidade        string
 	Sentido       SentidoReserva
 }
 
@@ -67,7 +65,6 @@ type VinculoSnapshot struct {
 	Turno         TurnoReserva
 	DestinoID     int64
 	RotaInternaID int64
-	Cidade        string
 }
 
 type ReservaStore interface {

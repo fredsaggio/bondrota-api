@@ -12,7 +12,6 @@ CREATE TABLE reservas (
     turno turno_cliente NOT NULL,
     destino_id BIGINT NOT NULL REFERENCES destinos(id) ON DELETE RESTRICT,
     rota_interna_id BIGINT NOT NULL REFERENCES rotas_internas(id) ON DELETE RESTRICT,
-    cidade TEXT NOT NULL,
     sentido reserva_sentido NOT NULL,
     status status_reserva NOT NULL DEFAULT 'confirmada',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -30,7 +29,8 @@ CREATE UNIQUE INDEX uq_reservas_ativas_vinculo_data_turno_sentido
     WHERE status <> 'cancelada';
 
 CREATE INDEX idx_reservas_cliente ON reservas(cliente_id);
-CREATE INDEX idx_reservas_planejamento ON reservas(data_viagem, turno, cidade, sentido, status);
+CREATE INDEX idx_reservas_planejamento
+    ON reservas(data_viagem, turno, rota_interna_id, sentido, status, destino_id);
 CREATE INDEX idx_reservas_vinculo ON reservas(vinculo_id);
 
 -- +goose StatementEnd

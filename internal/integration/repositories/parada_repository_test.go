@@ -9,12 +9,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestParadaRepository_CRUDAndCityFilter(t *testing.T) {
+func TestParadaRepository_CRUD(t *testing.T) {
 	ctx, tx := beginTestTx(t)
 	store := paradas.NewParadaStore(tx)
 
 	created, err := store.Create(ctx, paradas.ParadaInput{
-		Nome: "Terminal A", Cidade: testCity, Latitude: -9.65, Longitude: -35.72,
+		Nome: "Terminal A", Latitude: -9.65, Longitude: -35.72,
 	})
 	require.NoError(t, err)
 
@@ -22,9 +22,9 @@ func TestParadaRepository_CRUDAndCityFilter(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, created, got)
 
-	byCity, err := store.ListByCity(ctx, testCity)
+	listed, err := store.List(ctx)
 	require.NoError(t, err)
-	require.Len(t, byCity, 1)
+	require.Len(t, listed, 1)
 
 	updated, err := store.Update(ctx, created.ID, func(current *paradas.Parada) (bool, error) {
 		current.Nome = "Terminal B"

@@ -34,29 +34,29 @@ func (s *planejamentoService) Planejar(ctx context.Context, input PlanejamentoVi
 	}
 	input.ExpiresAt = calcularExpiresAtPlanejamento(input.DataViagem)
 
-	horarioTurno, err := s.horarioStore.GetByCidadeTurno(ctx, input.Cidade, input.Turno)
+	horarioTurno, err := s.horarioStore.GetByMunicipioDestinoTurno(ctx, input.MunicipioDestinoID, input.Turno)
 	if err != nil {
 		return nil, err
 	}
 	partidas := montarPartidasPlanejamento(input.DataViagem, horarioTurno)
 
 	reservasIda, err := s.cicloStore.ListReservasConfirmadasParaPlanejamento(ctx, PlanejamentoReservasFiltro{
-		DataViagem:    input.DataViagem,
-		Turno:         input.Turno,
-		Cidade:        input.Cidade,
-		RotaInternaID: input.RotaInternaID,
-		Sentido:       SentidoIda,
+		DataViagem:         input.DataViagem,
+		Turno:              input.Turno,
+		MunicipioDestinoID: input.MunicipioDestinoID,
+		RotaInternaID:      input.RotaInternaID,
+		Sentido:            SentidoIda,
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	reservasVolta, err := s.cicloStore.ListReservasConfirmadasParaPlanejamento(ctx, PlanejamentoReservasFiltro{
-		DataViagem:    input.DataViagem,
-		Turno:         input.Turno,
-		Cidade:        input.Cidade,
-		RotaInternaID: input.RotaInternaID,
-		Sentido:       SentidoVolta,
+		DataViagem:         input.DataViagem,
+		Turno:              input.Turno,
+		MunicipioDestinoID: input.MunicipioDestinoID,
+		RotaInternaID:      input.RotaInternaID,
+		Sentido:            SentidoVolta,
 	})
 	if err != nil {
 		return nil, err
@@ -68,7 +68,6 @@ func (s *planejamentoService) Planejar(ctx context.Context, input PlanejamentoVi
 	}
 
 	alocacaoVeiculos, err := s.veiculoAlocador.Alocar(ctx, veiculos.AlocarVeiculosInput{
-		Cidade:           input.Cidade,
 		DataViagem:       input.DataViagem,
 		Turno:            string(input.Turno),
 		QuantidadeAlunos: qtdAlunos,
@@ -78,10 +77,10 @@ func (s *planejamentoService) Planejar(ctx context.Context, input PlanejamentoVi
 	}
 
 	alocacaoMotoristas, err := s.motoristaAlocador.Alocar(ctx, motoristas.AlocarMotoristasInput{
-		Cidade:     input.Cidade,
-		DataViagem: input.DataViagem,
-		Turno:      motoristas.Turno(input.Turno),
-		Quantidade: len(alocacaoVeiculos.Veiculos),
+		MunicipioTrabalhoID: input.MunicipioDestinoID,
+		DataViagem:          input.DataViagem,
+		Turno:               motoristas.Turno(input.Turno),
+		Quantidade:          len(alocacaoVeiculos.Veiculos),
 	})
 	if err != nil {
 		return nil, err
@@ -107,8 +106,8 @@ func validatePlanejamentoInput(input PlanejamentoViagensInput) error {
 	if !isOperationalTurnoViagem(input.Turno) {
 		return errors.New("turno must be MT, VT or NT")
 	}
-	if input.Cidade == "" {
-		return errors.New("cidade is required")
+	if input.MunicipioDestinoID <= 0 {
+		return errors.New("municipio_destino_id is required")
 	}
 	if input.RotaInternaID <= 0 {
 		return errors.New("rota_interna_id is required")
@@ -147,13 +146,13 @@ func montarCiclosComReservasInput(input PlanejamentoViagensInput, veiculosAlocad
 	for i, veiculo := range veiculosAlocados {
 		result = append(result, CicloViagemComReservasInput{
 			Ciclo: CicloViagemInput{
-				DataViagem:    input.DataViagem,
-				Turno:         input.Turno,
-				Cidade:        input.Cidade,
-				RotaInternaID: input.RotaInternaID,
-				VeiculoID:     veiculo.ID,
-				MotoristaID:   motoristasAlocados[i].ID,
-				ExpiresAt:     input.ExpiresAt,
+				DataViagem:         input.DataViagem,
+				Turno:              input.Turno,
+				MunicipioDestinoID: input.MunicipioDestinoID,
+				RotaInternaID:      input.RotaInternaID,
+				VeiculoID:          veiculo.ID,
+				MotoristaID:        motoristasAlocados[i].ID,
+				ExpiresAt:          input.ExpiresAt,
 			},
 			ReservaIDsIda:   reservasIdaPorVeiculo[i],
 			ReservaIDsVolta: reservasVoltaPorVeiculo[i],

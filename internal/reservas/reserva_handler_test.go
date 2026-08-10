@@ -40,7 +40,6 @@ func sampleReserva() *reservas.Reserva {
 		Turno:         reservas.TurnoMatutino,
 		DestinoID:     5,
 		RotaInternaID: 3,
-		Cidade:        "Recife",
 		Sentido:       reservas.SentidoIda,
 		Status:        reservas.StatusConfirmada,
 		CreatedAt:     time.Now(),

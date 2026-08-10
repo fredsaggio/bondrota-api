@@ -10,7 +10,6 @@ CREATE TABLE veiculos (
     modelo TEXT NOT NULL,
     categoria categoria_veiculo NOT NULL,
     capacidade SMALLINT NOT NULL,
-    cidade_base TEXT NOT NULL,
     status status_veiculo NOT NULL DEFAULT 'ativo',
     ar_condicionado BOOLEAN NOT NULL DEFAULT FALSE,
     banheiro BOOLEAN NOT NULL DEFAULT FALSE,

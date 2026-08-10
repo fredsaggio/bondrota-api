@@ -33,6 +33,7 @@ Crie um arquivo `.env` na raiz do projeto:
 
 ```env
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/bondrota_db?sslmode=disable
+BASE_CITY=Campo Alegre
 PORT=8080
 ALLOWED_ORIGINS=http://localhost:3000
 JWT_SECRET=seu_jwt_secret
@@ -57,11 +58,18 @@ make infra/up
 # Roda as migrations
 make migration/up
 
+# Importa o catálogo local de municípios uma vez
+make municipios/import
+
 # Sobe a API com hot reload
 air
 ```
 
 A API estará disponível em `http://localhost:8080/api/v1`.
+
+A cidade base identifica a única cidade atendida pela instância e fica fora do
+banco de dados operacional. O frontend pode consultá-la em `GET /api/v1/config`,
+que retorna `{"cidade_base":"Campo Alegre"}`.
 
 ## Comandos disponíveis
 
@@ -74,6 +82,9 @@ make reset          # Para containers e remove volumes
 make build          # Compila o binário
 make test           # Roda testes unitários
 make test/integration  # Roda testes de repository (requer Docker)
+make municipios/import # Importa todos os municipios da API do IBGE
+make municipios/import uf=AL # Importa somente uma UF
+make municipios/import/prod # Importa no banco definido por PROD_DATABASE_URL
 make db             # Abre psql no banco local
 make logs           # Tail dos logs da API
 ```
@@ -105,6 +116,7 @@ go run ./cmd/seed-admin
 ├── cmd/
 │   ├── main.go              # Entrypoint
 │   ├── dependencies.go      # Wiring de dependências
+│   ├── import-municipios/   # Importador do catálogo oficial do IBGE
 │   └── seed-admin/          # Comando para criar admin inicial
 ├── internal/
 │   ├── admin/               # Domínio de administradores
@@ -113,6 +125,7 @@ go run ./cmd/seed-admin
 │   ├── destinos/            # Destinos (faculdades/locais)
 │   ├── geo/                 # Cliente OSRM e otimizador de rota
 │   ├── motoristas/          # Domínio de motoristas
+│   ├── municipios/          # Catálogo local de municípios do IBGE
 │   ├── paradas/             # Paradas intermediárias
 │   ├── reservas/            # Reservas de clientes
 │   ├── rotasdinamicas/      # Cálculo e persistência de rotas dinâmicas
@@ -133,7 +146,7 @@ Consulte [`docs/api-reference.md`](docs/api-reference.md) para a referência com
 
 A API é containerizada via Docker e pode ser deployada em qualquer plataforma que suporte containers. O `Dockerfile` usa build multi-stage com imagem final `distroless` para manter o binário mínimo e seguro.
 
-Variáveis de ambiente necessárias em produção: `DATABASE_URL`, `PORT`, `ALLOWED_ORIGINS`, `JWT_SECRET`, `SUPABASE_URL` e `SUPABASE_SERVICE_KEY`. Configure também `OSRM_BASE_URL` para usar uma instância dedicada do OSRM; quando omitida, a API usa o servidor público de demonstração.
+Variáveis de ambiente necessárias em produção: `DATABASE_URL`, `BASE_CITY`, `PORT`, `ALLOWED_ORIGINS`, `JWT_SECRET`, `SUPABASE_URL` e `SUPABASE_SERVICE_KEY`. Configure também `OSRM_BASE_URL` para usar uma instância dedicada do OSRM; quando omitida, a API usa o servidor público de demonstração.
 
 ## Testes
 

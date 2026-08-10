@@ -21,17 +21,17 @@ func body(v any) *bytes.Buffer {
 func sampleCiclo() viagens.CicloViagem {
 	now := testTime()
 	return viagens.CicloViagem{
-		ID:            1,
-		DataViagem:    time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC),
-		Turno:         viagens.TurnoNoturno,
-		Cidade:        "Campo Alegre",
-		RotaInternaID: 2,
-		VeiculoID:     3,
-		MotoristaID:   4,
-		Status:        viagens.StatusCicloPlanejado,
-		ExpiresAt:     now.AddDate(0, 3, 0),
-		CreatedAt:     now,
-		UpdatedAt:     now,
+		ID:                 1,
+		DataViagem:         time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC),
+		Turno:              viagens.TurnoNoturno,
+		MunicipioDestinoID: 2704302,
+		RotaInternaID:      2,
+		VeiculoID:          3,
+		MotoristaID:        4,
+		Status:             viagens.StatusCicloPlanejado,
+		ExpiresAt:          now.AddDate(0, 3, 0),
+		CreatedAt:          now,
+		UpdatedAt:          now,
 	}
 }
 
@@ -87,7 +87,6 @@ func sampleViagemReservaComReserva() viagens.ViagemReservaComReserva {
 		Turno:         viagens.TurnoNoturno,
 		DestinoID:     50,
 		RotaInternaID: 2,
-		Cidade:        "Campo Alegre",
 		Sentido:       viagens.SentidoIda,
 	}
 }

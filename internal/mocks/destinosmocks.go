@@ -293,55 +293,55 @@ func (_c *MockDestinoStore_List_Call) RunAndReturn(run func(ctx context.Context)
 	return _c
 }
 
-// ListByCity provides a mock function for the type MockDestinoStore
-func (_mock *MockDestinoStore) ListByCity(ctx context.Context, cidade string) ([]destinos.Destino, error) {
-	ret := _mock.Called(ctx, cidade)
+// ListByMunicipio provides a mock function for the type MockDestinoStore
+func (_mock *MockDestinoStore) ListByMunicipio(ctx context.Context, municipioID int64) ([]destinos.Destino, error) {
+	ret := _mock.Called(ctx, municipioID)
 
 	if len(ret) == 0 {
-		panic("no return value specified for ListByCity")
+		panic("no return value specified for ListByMunicipio")
 	}
 
 	var r0 []destinos.Destino
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) ([]destinos.Destino, error)); ok {
-		return returnFunc(ctx, cidade)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64) ([]destinos.Destino, error)); ok {
+		return returnFunc(ctx, municipioID)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) []destinos.Destino); ok {
-		r0 = returnFunc(ctx, cidade)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64) []destinos.Destino); ok {
+		r0 = returnFunc(ctx, municipioID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]destinos.Destino)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = returnFunc(ctx, cidade)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int64) error); ok {
+		r1 = returnFunc(ctx, municipioID)
 	} else {
 		r1 = ret.Error(1)
 	}
 	return r0, r1
 }
 
-// MockDestinoStore_ListByCity_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListByCity'
-type MockDestinoStore_ListByCity_Call struct {
+// MockDestinoStore_ListByMunicipio_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListByMunicipio'
+type MockDestinoStore_ListByMunicipio_Call struct {
 	*mock.Call
 }
 
-// ListByCity is a helper method to define mock.On call
+// ListByMunicipio is a helper method to define mock.On call
 //   - ctx context.Context
-//   - cidade string
-func (_e *MockDestinoStore_Expecter) ListByCity(ctx interface{}, cidade interface{}) *MockDestinoStore_ListByCity_Call {
-	return &MockDestinoStore_ListByCity_Call{Call: _e.mock.On("ListByCity", ctx, cidade)}
+//   - municipioID int64
+func (_e *MockDestinoStore_Expecter) ListByMunicipio(ctx interface{}, municipioID interface{}) *MockDestinoStore_ListByMunicipio_Call {
+	return &MockDestinoStore_ListByMunicipio_Call{Call: _e.mock.On("ListByMunicipio", ctx, municipioID)}
 }
 
-func (_c *MockDestinoStore_ListByCity_Call) Run(run func(ctx context.Context, cidade string)) *MockDestinoStore_ListByCity_Call {
+func (_c *MockDestinoStore_ListByMunicipio_Call) Run(run func(ctx context.Context, municipioID int64)) *MockDestinoStore_ListByMunicipio_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 string
+		var arg1 int64
 		if args[1] != nil {
-			arg1 = args[1].(string)
+			arg1 = args[1].(int64)
 		}
 		run(
 			arg0,
@@ -351,12 +351,12 @@ func (_c *MockDestinoStore_ListByCity_Call) Run(run func(ctx context.Context, ci
 	return _c
 }
 
-func (_c *MockDestinoStore_ListByCity_Call) Return(destinos1 []destinos.Destino, err error) *MockDestinoStore_ListByCity_Call {
+func (_c *MockDestinoStore_ListByMunicipio_Call) Return(destinos1 []destinos.Destino, err error) *MockDestinoStore_ListByMunicipio_Call {
 	_c.Call.Return(destinos1, err)
 	return _c
 }
 
-func (_c *MockDestinoStore_ListByCity_Call) RunAndReturn(run func(ctx context.Context, cidade string) ([]destinos.Destino, error)) *MockDestinoStore_ListByCity_Call {
+func (_c *MockDestinoStore_ListByMunicipio_Call) RunAndReturn(run func(ctx context.Context, municipioID int64) ([]destinos.Destino, error)) *MockDestinoStore_ListByMunicipio_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -22,16 +22,14 @@ func (s *reservaStore) Create(ctx context.Context, input ReservaInput) (*Reserva
 
 	const q = `
 		INSERT INTO reservas (
-			cliente_id, vinculo_id, data_viagem, turno, destino_id, rota_interna_id,
-			cidade, sentido
+			cliente_id, vinculo_id, data_viagem, turno, destino_id, rota_interna_id, sentido
 		)
 		VALUES (
-			@cliente_id, @vinculo_id, @data_viagem, @turno, @destino_id, @rota_interna_id,
-			@cidade, @sentido
+			@cliente_id, @vinculo_id, @data_viagem, @turno, @destino_id, @rota_interna_id, @sentido
 		)
 		RETURNING
 			id, cliente_id, vinculo_id, data_viagem, turno, destino_id, rota_interna_id,
-			cidade, sentido, status, created_at, updated_at
+			sentido, status, created_at, updated_at
 	`
 
 	rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{
@@ -41,7 +39,6 @@ func (s *reservaStore) Create(ctx context.Context, input ReservaInput) (*Reserva
 		"turno":           input.Turno,
 		"destino_id":      input.DestinoID,
 		"rota_interna_id": input.RotaInternaID,
-		"cidade":          input.Cidade,
 		"sentido":         input.Sentido,
 	})
 	if err != nil {
@@ -76,7 +73,7 @@ func (s *reservaStore) List(ctx context.Context) ([]Reserva, error) {
 	const q = `
 		SELECT
 			id, cliente_id, vinculo_id, data_viagem, turno, destino_id, rota_interna_id,
-			cidade, sentido, status, created_at, updated_at
+			sentido, status, created_at, updated_at
 		FROM reservas
 		ORDER BY data_viagem DESC, id DESC
 	`
@@ -100,7 +97,7 @@ func (s *reservaStore) ListByCliente(ctx context.Context, clienteID int64) ([]Re
 	const q = `
 		SELECT
 			id, cliente_id, vinculo_id, data_viagem, turno, destino_id, rota_interna_id,
-			cidade, sentido, status, created_at, updated_at
+			sentido, status, created_at, updated_at
 		FROM reservas
 		WHERE cliente_id = @cliente_id
 		ORDER BY data_viagem DESC, id DESC
@@ -129,7 +126,7 @@ func (s *reservaStore) ListByVinculo(ctx context.Context, clienteID, vinculoID i
 	const q = `
 		SELECT
 			id, cliente_id, vinculo_id, data_viagem, turno, destino_id, rota_interna_id,
-			cidade, sentido, status, created_at, updated_at
+			sentido, status, created_at, updated_at
 		FROM reservas
 		WHERE cliente_id = @cliente_id
 			AND vinculo_id = @vinculo_id
@@ -188,7 +185,7 @@ func (s *reservaStore) Update(ctx context.Context, reservaID int64, updateFunc f
 			WHERE id = @id
 			RETURNING
 				id, cliente_id, vinculo_id, data_viagem, turno, destino_id, rota_interna_id,
-				cidade, sentido, status, created_at, updated_at
+				sentido, status, created_at, updated_at
 		`
 
 		rows, err := tx.Query(ctx, q, pgx.StrictNamedArgs{
@@ -249,7 +246,7 @@ func getReservaByID(ctx context.Context, querier interface {
 	q := `
 		SELECT
 			id, cliente_id, vinculo_id, data_viagem, turno, destino_id, rota_interna_id,
-			cidade, sentido, status, created_at, updated_at
+			sentido, status, created_at, updated_at
 		FROM reservas
 		WHERE id = @id
 	`
@@ -274,9 +271,8 @@ func getVinculoSnapshot(ctx context.Context, querier interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 }, vinculoID int64) (VinculoSnapshot, error) {
 	const q = `
-		SELECT v.cliente_id, v.turno, v.destino_id, v.rota_interna_id, r.cidade
+		SELECT v.cliente_id, v.turno, v.destino_id, v.rota_interna_id
 		FROM cliente_vinculos v
-		JOIN rotas_internas r ON r.id = v.rota_interna_id
 		WHERE v.id = @vinculo_id
 	`
 
@@ -287,7 +283,7 @@ func getVinculoSnapshot(ctx context.Context, querier interface {
 
 	snapshot, err := pgx.CollectExactlyOneRow(rows, func(row pgx.CollectableRow) (VinculoSnapshot, error) {
 		var s VinculoSnapshot
-		err := row.Scan(&s.ClienteID, &s.Turno, &s.DestinoID, &s.RotaInternaID, &s.Cidade)
+		err := row.Scan(&s.ClienteID, &s.Turno, &s.DestinoID, &s.RotaInternaID)
 		return s, err
 	})
 	if err != nil {
@@ -310,7 +306,6 @@ func scanReserva(row pgx.CollectableRow) (Reserva, error) {
 		&r.Turno,
 		&r.DestinoID,
 		&r.RotaInternaID,
-		&r.Cidade,
 		&r.Sentido,
 		&r.Status,
 		&r.CreatedAt,

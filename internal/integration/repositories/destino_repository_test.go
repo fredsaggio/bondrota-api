@@ -9,12 +9,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDestinoRepository_CRUDAndCityFilter(t *testing.T) {
+func TestDestinoRepository_CRUDAndMunicipioFilter(t *testing.T) {
 	ctx, tx := beginTestTx(t)
 	store := destinos.NewDestinoStore(tx)
 
 	created, err := store.Create(ctx, destinos.DestinoInput{
-		Nome: "Campus A", Rua: "Rua A", Cidade: testCity,
+		Nome: "Campus A", Rua: "Rua A", MunicipioID: testMunicipioID,
 		Latitude: -9.6658, Longitude: -35.7353,
 	})
 	require.NoError(t, err)
@@ -23,7 +23,7 @@ func TestDestinoRepository_CRUDAndCityFilter(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, created, got)
 
-	byCity, err := store.ListByCity(ctx, testCity)
+	byCity, err := store.ListByMunicipio(ctx, testMunicipioID)
 	require.NoError(t, err)
 	require.Len(t, byCity, 1)
 

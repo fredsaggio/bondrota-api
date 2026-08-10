@@ -44,17 +44,17 @@ const (
 )
 
 type CicloViagem struct {
-	ID            int64
-	DataViagem    time.Time
-	Turno         TurnoViagem
-	Cidade        string
-	RotaInternaID int64
-	VeiculoID     int64
-	MotoristaID   int64
-	Status        StatusCicloViagem
-	ExpiresAt     time.Time
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID                 int64
+	DataViagem         time.Time
+	Turno              TurnoViagem
+	MunicipioDestinoID int64
+	RotaInternaID      int64
+	VeiculoID          int64
+	MotoristaID        int64
+	Status             StatusCicloViagem
+	ExpiresAt          time.Time
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 type Viagem struct {
@@ -121,46 +121,46 @@ type ViagemLocalizacaoActor struct {
 }
 
 type HorarioTurnoViagem struct {
-	ID           int64
-	Cidade       string
-	Turno        TurnoViagem
-	HorarioIda   time.Duration
-	HorarioVolta time.Duration
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID                 int64
+	MunicipioDestinoID int64
+	Turno              TurnoViagem
+	HorarioIda         time.Duration
+	HorarioVolta       time.Duration
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 type HorarioTurnoViagemInput struct {
-	Cidade       string
-	Turno        TurnoViagem
-	HorarioIda   time.Duration
-	HorarioVolta time.Duration
+	MunicipioDestinoID int64
+	Turno              TurnoViagem
+	HorarioIda         time.Duration
+	HorarioVolta       time.Duration
 }
 
 type CicloViagemInput struct {
-	DataViagem    time.Time
-	Turno         TurnoViagem
-	Cidade        string
-	RotaInternaID int64
-	VeiculoID     int64
-	MotoristaID   int64
-	ExpiresAt     time.Time
+	DataViagem         time.Time
+	Turno              TurnoViagem
+	MunicipioDestinoID int64
+	RotaInternaID      int64
+	VeiculoID          int64
+	MotoristaID        int64
+	ExpiresAt          time.Time
 }
 
 type PlanejamentoViagensInput struct {
-	DataViagem    time.Time
-	Turno         TurnoViagem
-	Cidade        string
-	RotaInternaID int64
-	ExpiresAt     time.Time
+	DataViagem         time.Time
+	Turno              TurnoViagem
+	MunicipioDestinoID int64
+	RotaInternaID      int64
+	ExpiresAt          time.Time
 }
 
 type PlanejamentoReservasFiltro struct {
-	DataViagem    time.Time
-	Turno         TurnoViagem
-	Cidade        string
-	RotaInternaID int64
-	Sentido       SentidoViagem
+	DataViagem         time.Time
+	Turno              TurnoViagem
+	MunicipioDestinoID int64
+	RotaInternaID      int64
+	Sentido            SentidoViagem
 }
 
 type PlanejamentoReserva struct {
@@ -210,13 +210,11 @@ type ViagemReservaComReserva struct {
 	Turno         TurnoViagem
 	DestinoID     int64
 	RotaInternaID int64
-	Cidade        string
 	Sentido       SentidoViagem
 }
 
 type CicloViagemStore interface {
 	CreateCiclo(ctx context.Context, input CicloViagemInput) (*CicloViagem, error)
-	CreateCicloComViagens(ctx context.Context, input CicloViagemInput, partidas map[SentidoViagem]time.Time) (*CicloComViagens, error)
 	CreateCiclosComViagens(ctx context.Context, inputs []CicloViagemComReservasInput, partidas map[SentidoViagem]time.Time) (*PlanejamentoViagens, error)
 	ListReservasConfirmadasParaPlanejamento(ctx context.Context, filtro PlanejamentoReservasFiltro) ([]PlanejamentoReserva, error)
 	GetCicloByID(ctx context.Context, cicloID int64) (*CicloViagem, error)
@@ -227,7 +225,7 @@ type CicloViagemStore interface {
 type HorarioTurnoViagemStore interface {
 	Create(ctx context.Context, input HorarioTurnoViagemInput) (*HorarioTurnoViagem, error)
 	GetByID(ctx context.Context, id int64) (*HorarioTurnoViagem, error)
-	GetByCidadeTurno(ctx context.Context, cidade string, turno TurnoViagem) (*HorarioTurnoViagem, error)
+	GetByMunicipioDestinoTurno(ctx context.Context, municipioDestinoID int64, turno TurnoViagem) (*HorarioTurnoViagem, error)
 	List(ctx context.Context) ([]HorarioTurnoViagem, error)
 	Update(ctx context.Context, id int64, updateFunc func(*HorarioTurnoViagem) (bool, error)) (*HorarioTurnoViagem, error)
 	Delete(ctx context.Context, id int64) error

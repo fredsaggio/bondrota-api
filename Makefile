@@ -93,6 +93,16 @@ migration/status:
 migration/status/prod:
 	@goose -dir internal/db/migrations postgres "$(PROD_DATABASE_URL)" status
 
+## municipios/import: import Brazilian municipalities from IBGE; optionally pass uf=AL
+.PHONY: municipios/import
+municipios/import:
+	@go run ./cmd/import-municipios $(if $(uf),-uf $(uf),)
+
+## municipios/import/prod: import municipalities into the production database; optionally pass uf=AL
+.PHONY: municipios/import/prod
+municipios/import/prod:
+	@DATABASE_URL="$(PROD_DATABASE_URL)" go run ./cmd/import-municipios $(if $(uf),-uf $(uf),)
+
 ## test: run unit tests (no DB required)
 .PHONY: test
 test:

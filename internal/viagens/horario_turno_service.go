@@ -3,7 +3,6 @@ package viagens
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/fredsaggio/bondrota-api/internal/brerror"
@@ -52,17 +51,17 @@ func (s *horarioTurnoViagemService) Update(ctx context.Context, id int64, update
 		}
 
 		input := HorarioTurnoViagemInput{
-			Cidade:       horario.Cidade,
-			Turno:        horario.Turno,
-			HorarioIda:   horario.HorarioIda,
-			HorarioVolta: horario.HorarioVolta,
+			MunicipioDestinoID: horario.MunicipioDestinoID,
+			Turno:              horario.Turno,
+			HorarioIda:         horario.HorarioIda,
+			HorarioVolta:       horario.HorarioVolta,
 		}
 		input = normalizeHorarioTurnoInput(input)
 		if err := validateHorarioTurnoInput(input); err != nil {
 			return false, err
 		}
 
-		horario.Cidade = input.Cidade
+		horario.MunicipioDestinoID = input.MunicipioDestinoID
 		horario.Turno = input.Turno
 		horario.HorarioIda = input.HorarioIda
 		horario.HorarioVolta = input.HorarioVolta
@@ -79,13 +78,12 @@ func (s *horarioTurnoViagemService) Delete(ctx context.Context, id int64) error 
 }
 
 func normalizeHorarioTurnoInput(input HorarioTurnoViagemInput) HorarioTurnoViagemInput {
-	input.Cidade = strings.TrimSpace(input.Cidade)
 	return input
 }
 
 func validateHorarioTurnoInput(input HorarioTurnoViagemInput) error {
-	if input.Cidade == "" {
-		return fmt.Errorf("%w: cidade is required", brerror.ErrInvalidInput)
+	if input.MunicipioDestinoID <= 0 {
+		return fmt.Errorf("%w: municipio_destino_id is required", brerror.ErrInvalidInput)
 	}
 	if !isOperationalTurnoViagem(input.Turno) {
 		return fmt.Errorf("%w: turno must be MT, VT or NT", brerror.ErrInvalidInput)

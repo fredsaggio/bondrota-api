@@ -56,7 +56,7 @@ func (s *viagemReservaStore) ListReservasByViagem(ctx context.Context, viagemID 
 		SELECT
 			vr.id, vr.viagem_id, vr.reserva_id, vr.status_presenca, vr.created_at, vr.updated_at,
 			r.cliente_id, r.vinculo_id, r.data_viagem, r.turno, r.destino_id,
-			r.rota_interna_id, r.cidade, r.sentido
+			r.rota_interna_id, r.sentido
 		FROM viagem_reservas vr
 		JOIN reservas r ON r.id = vr.reserva_id
 		WHERE vr.viagem_id = @viagem_id
@@ -209,7 +209,6 @@ func scanViagemReservaComReserva(row pgx.CollectableRow) (ViagemReservaComReserv
 		&data.Turno,
 		&data.DestinoID,
 		&data.RotaInternaID,
-		&data.Cidade,
 		&data.Sentido,
 	)
 	return data, err

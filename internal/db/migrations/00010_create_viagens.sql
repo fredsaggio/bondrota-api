@@ -11,7 +11,7 @@ CREATE TABLE ciclos_viagem (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     data_viagem DATE NOT NULL,
     turno turno_cliente NOT NULL,
-    cidade TEXT NOT NULL,
+    municipio_destino_id BIGINT NOT NULL REFERENCES municipios(codigo_ibge) ON DELETE RESTRICT,
     rota_interna_id BIGINT NOT NULL REFERENCES rotas_internas(id) ON DELETE RESTRICT,
     veiculo_id BIGINT NOT NULL REFERENCES veiculos(id) ON DELETE RESTRICT,
     motorista_id BIGINT NOT NULL REFERENCES motoristas(id) ON DELETE RESTRICT,
@@ -36,7 +36,7 @@ CREATE UNIQUE INDEX uq_ciclos_viagem_ativos_motorista_data_turno
     WHERE status <> 'cancelado';
 
 CREATE INDEX idx_ciclos_viagem_planejamento
-    ON ciclos_viagem (data_viagem, turno, cidade, rota_interna_id, status);
+    ON ciclos_viagem (data_viagem, turno, municipio_destino_id, rota_interna_id, status);
 
 CREATE INDEX idx_ciclos_viagem_expires_at
     ON ciclos_viagem (expires_at);

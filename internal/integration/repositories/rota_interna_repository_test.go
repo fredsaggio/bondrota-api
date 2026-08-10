@@ -11,12 +11,11 @@ import (
 
 func TestRotaInternaRepository_PersistsOrderedStops(t *testing.T) {
 	ctx, tx := beginTestTx(t)
-	firstID := seedParada(t, ctx, tx, "Primeira", testCity)
-	secondID := seedParada(t, ctx, tx, "Segunda", testCity)
+	firstID := seedParada(t, ctx, tx, "Primeira")
+	secondID := seedParada(t, ctx, tx, "Segunda")
 	store := rotasinternas.NewRotaInternaStore(tx)
 
 	created, err := store.Create(ctx, rotasinternas.CreateRotaInternaInput{
-		Cidade: testCity,
 		Paradas: []rotasinternas.ParadaInput{
 			{ParadaID: secondID, Ordem: 2},
 			{ParadaID: firstID, Ordem: 1},
@@ -37,9 +36,9 @@ func TestRotaInternaRepository_PersistsOrderedStops(t *testing.T) {
 	require.Len(t, updated.Paradas, 1)
 	require.Equal(t, secondID, updated.Paradas[0].ID)
 
-	byCity, err := store.ListByCity(ctx, testCity)
+	listed, err := store.List(ctx)
 	require.NoError(t, err)
-	require.Len(t, byCity, 1)
+	require.Len(t, listed, 1)
 
 	require.NoError(t, store.Delete(ctx, created.ID))
 	_, err = store.GetByID(ctx, created.ID)

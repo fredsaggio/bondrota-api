@@ -26,7 +26,6 @@ func TestRotaInternaService_Create(t *testing.T) {
 		{
 			name: "sucesso",
 			input: rotasinternas.CreateRotaInternaInput{
-				Cidade: "recife",
 				Paradas: []rotasinternas.ParadaInput{
 					{ParadaID: 1, Ordem: 1},
 					{ParadaID: 2, Ordem: 2},
@@ -39,7 +38,6 @@ func TestRotaInternaService_Create(t *testing.T) {
 		{
 			name: "erro - sem paradas",
 			input: rotasinternas.CreateRotaInternaInput{
-				Cidade:  "recife",
 				Paradas: []rotasinternas.ParadaInput{},
 			},
 			setup:   func(st *mocks.MockRotaInternaStore) {},
@@ -48,7 +46,6 @@ func TestRotaInternaService_Create(t *testing.T) {
 		{
 			name: "erro - parada_id inválido",
 			input: rotasinternas.CreateRotaInternaInput{
-				Cidade: "recife",
 				Paradas: []rotasinternas.ParadaInput{
 					{ParadaID: 0, Ordem: 1},
 				},
@@ -59,7 +56,6 @@ func TestRotaInternaService_Create(t *testing.T) {
 		{
 			name: "erro - ordem inválida",
 			input: rotasinternas.CreateRotaInternaInput{
-				Cidade: "recife",
 				Paradas: []rotasinternas.ParadaInput{
 					{ParadaID: 1, Ordem: 0},
 				},
@@ -70,7 +66,6 @@ func TestRotaInternaService_Create(t *testing.T) {
 		{
 			name: "erro - ordem duplicada",
 			input: rotasinternas.CreateRotaInternaInput{
-				Cidade: "recife",
 				Paradas: []rotasinternas.ParadaInput{
 					{ParadaID: 1, Ordem: 1},
 					{ParadaID: 2, Ordem: 1},
@@ -82,7 +77,6 @@ func TestRotaInternaService_Create(t *testing.T) {
 		{
 			name: "erro do store",
 			input: rotasinternas.CreateRotaInternaInput{
-				Cidade: "recife",
 				Paradas: []rotasinternas.ParadaInput{
 					{ParadaID: 1, Ordem: 1},
 				},
@@ -232,19 +226,6 @@ func TestRotaInternaService_List(t *testing.T) {
 
 	svc := rotasinternas.NewRotaInternaService(st)
 	list, err := svc.List(svcCtx)
-
-	assert.NoError(t, err)
-	assert.Len(t, list, 1)
-}
-
-// --- ListByCity ---
-
-func TestRotaInternaService_ListByCity(t *testing.T) {
-	st := mocks.NewMockRotaInternaStore(t)
-	st.EXPECT().ListByCity(mock.Anything, "recife").Return([]rotasinternas.RotaInterna{*sampleRotaInterna()}, nil)
-
-	svc := rotasinternas.NewRotaInternaService(st)
-	list, err := svc.ListByCity(svcCtx, "recife")
 
 	assert.NoError(t, err)
 	assert.Len(t, list, 1)

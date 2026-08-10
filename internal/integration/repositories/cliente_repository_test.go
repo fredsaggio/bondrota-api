@@ -20,7 +20,7 @@ func TestClienteRepository_CRUD(t *testing.T) {
 		DataNasc: birthDate, Foto: "ana.jpg",
 	})
 	require.NoError(t, err)
-	
+
 	byCPF, err := store.GetByCPF(ctx, created.CPF)
 	require.NoError(t, err)
 	require.Equal(t, "hash", byCPF.Senha)

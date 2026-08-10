@@ -24,7 +24,6 @@ type CreateVeiculoRequest struct {
 	Modelo         string           `json:"modelo"`
 	Categoria      CategoriaVeiculo `json:"categoria"`
 	Capacidade     int16            `json:"capacidade"`
-	CidadeBase     string           `json:"cidade_base"`
 	Status         StatusVeiculo    `json:"status"`
 	ArCondicionado bool             `json:"ar_condicionado"`
 	Banheiro       bool             `json:"banheiro"`
@@ -43,7 +42,6 @@ type VeiculoResponse struct {
 	Modelo         string           `json:"modelo"`
 	Categoria      CategoriaVeiculo `json:"categoria"`
 	Capacidade     int16            `json:"capacidade"`
-	CidadeBase     string           `json:"cidade_base"`
 	Status         StatusVeiculo    `json:"status"`
 	ArCondicionado bool             `json:"ar_condicionado"`
 	Banheiro       bool             `json:"banheiro"`
@@ -57,7 +55,6 @@ type UpdateVeiculoRequest struct {
 	Modelo         string           `json:"modelo"`
 	Categoria      CategoriaVeiculo `json:"categoria"`
 	Capacidade     int16            `json:"capacidade"`
-	CidadeBase     string           `json:"cidade_base"`
 	Status         StatusVeiculo    `json:"status"`
 	ArCondicionado *bool            `json:"ar_condicionado"`
 	Banheiro       *bool            `json:"banheiro"`
@@ -84,7 +81,6 @@ func (h *VeiculoHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Modelo:         req.Modelo,
 		Categoria:      req.Categoria,
 		Capacidade:     req.Capacidade,
-		CidadeBase:     req.CidadeBase,
 		Status:         req.Status,
 		ArCondicionado: req.ArCondicionado,
 		Banheiro:       req.Banheiro,
@@ -173,10 +169,6 @@ func (h *VeiculoHandler) Update(w http.ResponseWriter, r *http.Request) {
 			v.Capacidade = req.Capacidade
 			changed = true
 		}
-		if req.CidadeBase != "" && req.CidadeBase != v.CidadeBase {
-			v.CidadeBase = req.CidadeBase
-			changed = true
-		}
 		if req.Status != "" && req.Status != v.Status {
 			v.Status = req.Status
 			changed = true
@@ -253,7 +245,6 @@ func toVeiculoResponse(v *Veiculo) VeiculoResponse {
 		Modelo:         v.Modelo,
 		Categoria:      v.Categoria,
 		Capacidade:     v.Capacidade,
-		CidadeBase:     v.CidadeBase,
 		Status:         v.Status,
 		ArCondicionado: v.ArCondicionado,
 		Banheiro:       v.Banheiro,

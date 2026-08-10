@@ -27,7 +27,6 @@ func (s *AlocacaoService) Alocar(ctx context.Context, input AlocarVeiculosInput)
 	}
 
 	disponiveis, err := s.store.ListDisponiveisParaAlocacao(ctx, VeiculosDisponiveisFiltro{
-		Cidade:     input.Cidade,
 		DataViagem: input.DataViagem,
 		Turno:      input.Turno,
 		Categorias: categoriasParaBusca(plano),
@@ -49,9 +48,6 @@ func (s *AlocacaoService) Alocar(ctx context.Context, input AlocarVeiculosInput)
 }
 
 func validateAlocarVeiculosInput(input AlocarVeiculosInput) error {
-	if strings.TrimSpace(input.Cidade) == "" {
-		return fmt.Errorf("%w: cidade is required", brerror.ErrInvalidInput)
-	}
 	if input.DataViagem.IsZero() {
 		return fmt.Errorf("%w: data_viagem is required", brerror.ErrInvalidInput)
 	}

@@ -30,7 +30,6 @@ func snapshotFor(clienteID int64, turno reservas.TurnoReserva) reservas.VinculoS
 		Turno:         turno,
 		DestinoID:     5,
 		RotaInternaID: 3,
-		Cidade:        "Recife",
 	}
 }
 
@@ -50,7 +49,7 @@ func TestService_Create(t *testing.T) {
 			setup: func(st *mocks.MockReservaStore) {
 				st.EXPECT().GetVinculoSnapshot(mock.Anything, int64(20)).Return(snapshotFor(10, reservas.TurnoMatutino), nil)
 				st.EXPECT().Create(mock.Anything, mock.MatchedBy(func(in reservas.ReservaInput) bool {
-					return in.Turno == reservas.TurnoMatutino && in.Cidade == "Recife"
+					return in.Turno == reservas.TurnoMatutino
 				})).Return(sampleReserva(), nil)
 			},
 			wantTurno: reservas.TurnoMatutino,

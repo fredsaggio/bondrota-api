@@ -12,6 +12,7 @@ import (
 )
 
 const testCity = "Maceio"
+const testMunicipioID int64 = 2704302
 
 type baseFixture struct {
 	DestinoID     int64
@@ -28,6 +29,11 @@ func beginTestTx(t *testing.T) (context.Context, pgx.Tx) {
 	ctx := t.Context()
 	tx, err := testPool.Begin(ctx)
 	require.NoError(t, err)
+	_, err = tx.Exec(ctx, `
+		INSERT INTO municipios (codigo_ibge, nome, uf)
+		VALUES ($1, $2, 'AL')
+		ON CONFLICT (codigo_ibge) DO NOTHING`, testMunicipioID, testCity)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, tx.Rollback(context.Background()))
 	})
@@ -36,15 +42,15 @@ func beginTestTx(t *testing.T) (context.Context, pgx.Tx) {
 
 func seedBaseFixture(t *testing.T, ctx context.Context, tx pgx.Tx) baseFixture {
 	t.Helper()
-	destinoID := seedDestino(t, ctx, tx, "UFAL", testCity)
-	paradaID := seedParada(t, ctx, tx, "Terminal", testCity)
-	rotaID := seedRotaInterna(t, ctx, tx, testCity, paradaID)
+	destinoID := seedDestino(t, ctx, tx, "UFAL", testMunicipioID)
+	paradaID := seedParada(t, ctx, tx, "Terminal")
+	rotaID := seedRotaInterna(t, ctx, tx, paradaID)
 	return baseFixture{
 		DestinoID:     destinoID,
 		ParadaID:      paradaID,
 		RotaInternaID: rotaID,
-		VeiculoID:     seedVeiculo(t, ctx, tx, "INT0001", testCity, "ativo"),
-		MotoristaID:   seedMotorista(t, ctx, tx, "10000000001", testCity, "NT"),
+		VeiculoID:     seedVeiculo(t, ctx, tx, "INT0001", "ativo"),
+		MotoristaID:   seedMotorista(t, ctx, tx, "10000000001", testMunicipioID, "NT"),
 		ClienteID:     seedCliente(t, ctx, tx, "20000000001"),
 	}
 }
@@ -56,34 +62,32 @@ func seedFixtureWithVinculo(t *testing.T, ctx context.Context, tx pgx.Tx) baseFi
 	return fixture
 }
 
-func seedDestino(t *testing.T, ctx context.Context, tx pgx.Tx, nome, cidade string) int64 {
+func seedDestino(t *testing.T, ctx context.Context, tx pgx.Tx, nome string, municipioID int64) int64 {
 	t.Helper()
 	var id int64
 	err := tx.QueryRow(ctx, `
-		INSERT INTO destinos (nome, rua, cidade, latitude, longitude)
+		INSERT INTO destinos (nome, rua, municipio_id, latitude, longitude)
 		VALUES ($1, 'Av. Principal', $2, -9.6658, -35.7353)
-		RETURNING id`, nome, cidade).Scan(&id)
+		RETURNING id`, nome, municipioID).Scan(&id)
 	require.NoError(t, err)
 	return id
 }
 
-func seedParada(t *testing.T, ctx context.Context, tx pgx.Tx, nome, cidade string) int64 {
+func seedParada(t *testing.T, ctx context.Context, tx pgx.Tx, nome string) int64 {
 	t.Helper()
 	var id int64
 	err := tx.QueryRow(ctx, `
-		INSERT INTO paradas (nome, latitude, longitude, cidade)
-		VALUES ($1, -9.6500, -35.7200, $2)
-		RETURNING id`, nome, cidade).Scan(&id)
+		INSERT INTO paradas (nome, latitude, longitude)
+		VALUES ($1, -9.6500, -35.7200)
+		RETURNING id`, nome).Scan(&id)
 	require.NoError(t, err)
 	return id
 }
 
-func seedRotaInterna(t *testing.T, ctx context.Context, tx pgx.Tx, cidade string, paradaIDs ...int64) int64 {
+func seedRotaInterna(t *testing.T, ctx context.Context, tx pgx.Tx, paradaIDs ...int64) int64 {
 	t.Helper()
 	var id int64
-	require.NoError(t, tx.QueryRow(ctx,
-		`INSERT INTO rotas_internas (cidade) VALUES ($1) RETURNING id`, cidade,
-	).Scan(&id))
+	require.NoError(t, tx.QueryRow(ctx, `INSERT INTO rotas_internas DEFAULT VALUES RETURNING id`).Scan(&id))
 	for index, paradaID := range paradaIDs {
 		_, err := tx.Exec(ctx,
 			`INSERT INTO rota_interna_paradas (rota_interna_id, parada_id, ordem) VALUES ($1, $2, $3)`,
@@ -94,25 +98,25 @@ func seedRotaInterna(t *testing.T, ctx context.Context, tx pgx.Tx, cidade string
 	return id
 }
 
-func seedVeiculo(t *testing.T, ctx context.Context, tx pgx.Tx, placa, cidade, status string) int64 {
+func seedVeiculo(t *testing.T, ctx context.Context, tx pgx.Tx, placa, status string) int64 {
 	t.Helper()
 	var id int64
 	err := tx.QueryRow(ctx, `
-		INSERT INTO veiculos (placa, modelo, categoria, capacidade, cidade_base, status)
-		VALUES ($1, 'Van', 'carro_7_lugares', 7, $2, $3)
-		RETURNING id`, placa, cidade, status).Scan(&id)
+		INSERT INTO veiculos (placa, modelo, categoria, capacidade, status)
+		VALUES ($1, 'Van', 'carro_7_lugares', 7, $2)
+		RETURNING id`, placa, status).Scan(&id)
 	require.NoError(t, err)
 	return id
 }
 
-func seedMotorista(t *testing.T, ctx context.Context, tx pgx.Tx, cpf, cidade, turno string) int64 {
+func seedMotorista(t *testing.T, ctx context.Context, tx pgx.Tx, cpf string, municipioTrabalhoID int64, turno string) int64 {
 	t.Helper()
 	var id int64
 	err := tx.QueryRow(ctx, `
 		INSERT INTO motoristas (
-			nome, cpf, senha, telefone, data_nasc, turno, cidade_trabalho, residencia, foto
-		) VALUES ('Motorista Teste', $1, 'hash', '82999990000', '1985-05-20', $2, $3, $3, '')
-		RETURNING id`, cpf, turno, cidade).Scan(&id)
+			nome, cpf, senha, telefone, data_nasc, turno, municipio_trabalho_id, residencia, foto
+		) VALUES ('Motorista Teste', $1, 'hash', '82999990000', '1985-05-20', $2, $3, $4, '')
+		RETURNING id`, cpf, turno, municipioTrabalhoID, testCity).Scan(&id)
 	require.NoError(t, err)
 	return id
 }
@@ -145,10 +149,10 @@ func seedReserva(t *testing.T, ctx context.Context, tx pgx.Tx, fixture baseFixtu
 	var id int64
 	err := tx.QueryRow(ctx, `
 		INSERT INTO reservas (
-			cliente_id, vinculo_id, data_viagem, turno, destino_id, rota_interna_id, cidade, sentido
-		) VALUES ($1, $2, $3, 'NT', $4, $5, $6, $7)
+			cliente_id, vinculo_id, data_viagem, turno, destino_id, rota_interna_id, sentido
+		) VALUES ($1, $2, $3, 'NT', $4, $5, $6)
 		RETURNING id`, fixture.ClienteID, fixture.VinculoID, data, fixture.DestinoID,
-		fixture.RotaInternaID, testCity, sentido).Scan(&id)
+		fixture.RotaInternaID, sentido).Scan(&id)
 	require.NoError(t, err)
 	return id
 }
@@ -159,9 +163,9 @@ func seedCiclo(t *testing.T, ctx context.Context, tx pgx.Tx, fixture baseFixture
 	expiresAt := time.Date(data.Year(), data.Month(), data.Day(), 23, 59, 0, 0, time.UTC)
 	err := tx.QueryRow(ctx, `
 		INSERT INTO ciclos_viagem (
-			data_viagem, turno, cidade, rota_interna_id, veiculo_id, motorista_id, expires_at
+			data_viagem, turno, municipio_destino_id, rota_interna_id, veiculo_id, motorista_id, expires_at
 		) VALUES ($1, 'NT', $2, $3, $4, $5, $6)
-		RETURNING id`, data, testCity, fixture.RotaInternaID, fixture.VeiculoID,
+		RETURNING id`, data, testMunicipioID, fixture.RotaInternaID, fixture.VeiculoID,
 		fixture.MotoristaID, expiresAt).Scan(&id)
 	require.NoError(t, err)
 	return id

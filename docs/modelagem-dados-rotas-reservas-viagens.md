@@ -6,7 +6,7 @@ Documento criado em 2026-06-05 com base nas migrations atuais em `internal/db/mi
 
 Hoje o banco ja cobre a base administrativa do sistema: administradores, veiculos, motoristas, destinos, paradas, rotas internas, clientes, vinculos dos clientes, horarios fixos e reservas.
 
-Ja existem migration e endpoints funcionais para `reservas`. Ainda nao existem migrations nem endpoints funcionais para `viagens` e `rotas dinamicas`. A pasta `internal/viagens` existe, mas os arquivos estao praticamente vazios e esses handlers nao sao registrados no servidor.
+Ja existem migrations e endpoints funcionais para reservas, ciclos de viagem, viagens e rotas dinamicas.
 
 Para as rotas inteligentes, a melhor decisao e persistir o resultado no banco. Redis pode ser usado depois como cache auxiliar, mas nao deve ser a fonte principal da rota, porque o motorista e o aluno precisam conseguir consultar a viagem planejada mesmo se um cache cair. A rota calculada deve virar dado persistido com prazo de expiracao.
 
@@ -27,7 +27,6 @@ erDiagram
         text placa UK
         text modelo
         smallint capacidade
-        text cidade_base
         status_veiculo status
         boolean ar_condicionado
         boolean banheiro
@@ -46,7 +45,7 @@ erDiagram
         text telefone
         date data_nasc
         turno_motorista turno
-        text cidade_trabalho
+        bigint municipio_trabalho_id FK
         text residencia
         text foto
         timestamptz created_at
@@ -57,7 +56,7 @@ erDiagram
         bigint id PK
         text nome
         text rua
-        text cidade
+        bigint municipio_id FK
         numeric latitude
         numeric longitude
         timestamptz created_at
@@ -69,14 +68,12 @@ erDiagram
         text nome
         numeric latitude
         numeric longitude
-        text cidade
         timestamptz created_at
         timestamptz updated_at
     }
 
     ROTAS_INTERNAS {
         bigint id PK
-        text cidade
         timestamptz created_at
         timestamptz updated_at
     }
@@ -140,11 +137,13 @@ erDiagram
 
 `paradas` sao os locais presentes dentro de uma rota interna. Elas representam onde o veiculo passa para pegar alunos na ida e onde passa para deixar alunos na volta. Hoje o sistema nao persiste exatamente em qual parada cada aluno embarca perto de casa. O que fica persistido no vinculo do aluno e o `destino_id`, ou seja, a faculdade/destino onde ele desembarca na ida e embarca na volta.
 
-`rotas_internas` nao sao as rotas inteligentes dinamicas. Elas representam uma rota base por cidade com paradas ordenadas. A rota dinamica ainda precisa ser criada e deve usar reservas reais, turno, cidade, capacidade, veiculo, motorista, destinos e as paradas das rotas internas envolvidas.
+`rotas_internas` nao sao as rotas inteligentes dinamicas. Elas representam as paradas ordenadas da unica cidade base atendida pela instancia. Essa cidade e configurada em `BASE_CITY`, sem repeticao nas tabelas operacionais.
 
-`veiculos` ja tem a informacao principal para alocacao inteligente: `capacidade`, `cidade_base` e `status`. O admin nao deve escolher manualmente qual unidade do veiculo vai sair em cada viagem. Ele controla o cadastro e o status. O planejador escolhe automaticamente entre os veiculos ativos da cidade, priorizando capacidade adequada. Hoje o modelo do veiculo ja permite diferenciar uma van de um onibus pelo `modelo` e pela `capacidade`; uma coluna futura `categoria` pode ajudar na interface, mas nao e obrigatoria para o algoritmo.
+`veiculos` tem as informacoes principais para alocacao inteligente: `categoria`, `capacidade` e `status`. Como todos pertencem implicitamente a cidade base da instancia, o planejador filtra disponibilidade e escolhe a capacidade adequada sem uma coluna de cidade.
 
-`motoristas` ja tem `turno`, `cidade_trabalho` e `residencia`, que podem ajudar a filtrar quem pode dirigir uma viagem planejada. Para o MVP, recomendo usar `cidade_trabalho` como cidade operacional do motorista, porque `residencia` pode ser apenas onde ele mora. Se a regra do produto for que a residencia define a cidade base do motorista, vale renomear ou documentar isso depois para evitar ambiguidade. Nao recomendo adicionar destino/faculdade no motorista agora, porque isso aumentaria a refatoracao e nao e necessario para calcular as primeiras viagens.
+`municipios` e o catalogo oficial importado do IBGE. `destinos.municipio_id`, `motoristas.municipio_trabalho_id`, `horarios_turno_viagem.municipio_destino_id` e `ciclos_viagem.municipio_destino_id` apontam para `municipios.codigo_ibge`.
+
+`motoristas` tem `turno`, `municipio_trabalho_id` e `residencia`. O municipio de trabalho informa qual cidade externa o motorista atende; `residencia` e apenas um dado cadastral e nao determina a cidade base.
 
 ## Status dos endpoints atuais
 
@@ -155,19 +154,21 @@ Observacao importante: as rotas de colecao foram registradas com `/` dentro de c
 | Area | Endpoints registrados |
 | --- | --- |
 | Health | `GET /health` |
+| Configuracao | `GET /config` |
+| Municipios | `GET /municipios/?uf={UF}` |
 | Admin | `POST /admin/`, `GET /admin/`, `GET /admin/{adminID}`, `PUT /admin/{adminID}`, `DELETE /admin/{adminID}`, `POST /admin/login` |
 | Veiculos | `POST /veiculos/`, `GET /veiculos/`, `GET /veiculos/{veiculoID}`, `PUT /veiculos/{veiculoID}`, `DELETE /veiculos/{veiculoID}` |
-| Destinos | `POST /destinos/`, `GET /destinos/`, `GET /destinos/cidade/{cidade}`, `GET /destinos/{id}`, `PUT /destinos/{id}`, `DELETE /destinos/{id}` |
-| Paradas | `POST /paradas/`, `GET /paradas/`, `GET /paradas/cidade/{cidade}`, `GET /paradas/{id}`, `PUT /paradas/{id}`, `DELETE /paradas/{id}` |
-| Rotas internas | `POST /rotas-internas/`, `GET /rotas-internas/`, `GET /rotas-internas/cidade/{cidade}`, `GET /rotas-internas/{id}`, `PUT /rotas-internas/{id}/paradas`, `DELETE /rotas-internas/{id}` |
+| Destinos | `POST /destinos/`, `GET /destinos/`, `GET /destinos/municipio/{municipioID}`, `GET /destinos/{id}`, `PUT /destinos/{id}`, `DELETE /destinos/{id}` |
+| Paradas | `POST /paradas/`, `GET /paradas/`, `GET /paradas/{id}`, `PUT /paradas/{id}`, `DELETE /paradas/{id}` |
+| Rotas internas | `POST /rotas-internas/`, `GET /rotas-internas/`, `GET /rotas-internas/{id}`, `PUT /rotas-internas/{id}/paradas`, `DELETE /rotas-internas/{id}` |
 | Motoristas | `POST /motoristas/login`, `POST /motoristas/`, `GET /motoristas/`, `GET /motoristas/{id}`, `PUT /motoristas/{id}`, `DELETE /motoristas/{id}` |
 | Clientes | `POST /clientes/login`, `POST /clientes/`, `GET /clientes/`, `GET /clientes/{clienteID}`, `PUT /clientes/{clienteID}`, `DELETE /clientes/{clienteID}` |
 | Cliente vinculos | `POST /clientes/{clienteID}/vinculos/`, `GET /clientes/{clienteID}/vinculos/`, `GET /clientes/{clienteID}/vinculos/{vinculoID}`, `PUT /clientes/{clienteID}/vinculos/{vinculoID}`, `DELETE /clientes/{clienteID}/vinculos/{vinculoID}` |
 | Reservas | `POST /clientes/{clienteID}/vinculos/{vinculoID}/reservas/`, `GET /clientes/{clienteID}/vinculos/{vinculoID}/reservas/`, `GET /clientes/{clienteID}/reservas/`, `GET /reservas/`, `GET /reservas/{reservaID}`, `PUT /reservas/{reservaID}`, `POST /reservas/{reservaID}/cancelar`, `DELETE /reservas/{reservaID}` |
-| Viagens | Nao implementado |
-| Rotas dinamicas | Nao implementado |
+| Viagens | Implementado em `/viagens` e `/planejamentos/viagens` |
+| Rotas dinamicas | Implementado em `/viagens/{viagemID}/rota-dinamica` |
 
-O `server.go` aplica middleware de autenticacao nas rotas protegidas. Apenas `GET /health`, `POST /admin/login`, `POST /clientes/login` e `POST /motoristas/login` ficam publicos. Os demais endpoints devem enviar `Authorization: Bearer <token>`.
+O `server.go` aplica middleware de autenticacao nas rotas protegidas. Apenas `GET /health`, `GET /config`, `POST /admin/login`, `POST /clientes/login` e `POST /motoristas/login` ficam publicos. Os demais endpoints devem enviar `Authorization: Bearer <token>`.
 
 ## Como subir a API para testar
 
@@ -243,7 +244,6 @@ curl -i -X POST "$BASE/veiculos/" \
     "placa":"ABC1D23",
     "modelo":"Van Sprinter",
     "capacidade":15,
-    "cidade_base":"maceio",
     "status":"ativo",
     "ar_condicionado":true,
     "banheiro":false,
@@ -265,7 +265,7 @@ curl -i -X POST "$BASE/motoristas/" \
     "telefone":"82999990000",
     "data_nasc":"1985-03-10",
     "turno":"NT",
-    "cidade_trabalho":"maceio",
+    "municipio_trabalho_id":2704302,
     "residencia":"Maceio",
     "foto":""
   }'
@@ -279,7 +279,7 @@ curl -i -X POST "$BASE/destinos/" \
   -d '{
     "nome":"Universidade Federal de Alagoas",
     "rua":"Av. Lourival Melo Mota",
-    "cidade":"maceio",
+    "municipio_id":2704302,
     "latitude":-9.665990,
     "longitude":-35.735000
   }'
@@ -290,11 +290,11 @@ Crie paradas para uma rota interna. As paradas sao os locais por onde o veiculo 
 ```bash
 curl -i -X POST "$BASE/paradas/" \
   -H "Content-Type: application/json" \
-  -d '{"nome":"Parada Centro","latitude":-9.660000,"longitude":-35.730000,"cidade":"maceio"}'
+  -d '{"nome":"Parada Centro","latitude":-9.660000,"longitude":-35.730000}'
 
 curl -i -X POST "$BASE/paradas/" \
   -H "Content-Type: application/json" \
-  -d '{"nome":"Parada Farol","latitude":-9.670000,"longitude":-35.740000,"cidade":"maceio"}'
+  -d '{"nome":"Parada Farol","latitude":-9.670000,"longitude":-35.740000}'
 ```
 
 Crie uma rota interna usando os IDs das paradas criadas:
@@ -303,7 +303,6 @@ Crie uma rota interna usando os IDs das paradas criadas:
 curl -i -X POST "$BASE/rotas-internas/" \
   -H "Content-Type: application/json" \
   -d '{
-    "cidade":"maceio",
     "paradas":[
       {"parada_id":1,"ordem":1},
       {"parada_id":2,"ordem":2}
@@ -406,10 +405,10 @@ Comandos uteis:
 
 ```sql
 \dt
-SELECT id, modelo, capacidade, cidade_base, status FROM veiculos;
-SELECT id, nome, turno, cidade_trabalho FROM motoristas;
-SELECT id, nome, cidade, latitude, longitude FROM destinos;
-SELECT id, cidade FROM rotas_internas;
+SELECT id, modelo, capacidade, status FROM veiculos;
+SELECT id, nome, turno, municipio_trabalho_id FROM motoristas;
+SELECT id, nome, municipio_id, latitude, longitude FROM destinos;
+SELECT id FROM rotas_internas;
 SELECT rota_interna_id, parada_id, ordem FROM rota_interna_paradas ORDER BY rota_interna_id, ordem;
 SELECT id, nome, cpf FROM clientes;
 SELECT id, cliente_id, tipo, turno, destino_id, rota_interna_id, curso, validade FROM cliente_vinculos;
@@ -446,7 +445,6 @@ reservas (
   turno,
   destino_id, -- faculdade/destino: desembarque na ida e embarque na volta
   rota_interna_id,
-  cidade,
   sentido, -- ida, volta
   status, -- confirmada, cancelada
   created_at,
@@ -454,7 +452,7 @@ reservas (
 )
 ```
 
-Essa estrutura foi implementada em `internal/db/migrations/00009_create_reservas.sql`. A coluna `cidade` tambem foi persistida como snapshot operacional da rota interna, para facilitar o agrupamento futuro do planejador por cidade.
+Essa estrutura foi implementada em `internal/db/migrations/00009_create_reservas.sql`. O municipio da reserva e obtido pelo `destino_id`; a reserva nao repete esse dado.
 
 Regras implementadas/recomendadas:
 
@@ -605,7 +603,7 @@ O calculo deve receber pelo menos:
 
 - `data_viagem`
 - `turno`
-- `cidade`
+- `municipio_destino_id`
 - `sentido` (`ida` ou `volta`)
 
 Com isso, o backend busca as reservas ativas daquele dia e turno, juntando:
@@ -674,24 +672,23 @@ Para o MVP, um algoritmo `first-fit decreasing` ja resolve bem:
 
 ### Alocacao automatica de motorista e veiculo
 
-O admin nao deve escolher manualmente o motorista nem a unidade especifica do veiculo para cada viagem. O papel do admin no MVP deve ser manter os cadastros corretos: veiculos ativos/inativos, capacidade, cidade base, motoristas ativos, cidade de trabalho e turno.
+O admin nao deve escolher manualmente o motorista nem a unidade especifica do veiculo para cada viagem. O papel do admin no MVP deve ser manter os cadastros corretos: veiculos ativos/inativos, capacidade, motoristas, cidades de destino atendidas e turnos.
 
 Fluxo recomendado para veiculos:
 
 1. Filtrar por `veiculos.status = 'ativo'`.
-2. Filtrar por `veiculos.cidade_base = cidade` da rota/reservas.
-3. Remover veiculos ja alocados em outra viagem conflitante no mesmo dia, turno e janela de horario.
-4. Escolher o menor veiculo que comporta o grupo de reservas.
-5. Se houver empate entre veiculos equivalentes, escolher de forma deterministica, por exemplo menor `id`, ou por uma regra futura de rodizio. Escolha aleatoria tambem funciona no MVP, desde que o resultado seja persistido em `viagens.veiculo_id`.
+2. Remover veiculos ja alocados em outra viagem conflitante no mesmo dia e turno.
+3. Escolher a combinacao de categorias que atende a quantidade de alunos.
+4. Selecionar unidades disponiveis dessas categorias de forma deterministica.
 
 Fluxo recomendado para motoristas:
 
 1. Filtrar por turno compativel com a viagem.
-2. Filtrar por cidade operacional. Para o modelo atual, usar `cidade_trabalho`. Se o produto decidir que `residencia` e a cidade base real do motorista, documentar essa regra ou ajustar o nome da coluna depois.
+2. Filtrar por `municipio_trabalho_id` compativel com a viagem.
 3. Remover motoristas ja alocados em outra viagem conflitante no mesmo dia, turno e janela de horario.
 4. Escolher um motorista disponivel. No MVP pode ser menor `id` ou aleatorio entre disponiveis; depois pode virar rodizio por quantidade de viagens.
 
-Nao recomendo filtrar motorista por destino/faculdade agora. Isso exigiria persistir uma relacao nova entre motorista e destinos atendidos, mas a regra principal da operacao parece ser cidade + turno + disponibilidade. Se no futuro alguns motoristas so puderem atender certas faculdades, ai faria sentido criar algo como `motorista_destinos`.
+O filtro e pela cidade de destino, nao por uma faculdade especifica. Se no futuro alguns motoristas so puderem atender determinados locais dentro da mesma cidade, ai faria sentido criar uma relacao `motorista_destinos`.
 
 Depois que o planejador escolhe veiculo e motorista, esses IDs ficam persistidos na viagem. Assim, mesmo que o algoritmo mude depois, aquela viagem continua dizendo exatamente qual unidade foi escalada e qual motorista foi atribuido.
 

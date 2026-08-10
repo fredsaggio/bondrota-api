@@ -8,6 +8,7 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/destinos"
 	"github.com/fredsaggio/bondrota-api/internal/geo"
 	"github.com/fredsaggio/bondrota-api/internal/motoristas"
+	"github.com/fredsaggio/bondrota-api/internal/municipios"
 	"github.com/fredsaggio/bondrota-api/internal/paradas"
 	"github.com/fredsaggio/bondrota-api/internal/reservas"
 	"github.com/fredsaggio/bondrota-api/internal/rotasdinamicas"
@@ -30,6 +31,8 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService, storageConfig storage.
 
 	destinoStore := destinos.NewDestinoStore(pool)
 	destinoHandler := destinos.NewDestinoHandler(destinoStore)
+	municipioStore := municipios.NewStore(pool)
+	municipioHandler := municipios.NewHandler(municipioStore)
 
 	paradaStore := paradas.NewParadaStore(pool)
 	paradaHandler := paradas.NewParadaHandler(paradaStore)
@@ -101,6 +104,7 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService, storageConfig storage.
 		AdminHandler:        adminHandler,
 		VeiculoHandler:      veiculoHandler,
 		DestinoHandler:      destinoHandler,
+		MunicipioHandler:    municipioHandler,
 		ParadaHandler:       paradaHandler,
 		RotaInternaHandler:  rotaInternaHandler,
 		MotoristaHandler:    motoristaHandler,

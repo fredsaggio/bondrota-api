@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/fredsaggio/bondrota-api/internal/brerror"
@@ -24,16 +23,16 @@ func (s *horarioTurnoViagemStore) Create(ctx context.Context, input HorarioTurno
 	const op = "db/horarioTurnoViagemStore.Create"
 
 	const q = `
-		INSERT INTO horarios_turno_viagem (cidade, turno, horario_ida, horario_volta)
-		VALUES (@cidade, @turno, @horario_ida::time, @horario_volta::time)
-		RETURNING id, cidade, turno, horario_ida::text, horario_volta::text, created_at, updated_at
+		INSERT INTO horarios_turno_viagem (municipio_destino_id, turno, horario_ida, horario_volta)
+		VALUES (@municipio_destino_id, @turno, @horario_ida::time, @horario_volta::time)
+		RETURNING id, municipio_destino_id, turno, horario_ida::text, horario_volta::text, created_at, updated_at
 	`
 
 	rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{
-		"cidade":        strings.TrimSpace(input.Cidade),
-		"turno":         input.Turno,
-		"horario_ida":   formatHorarioTurno(input.HorarioIda),
-		"horario_volta": formatHorarioTurno(input.HorarioVolta),
+		"municipio_destino_id": input.MunicipioDestinoID,
+		"turno":                input.Turno,
+		"horario_ida":          formatHorarioTurno(input.HorarioIda),
+		"horario_volta":        formatHorarioTurno(input.HorarioVolta),
 	})
 	if err != nil {
 		if isHorarioTurnoAlreadyExists(err) {
@@ -67,19 +66,19 @@ func (s *horarioTurnoViagemStore) GetByID(ctx context.Context, id int64) (*Horar
 	return horario, nil
 }
 
-func (s *horarioTurnoViagemStore) GetByCidadeTurno(ctx context.Context, cidade string, turno TurnoViagem) (*HorarioTurnoViagem, error) {
-	const op = "db/horarioTurnoViagemStore.GetByCidadeTurno"
+func (s *horarioTurnoViagemStore) GetByMunicipioDestinoTurno(ctx context.Context, municipioDestinoID int64, turno TurnoViagem) (*HorarioTurnoViagem, error) {
+	const op = "db/horarioTurnoViagemStore.GetByMunicipioDestinoTurno"
 
 	const q = `
-		SELECT id, cidade, turno, horario_ida::text, horario_volta::text, created_at, updated_at
+		SELECT id, municipio_destino_id, turno, horario_ida::text, horario_volta::text, created_at, updated_at
 		FROM horarios_turno_viagem
-		WHERE LOWER(cidade) = LOWER(@cidade)
+		WHERE municipio_destino_id = @municipio_destino_id
 			AND turno = @turno
 	`
 
 	rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{
-		"cidade": strings.TrimSpace(cidade),
-		"turno":  turno,
+		"municipio_destino_id": municipioDestinoID,
+		"turno":                turno,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
@@ -100,9 +99,9 @@ func (s *horarioTurnoViagemStore) List(ctx context.Context) ([]HorarioTurnoViage
 	const op = "db/horarioTurnoViagemStore.List"
 
 	const q = `
-		SELECT id, cidade, turno, horario_ida::text, horario_volta::text, created_at, updated_at
+		SELECT id, municipio_destino_id, turno, horario_ida::text, horario_volta::text, created_at, updated_at
 		FROM horarios_turno_viagem
-		ORDER BY cidade ASC, turno ASC
+		ORDER BY municipio_destino_id ASC, turno ASC
 	`
 
 	rows, err := s.db.Query(ctx, q)
@@ -146,20 +145,20 @@ func (s *horarioTurnoViagemStore) Update(ctx context.Context, id int64, updateFu
 
 		const q = `
 			UPDATE horarios_turno_viagem
-			SET cidade = @cidade,
+			SET municipio_destino_id = @municipio_destino_id,
 				turno = @turno,
 				horario_ida = @horario_ida::time,
 				horario_volta = @horario_volta::time
 			WHERE id = @id
-			RETURNING id, cidade, turno, horario_ida::text, horario_volta::text, created_at, updated_at
+			RETURNING id, municipio_destino_id, turno, horario_ida::text, horario_volta::text, created_at, updated_at
 		`
 
 		rows, err := tx.Query(ctx, q, pgx.StrictNamedArgs{
-			"id":            horario.ID,
-			"cidade":        strings.TrimSpace(horario.Cidade),
-			"turno":         horario.Turno,
-			"horario_ida":   formatHorarioTurno(horario.HorarioIda),
-			"horario_volta": formatHorarioTurno(horario.HorarioVolta),
+			"id":                   horario.ID,
+			"municipio_destino_id": horario.MunicipioDestinoID,
+			"turno":                horario.Turno,
+			"horario_ida":          formatHorarioTurno(horario.HorarioIda),
+			"horario_volta":        formatHorarioTurno(horario.HorarioVolta),
 		})
 		if err != nil {
 			if isHorarioTurnoAlreadyExists(err) {
@@ -205,7 +204,7 @@ func getHorarioTurnoViagemByID(ctx context.Context, querier interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 }, id int64, forUpdate bool) (*HorarioTurnoViagem, error) {
 	q := `
-		SELECT id, cidade, turno, horario_ida::text, horario_volta::text, created_at, updated_at
+		SELECT id, municipio_destino_id, turno, horario_ida::text, horario_volta::text, created_at, updated_at
 		FROM horarios_turno_viagem
 		WHERE id = @id
 	`
@@ -233,7 +232,7 @@ func scanHorarioTurnoViagem(row pgx.CollectableRow) (HorarioTurnoViagem, error) 
 
 	err := row.Scan(
 		&horario.ID,
-		&horario.Cidade,
+		&horario.MunicipioDestinoID,
 		&horario.Turno,
 		&horarioIda,
 		&horarioVolta,
@@ -279,5 +278,5 @@ func formatHorarioTurno(horario time.Duration) string {
 }
 
 func isHorarioTurnoAlreadyExists(err error) bool {
-	return db.IsUniqueViolation(err, "uq_horarios_turno_viagem_cidade_turno")
+	return db.IsUniqueViolation(err, "uq_horarios_turno_viagem_municipio_destino_turno")
 }

@@ -3,7 +3,6 @@ package motoristas
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/fredsaggio/bondrota-api/internal/brerror"
 )
@@ -22,10 +21,10 @@ func (s *AlocacaoService) Alocar(ctx context.Context, input AlocarMotoristasInpu
 	}
 
 	motoristas, err := s.store.ListDisponiveisParaAlocacao(ctx, MotoristasDisponiveisFiltro{
-		Cidade:     input.Cidade,
-		DataViagem: input.DataViagem,
-		Turno:      input.Turno,
-		Limit:      input.Quantidade,
+		MunicipioTrabalhoID: input.MunicipioTrabalhoID,
+		DataViagem:          input.DataViagem,
+		Turno:               input.Turno,
+		Limit:               input.Quantidade,
 	})
 	if err != nil {
 		return nil, err
@@ -38,8 +37,8 @@ func (s *AlocacaoService) Alocar(ctx context.Context, input AlocarMotoristasInpu
 }
 
 func validateAlocarMotoristasInput(input AlocarMotoristasInput) error {
-	if strings.TrimSpace(input.Cidade) == "" {
-		return fmt.Errorf("%w: cidade is required", brerror.ErrInvalidInput)
+	if input.MunicipioTrabalhoID <= 0 {
+		return fmt.Errorf("%w: municipio_trabalho_id is required", brerror.ErrInvalidInput)
 	}
 	if input.DataViagem.IsZero() {
 		return fmt.Errorf("%w: data_viagem is required", brerror.ErrInvalidInput)

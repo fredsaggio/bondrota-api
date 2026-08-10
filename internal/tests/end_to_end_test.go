@@ -21,6 +21,7 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/destinos"
 	"github.com/fredsaggio/bondrota-api/internal/geo"
 	"github.com/fredsaggio/bondrota-api/internal/motoristas"
+	"github.com/fredsaggio/bondrota-api/internal/municipios"
 	"github.com/fredsaggio/bondrota-api/internal/paradas"
 	"github.com/fredsaggio/bondrota-api/internal/reservas"
 	"github.com/fredsaggio/bondrota-api/internal/rotasdinamicas"
@@ -31,6 +32,11 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/viagens"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+const (
+	e2eMunicipioID      int64 = 2704302
+	e2eOtherMunicipioID int64 = 2611606
 )
 
 func TestEndToEndPlanejamentoViagem(t *testing.T) {
@@ -51,6 +57,10 @@ func TestEndToEndPlanejamentoViagem(t *testing.T) {
 	osrmServer := newFakeOSRMServer(t)
 	defer osrmServer.Close()
 	router := buildE2ERouter(pool, authSvc, e2eRouterOptions{OSRMBaseURL: osrmServer.URL})
+	config := doJSON[map[string]any](t, router, http.MethodGet, "/api/v1/config", "", nil, http.StatusOK)
+	if config["cidade_base"] != "Campo Alegre" {
+		t.Fatalf("unexpected base city config: %+v", config)
+	}
 
 	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
 	adminEmail := "admin-e2e-" + suffix + "@bondrota.test"
@@ -63,12 +73,12 @@ func TestEndToEndPlanejamentoViagem(t *testing.T) {
 
 	t.Cleanup(func() {
 		cleanupE2EData(context.Background(), t, pool, e2eCleanupData{
-			AdminEmail:   adminEmail,
-			MotoristaCPF: motoristaCPF,
-			ClienteCPF:   clienteCPF,
-			Placa:        placa,
-			Cidade:       cidade,
-			DestinoNome:  destinoNome,
+			AdminEmail:    adminEmail,
+			MotoristaCPF:  motoristaCPF,
+			ClienteCPF:    clienteCPF,
+			Placa:         placa,
+			CidadeDestino: cidade,
+			DestinoNome:   destinoNome,
 		})
 	})
 
@@ -77,20 +87,18 @@ func TestEndToEndPlanejamentoViagem(t *testing.T) {
 	adminToken := loginAdmin(t, router, adminEmail, adminPassword)
 
 	destinoID := createDestino(t, router, adminToken, map[string]any{
-		"nome":      destinoNome,
-		"rua":       "Av. Teste",
-		"cidade":    "maceio",
-		"latitude":  -9.5584,
-		"longitude": -35.7777,
+		"nome":         destinoNome,
+		"rua":          "Av. Teste",
+		"municipio_id": e2eMunicipioID,
+		"latitude":     -9.5584,
+		"longitude":    -35.7777,
 	})
 	paradaID := createParada(t, router, adminToken, map[string]any{
 		"nome":      "Praca E2E",
 		"latitude":  -9.7812,
 		"longitude": -36.3501,
-		"cidade":    cidade,
 	})
 	rotaInternaID := createRotaInterna(t, router, adminToken, map[string]any{
-		"cidade": cidade,
 		"paradas": []map[string]any{
 			{"parada_id": paradaID, "ordem": 1},
 		},
@@ -100,7 +108,6 @@ func TestEndToEndPlanejamentoViagem(t *testing.T) {
 		"modelo":          "Van E2E",
 		"categoria":       "carro_7_lugares",
 		"capacidade":      7,
-		"cidade_base":     cidade,
 		"status":          "ativo",
 		"ar_condicionado": false,
 		"banheiro":        false,
@@ -109,15 +116,15 @@ func TestEndToEndPlanejamentoViagem(t *testing.T) {
 		"tomada":          false,
 	})
 	motoristaID := createMotorista(t, router, adminToken, map[string]any{
-		"nome":            "Motorista E2E",
-		"cpf":             motoristaCPF,
-		"senha":           "senha123",
-		"telefone":        "82999990000",
-		"data_nasc":       "1980-05-20",
-		"turno":           "NT",
-		"cidade_trabalho": cidade,
-		"residencia":      cidade,
-		"foto":            "",
+		"nome":                  "Motorista E2E",
+		"cpf":                   motoristaCPF,
+		"senha":                 "senha123",
+		"telefone":              "82999990000",
+		"data_nasc":             "1980-05-20",
+		"turno":                 "NT",
+		"municipio_trabalho_id": e2eMunicipioID,
+		"residencia":            cidade,
+		"foto":                  "",
 	})
 	clienteID := createCliente(t, router, adminToken, map[string]any{
 		"nome":      "Cliente E2E",
@@ -150,17 +157,17 @@ func TestEndToEndPlanejamentoViagem(t *testing.T) {
 		"sentido":     "volta",
 	})
 	createHorarioTurno(t, router, adminToken, map[string]any{
-		"cidade":        cidade,
-		"turno":         "NT",
-		"horario_ida":   "17:00",
-		"horario_volta": "22:00",
+		"municipio_destino_id": e2eMunicipioID,
+		"turno":                "NT",
+		"horario_ida":          "17:00",
+		"horario_volta":        "22:00",
 	})
 
 	planejamento := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/planejamentos/viagens", adminToken, map[string]any{
-		"data_viagem":     dataViagem,
-		"turno":           "NT",
-		"cidade":          cidade,
-		"rota_interna_id": rotaInternaID,
+		"municipio_destino_id": e2eMunicipioID,
+		"data_viagem":          dataViagem,
+		"turno":                "NT",
+		"rota_interna_id":      rotaInternaID,
 	}, http.StatusCreated)
 
 	ciclos := planejamento["ciclos"].([]any)
@@ -388,55 +395,51 @@ func TestEndToEndPlanejamentoMultiplosVeiculosPorCapacidade(t *testing.T) {
 		MotoristaPrefix: "91" + suffix[len(suffix)-6:],
 		ClientePrefix:   "81" + suffix[len(suffix)-6:],
 		PlacaPrefix:     "C" + suffix[len(suffix)-5:],
-		Cidade:          cidade,
+		CidadeDestino:   cidade,
 		DestinoPrefix:   "Destino Capacidade E2E " + suffix,
 	})
 
 	destinoID := createDestino(t, h.Router, h.AdminToken, map[string]any{
-		"nome":      "Destino Capacidade E2E " + suffix,
-		"rua":       "Av. Teste",
-		"cidade":    "maceio",
-		"latitude":  -9.5584,
-		"longitude": -35.7777,
+		"nome":         "Destino Capacidade E2E " + suffix,
+		"rua":          "Av. Teste",
+		"municipio_id": e2eMunicipioID,
+		"latitude":     -9.5584,
+		"longitude":    -35.7777,
 	})
 	paradaID := createParada(t, h.Router, h.AdminToken, map[string]any{
 		"nome":      "Parada Capacidade E2E",
 		"latitude":  -9.7812,
 		"longitude": -36.3501,
-		"cidade":    cidade,
 	})
 	rotaInternaID := createRotaInterna(t, h.Router, h.AdminToken, map[string]any{
-		"cidade":  cidade,
 		"paradas": []map[string]any{{"parada_id": paradaID, "ordem": 1}},
 	})
 
 	createVeiculo(t, h.Router, h.AdminToken, map[string]any{
-		"placa":       "C" + suffix[len(suffix)-5:] + "E",
-		"modelo":      "Executivo E2E",
-		"categoria":   "executivo",
-		"capacidade":  46,
-		"cidade_base": cidade,
-		"status":      "ativo",
+		"placa":      "C" + suffix[len(suffix)-5:] + "E",
+		"modelo":     "Executivo E2E",
+		"categoria":  "executivo",
+		"capacidade": 46,
+		"status":     "ativo",
 	})
 	createVeiculo(t, h.Router, h.AdminToken, map[string]any{
-		"placa":       "C" + suffix[len(suffix)-5:] + "7",
-		"modelo":      "Carro E2E",
-		"categoria":   "carro_7_lugares",
-		"capacidade":  7,
-		"cidade_base": cidade,
-		"status":      "ativo",
+		"placa":      "C" + suffix[len(suffix)-5:] + "7",
+		"modelo":     "Carro E2E",
+		"categoria":  "carro_7_lugares",
+		"capacidade": 7,
+		"status":     "ativo",
 	})
 	for i := 0; i < 2; i++ {
 		createMotorista(t, h.Router, h.AdminToken, map[string]any{
-			"nome":            fmt.Sprintf("Motorista Capacidade %d", i),
-			"cpf":             fmt.Sprintf("91%s%02d", suffix[len(suffix)-6:], i),
-			"senha":           "senha123",
-			"telefone":        "82999990000",
-			"data_nasc":       "1980-05-20",
-			"turno":           "NT",
-			"cidade_trabalho": cidade,
-			"residencia":      cidade,
-			"foto":            "",
+			"nome":                  fmt.Sprintf("Motorista Capacidade %d", i),
+			"cpf":                   fmt.Sprintf("91%s%02d", suffix[len(suffix)-6:], i),
+			"senha":                 "senha123",
+			"telefone":              "82999990000",
+			"data_nasc":             "1980-05-20",
+			"turno":                 "NT",
+			"municipio_trabalho_id": e2eMunicipioID,
+			"residencia":            cidade,
+			"foto":                  "",
 		})
 	}
 
@@ -467,17 +470,17 @@ func TestEndToEndPlanejamentoMultiplosVeiculosPorCapacidade(t *testing.T) {
 		})
 	}
 	createHorarioTurno(t, h.Router, h.AdminToken, map[string]any{
-		"cidade":        cidade,
-		"turno":         "NT",
-		"horario_ida":   "17:00",
-		"horario_volta": "22:00",
+		"municipio_destino_id": e2eMunicipioID,
+		"turno":                "NT",
+		"horario_ida":          "17:00",
+		"horario_volta":        "22:00",
 	})
 
 	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
-		"data_viagem":     dataViagem,
-		"turno":           "NT",
-		"cidade":          cidade,
-		"rota_interna_id": rotaInternaID,
+		"municipio_destino_id": e2eMunicipioID,
+		"data_viagem":          dataViagem,
+		"turno":                "NT",
+		"rota_interna_id":      rotaInternaID,
 	}, http.StatusCreated)
 
 	ciclos := planejamento["ciclos"].([]any)
@@ -501,65 +504,61 @@ func TestEndToEndPlanejamentoIgnoraRecursosIndisponiveis(t *testing.T) {
 		MotoristaPrefix: "90" + suffix[len(suffix)-6:],
 		ClientePrefix:   "80" + suffix[len(suffix)-6:],
 		PlacaPrefix:     "R" + suffix[len(suffix)-5:],
-		Cidade:          cidade,
+		CidadeDestino:   cidade,
 		DestinoPrefix:   "Destino Recursos E2E " + suffix,
 	})
 
 	destinoID := createDestino(t, h.Router, h.AdminToken, map[string]any{
-		"nome":      "Destino Recursos E2E " + suffix,
-		"rua":       "Av. Teste",
-		"cidade":    "maceio",
-		"latitude":  -9.5584,
-		"longitude": -35.7777,
+		"nome":         "Destino Recursos E2E " + suffix,
+		"rua":          "Av. Teste",
+		"municipio_id": e2eMunicipioID,
+		"latitude":     -9.5584,
+		"longitude":    -35.7777,
 	})
 	paradaID := createParada(t, h.Router, h.AdminToken, map[string]any{
 		"nome":      "Parada Recursos E2E",
 		"latitude":  -9.7812,
 		"longitude": -36.3501,
-		"cidade":    cidade,
 	})
 	rotaInternaID := createRotaInterna(t, h.Router, h.AdminToken, map[string]any{
-		"cidade":  cidade,
 		"paradas": []map[string]any{{"parada_id": paradaID, "ordem": 1}},
 	})
 
 	inactiveCarID := createVeiculo(t, h.Router, h.AdminToken, map[string]any{
-		"placa":       "R" + suffix[len(suffix)-5:] + "I",
-		"modelo":      "Carro Inativo E2E",
-		"categoria":   "carro_7_lugares",
-		"capacidade":  7,
-		"cidade_base": cidade,
-		"status":      "inativo",
+		"placa":      "R" + suffix[len(suffix)-5:] + "I",
+		"modelo":     "Carro Inativo E2E",
+		"categoria":  "carro_7_lugares",
+		"capacidade": 7,
+		"status":     "inativo",
 	})
 	activeEscolarID := createVeiculo(t, h.Router, h.AdminToken, map[string]any{
-		"placa":       "R" + suffix[len(suffix)-5:] + "A",
-		"modelo":      "Escolar Ativo E2E",
-		"categoria":   "escolar",
-		"capacidade":  24,
-		"cidade_base": cidade,
-		"status":      "ativo",
+		"placa":      "R" + suffix[len(suffix)-5:] + "A",
+		"modelo":     "Escolar Ativo E2E",
+		"categoria":  "escolar",
+		"capacidade": 24,
+		"status":     "ativo",
 	})
 	wrongTurnoMotoristaID := createMotorista(t, h.Router, h.AdminToken, map[string]any{
-		"nome":            "Motorista Turno Errado E2E",
-		"cpf":             "90" + suffix[len(suffix)-6:] + "00",
-		"senha":           "senha123",
-		"telefone":        "82999990000",
-		"data_nasc":       "1980-05-20",
-		"turno":           "MT",
-		"cidade_trabalho": cidade,
-		"residencia":      cidade,
-		"foto":            "",
+		"nome":                  "Motorista Turno Errado E2E",
+		"cpf":                   "90" + suffix[len(suffix)-6:] + "00",
+		"senha":                 "senha123",
+		"telefone":              "82999990000",
+		"data_nasc":             "1980-05-20",
+		"turno":                 "MT",
+		"municipio_trabalho_id": e2eMunicipioID,
+		"residencia":            cidade,
+		"foto":                  "",
 	})
 	correctMotoristaID := createMotorista(t, h.Router, h.AdminToken, map[string]any{
-		"nome":            "Motorista Turno Certo E2E",
-		"cpf":             "90" + suffix[len(suffix)-6:] + "01",
-		"senha":           "senha123",
-		"telefone":        "82999990001",
-		"data_nasc":       "1980-05-20",
-		"turno":           "NT",
-		"cidade_trabalho": cidade,
-		"residencia":      cidade,
-		"foto":            "",
+		"nome":                  "Motorista Turno Certo E2E",
+		"cpf":                   "90" + suffix[len(suffix)-6:] + "01",
+		"senha":                 "senha123",
+		"telefone":              "82999990001",
+		"data_nasc":             "1980-05-20",
+		"turno":                 "NT",
+		"municipio_trabalho_id": e2eMunicipioID,
+		"residencia":            cidade,
+		"foto":                  "",
 	})
 
 	clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
@@ -587,17 +586,17 @@ func TestEndToEndPlanejamentoIgnoraRecursosIndisponiveis(t *testing.T) {
 		"sentido":     "ida",
 	})
 	createHorarioTurno(t, h.Router, h.AdminToken, map[string]any{
-		"cidade":        cidade,
-		"turno":         "NT",
-		"horario_ida":   "17:00",
-		"horario_volta": "22:00",
+		"municipio_destino_id": e2eMunicipioID,
+		"turno":                "NT",
+		"horario_ida":          "17:00",
+		"horario_volta":        "22:00",
 	})
 
 	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
-		"data_viagem":     dataViagem,
-		"turno":           "NT",
-		"cidade":          cidade,
-		"rota_interna_id": rotaInternaID,
+		"municipio_destino_id": e2eMunicipioID,
+		"data_viagem":          dataViagem,
+		"turno":                "NT",
+		"rota_interna_id":      rotaInternaID,
 	}, http.StatusCreated)
 	ciclo := planejamento["ciclos"].([]any)[0].(map[string]any)["ciclo"].(map[string]any)
 	if got := int64(ciclo["veiculo_id"].(float64)); got != activeEscolarID {
@@ -617,55 +616,50 @@ func TestEndToEndPlanejamentoNaoReutilizaRecursosJaAlocados(t *testing.T) {
 		MotoristaPrefix: "76" + suffix[len(suffix)-6:],
 		ClientePrefix:   "76" + suffix[len(suffix)-6:],
 		PlacaPrefix:     "U" + suffix[len(suffix)-5:],
-		Cidade:          cidade,
+		CidadeDestino:   cidade,
 		DestinoPrefix:   "Destino Reuso E2E " + suffix,
 	})
 
 	destinoID := createDestino(t, h.Router, h.AdminToken, map[string]any{
-		"nome":      "Destino Reuso E2E " + suffix,
-		"rua":       "Av. Teste",
-		"cidade":    "maceio",
-		"latitude":  -9.5584,
-		"longitude": -35.7777,
+		"nome":         "Destino Reuso E2E " + suffix,
+		"rua":          "Av. Teste",
+		"municipio_id": e2eMunicipioID,
+		"latitude":     -9.5584,
+		"longitude":    -35.7777,
 	})
 	paradaAID := createParada(t, h.Router, h.AdminToken, map[string]any{
 		"nome":      "Parada Reuso A E2E",
 		"latitude":  -9.7812,
 		"longitude": -36.3501,
-		"cidade":    cidade,
 	})
 	paradaBID := createParada(t, h.Router, h.AdminToken, map[string]any{
 		"nome":      "Parada Reuso B E2E",
 		"latitude":  -9.7902,
 		"longitude": -36.3601,
-		"cidade":    cidade,
 	})
 	rotaInternaAID := createRotaInterna(t, h.Router, h.AdminToken, map[string]any{
-		"cidade":  cidade,
 		"paradas": []map[string]any{{"parada_id": paradaAID, "ordem": 1}},
 	})
 	rotaInternaBID := createRotaInterna(t, h.Router, h.AdminToken, map[string]any{
-		"cidade":  cidade,
 		"paradas": []map[string]any{{"parada_id": paradaBID, "ordem": 1}},
 	})
 	veiculoID := createVeiculo(t, h.Router, h.AdminToken, map[string]any{
-		"placa":       "U" + suffix[len(suffix)-5:] + "7",
-		"modelo":      "Carro Reuso E2E",
-		"categoria":   "carro_7_lugares",
-		"capacidade":  7,
-		"cidade_base": cidade,
-		"status":      "ativo",
+		"placa":      "U" + suffix[len(suffix)-5:] + "7",
+		"modelo":     "Carro Reuso E2E",
+		"categoria":  "carro_7_lugares",
+		"capacidade": 7,
+		"status":     "ativo",
 	})
 	motoristaID := createMotorista(t, h.Router, h.AdminToken, map[string]any{
-		"nome":            "Motorista Reuso E2E",
-		"cpf":             "76" + suffix[len(suffix)-6:] + "00",
-		"senha":           "senha123",
-		"telefone":        "82999990000",
-		"data_nasc":       "1980-05-20",
-		"turno":           "NT",
-		"cidade_trabalho": cidade,
-		"residencia":      cidade,
-		"foto":            "",
+		"nome":                  "Motorista Reuso E2E",
+		"cpf":                   "76" + suffix[len(suffix)-6:] + "00",
+		"senha":                 "senha123",
+		"telefone":              "82999990000",
+		"data_nasc":             "1980-05-20",
+		"turno":                 "NT",
+		"municipio_trabalho_id": e2eMunicipioID,
+		"residencia":            cidade,
+		"foto":                  "",
 	})
 
 	dataViagem := time.Now().AddDate(0, 0, 10).Format("2006-01-02")
@@ -695,17 +689,17 @@ func TestEndToEndPlanejamentoNaoReutilizaRecursosJaAlocados(t *testing.T) {
 		})
 	}
 	createHorarioTurno(t, h.Router, h.AdminToken, map[string]any{
-		"cidade":        cidade,
-		"turno":         "NT",
-		"horario_ida":   "17:00",
-		"horario_volta": "22:00",
+		"municipio_destino_id": e2eMunicipioID,
+		"turno":                "NT",
+		"horario_ida":          "17:00",
+		"horario_volta":        "22:00",
 	})
 
 	primeiro := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
-		"data_viagem":     dataViagem,
-		"turno":           "NT",
-		"cidade":          cidade,
-		"rota_interna_id": rotaInternaAID,
+		"municipio_destino_id": e2eMunicipioID,
+		"data_viagem":          dataViagem,
+		"turno":                "NT",
+		"rota_interna_id":      rotaInternaAID,
 	}, http.StatusCreated)
 	ciclo := primeiro["ciclos"].([]any)[0].(map[string]any)["ciclo"].(map[string]any)
 	if got := int64(ciclo["veiculo_id"].(float64)); got != veiculoID {
@@ -716,10 +710,10 @@ func TestEndToEndPlanejamentoNaoReutilizaRecursosJaAlocados(t *testing.T) {
 	}
 
 	doStatus(t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
-		"data_viagem":     dataViagem,
-		"turno":           "NT",
-		"cidade":          cidade,
-		"rota_interna_id": rotaInternaBID,
+		"municipio_destino_id": e2eMunicipioID,
+		"data_viagem":          dataViagem,
+		"turno":                "NT",
+		"rota_interna_id":      rotaInternaBID,
 	}, http.StatusNotFound)
 }
 
@@ -738,7 +732,7 @@ func TestEndToEndRotaDinamicaMultiplosDestinos(t *testing.T) {
 		MotoristaPrefix: "92" + suffix[len(suffix)-6:],
 		ClientePrefix:   "82" + suffix[len(suffix)-6:],
 		PlacaPrefix:     "M" + suffix[len(suffix)-5:],
-		Cidade:          cidade,
+		CidadeDestino:   cidade,
 		DestinoPrefix:   "Destino Multi E2E " + suffix,
 	})
 
@@ -752,41 +746,38 @@ func TestEndToEndRotaDinamicaMultiplosDestinos(t *testing.T) {
 		{-9.6658, -35.7353},
 	} {
 		destinosIDs = append(destinosIDs, createDestino(t, h.Router, h.AdminToken, map[string]any{
-			"nome":      fmt.Sprintf("Destino Multi E2E %s %d", suffix, i),
-			"rua":       "Av. Teste",
-			"cidade":    "maceio",
-			"latitude":  coords.lat,
-			"longitude": coords.lon,
+			"nome":         fmt.Sprintf("Destino Multi E2E %s %d", suffix, i),
+			"rua":          "Av. Teste",
+			"municipio_id": e2eMunicipioID,
+			"latitude":     coords.lat,
+			"longitude":    coords.lon,
 		}))
 	}
 	paradaID := createParada(t, h.Router, h.AdminToken, map[string]any{
 		"nome":      "Parada Multi E2E",
 		"latitude":  -9.7812,
 		"longitude": -36.3501,
-		"cidade":    cidade,
 	})
 	rotaInternaID := createRotaInterna(t, h.Router, h.AdminToken, map[string]any{
-		"cidade":  cidade,
 		"paradas": []map[string]any{{"parada_id": paradaID, "ordem": 1}},
 	})
 	createVeiculo(t, h.Router, h.AdminToken, map[string]any{
-		"placa":       "M" + suffix[len(suffix)-5:] + "7",
-		"modelo":      "Carro Multi E2E",
-		"categoria":   "carro_7_lugares",
-		"capacidade":  7,
-		"cidade_base": cidade,
-		"status":      "ativo",
+		"placa":      "M" + suffix[len(suffix)-5:] + "7",
+		"modelo":     "Carro Multi E2E",
+		"categoria":  "carro_7_lugares",
+		"capacidade": 7,
+		"status":     "ativo",
 	})
 	createMotorista(t, h.Router, h.AdminToken, map[string]any{
-		"nome":            "Motorista Multi E2E",
-		"cpf":             "92" + suffix[len(suffix)-6:] + "00",
-		"senha":           "senha123",
-		"telefone":        "82999990000",
-		"data_nasc":       "1980-05-20",
-		"turno":           "NT",
-		"cidade_trabalho": cidade,
-		"residencia":      cidade,
-		"foto":            "",
+		"nome":                  "Motorista Multi E2E",
+		"cpf":                   "92" + suffix[len(suffix)-6:] + "00",
+		"senha":                 "senha123",
+		"telefone":              "82999990000",
+		"data_nasc":             "1980-05-20",
+		"turno":                 "NT",
+		"municipio_trabalho_id": e2eMunicipioID,
+		"residencia":            cidade,
+		"foto":                  "",
 	})
 
 	dataViagem := time.Now().AddDate(0, 0, 3).Format("2006-01-02")
@@ -816,16 +807,16 @@ func TestEndToEndRotaDinamicaMultiplosDestinos(t *testing.T) {
 		})
 	}
 	createHorarioTurno(t, h.Router, h.AdminToken, map[string]any{
-		"cidade":        cidade,
-		"turno":         "NT",
-		"horario_ida":   "17:00",
-		"horario_volta": "22:00",
+		"municipio_destino_id": e2eMunicipioID,
+		"turno":                "NT",
+		"horario_ida":          "17:00",
+		"horario_volta":        "22:00",
 	})
 	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
-		"data_viagem":     dataViagem,
-		"turno":           "NT",
-		"cidade":          cidade,
-		"rota_interna_id": rotaInternaID,
+		"municipio_destino_id": e2eMunicipioID,
+		"data_viagem":          dataViagem,
+		"turno":                "NT",
+		"rota_interna_id":      rotaInternaID,
 	}, http.StatusCreated)
 	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
 
@@ -869,45 +860,42 @@ func TestEndToEndCancelarReservaInvalidaRotaDinamica(t *testing.T) {
 		MotoristaPrefix: "97" + suffix[len(suffix)-6:],
 		ClientePrefix:   "79" + suffix[len(suffix)-6:],
 		PlacaPrefix:     "I" + suffix[len(suffix)-5:],
-		Cidade:          cidade,
+		CidadeDestino:   cidade,
 		DestinoPrefix:   "Destino Invalida E2E " + suffix,
 	})
 
 	destinoID := createDestino(t, h.Router, h.AdminToken, map[string]any{
-		"nome":      "Destino Invalida E2E " + suffix,
-		"rua":       "Av. Teste",
-		"cidade":    "maceio",
-		"latitude":  -9.5584,
-		"longitude": -35.7777,
+		"nome":         "Destino Invalida E2E " + suffix,
+		"rua":          "Av. Teste",
+		"municipio_id": e2eMunicipioID,
+		"latitude":     -9.5584,
+		"longitude":    -35.7777,
 	})
 	paradaID := createParada(t, h.Router, h.AdminToken, map[string]any{
 		"nome":      "Parada Invalida E2E",
 		"latitude":  -9.7812,
 		"longitude": -36.3501,
-		"cidade":    cidade,
 	})
 	rotaInternaID := createRotaInterna(t, h.Router, h.AdminToken, map[string]any{
-		"cidade":  cidade,
 		"paradas": []map[string]any{{"parada_id": paradaID, "ordem": 1}},
 	})
 	createVeiculo(t, h.Router, h.AdminToken, map[string]any{
-		"placa":       "I" + suffix[len(suffix)-5:] + "7",
-		"modelo":      "Carro Invalida E2E",
-		"categoria":   "carro_7_lugares",
-		"capacidade":  7,
-		"cidade_base": cidade,
-		"status":      "ativo",
+		"placa":      "I" + suffix[len(suffix)-5:] + "7",
+		"modelo":     "Carro Invalida E2E",
+		"categoria":  "carro_7_lugares",
+		"capacidade": 7,
+		"status":     "ativo",
 	})
 	createMotorista(t, h.Router, h.AdminToken, map[string]any{
-		"nome":            "Motorista Invalida E2E",
-		"cpf":             "97" + suffix[len(suffix)-6:] + "00",
-		"senha":           "senha123",
-		"telefone":        "82999990000",
-		"data_nasc":       "1980-05-20",
-		"turno":           "NT",
-		"cidade_trabalho": cidade,
-		"residencia":      cidade,
-		"foto":            "",
+		"nome":                  "Motorista Invalida E2E",
+		"cpf":                   "97" + suffix[len(suffix)-6:] + "00",
+		"senha":                 "senha123",
+		"telefone":              "82999990000",
+		"data_nasc":             "1980-05-20",
+		"turno":                 "NT",
+		"municipio_trabalho_id": e2eMunicipioID,
+		"residencia":            cidade,
+		"foto":                  "",
 	})
 	clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
 		"nome":      "Cliente Invalida E2E",
@@ -934,16 +922,16 @@ func TestEndToEndCancelarReservaInvalidaRotaDinamica(t *testing.T) {
 		"sentido":     "ida",
 	})
 	createHorarioTurno(t, h.Router, h.AdminToken, map[string]any{
-		"cidade":        cidade,
-		"turno":         "NT",
-		"horario_ida":   "17:00",
-		"horario_volta": "22:00",
+		"municipio_destino_id": e2eMunicipioID,
+		"turno":                "NT",
+		"horario_ida":          "17:00",
+		"horario_volta":        "22:00",
 	})
 	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
-		"data_viagem":     dataViagem,
-		"turno":           "NT",
-		"cidade":          cidade,
-		"rota_interna_id": rotaInternaID,
+		"municipio_destino_id": e2eMunicipioID,
+		"data_viagem":          dataViagem,
+		"turno":                "NT",
+		"rota_interna_id":      rotaInternaID,
 	}, http.StatusCreated)
 	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
 
@@ -966,45 +954,42 @@ func TestEndToEndReservaCanceladaAntesDoPlanejamentoNaoEntraNaViagem(t *testing.
 		MotoristaPrefix: "78" + suffix[len(suffix)-6:],
 		ClientePrefix:   "78" + suffix[len(suffix)-6:],
 		PlacaPrefix:     "N" + suffix[len(suffix)-5:],
-		Cidade:          cidade,
+		CidadeDestino:   cidade,
 		DestinoPrefix:   "Destino Reserva Cancelada E2E " + suffix,
 	})
 
 	destinoID := createDestino(t, h.Router, h.AdminToken, map[string]any{
-		"nome":      "Destino Reserva Cancelada E2E " + suffix,
-		"rua":       "Av. Teste",
-		"cidade":    "maceio",
-		"latitude":  -9.5584,
-		"longitude": -35.7777,
+		"nome":         "Destino Reserva Cancelada E2E " + suffix,
+		"rua":          "Av. Teste",
+		"municipio_id": e2eMunicipioID,
+		"latitude":     -9.5584,
+		"longitude":    -35.7777,
 	})
 	paradaID := createParada(t, h.Router, h.AdminToken, map[string]any{
 		"nome":      "Parada Reserva Cancelada E2E",
 		"latitude":  -9.7812,
 		"longitude": -36.3501,
-		"cidade":    cidade,
 	})
 	rotaInternaID := createRotaInterna(t, h.Router, h.AdminToken, map[string]any{
-		"cidade":  cidade,
 		"paradas": []map[string]any{{"parada_id": paradaID, "ordem": 1}},
 	})
 	createVeiculo(t, h.Router, h.AdminToken, map[string]any{
-		"placa":       "N" + suffix[len(suffix)-5:] + "7",
-		"modelo":      "Carro Reserva Cancelada E2E",
-		"categoria":   "carro_7_lugares",
-		"capacidade":  7,
-		"cidade_base": cidade,
-		"status":      "ativo",
+		"placa":      "N" + suffix[len(suffix)-5:] + "7",
+		"modelo":     "Carro Reserva Cancelada E2E",
+		"categoria":  "carro_7_lugares",
+		"capacidade": 7,
+		"status":     "ativo",
 	})
 	createMotorista(t, h.Router, h.AdminToken, map[string]any{
-		"nome":            "Motorista Reserva Cancelada E2E",
-		"cpf":             "78" + suffix[len(suffix)-6:] + "00",
-		"senha":           "senha123",
-		"telefone":        "82999990000",
-		"data_nasc":       "1980-05-20",
-		"turno":           "NT",
-		"cidade_trabalho": cidade,
-		"residencia":      cidade,
-		"foto":            "",
+		"nome":                  "Motorista Reserva Cancelada E2E",
+		"cpf":                   "78" + suffix[len(suffix)-6:] + "00",
+		"senha":                 "senha123",
+		"telefone":              "82999990000",
+		"data_nasc":             "1980-05-20",
+		"turno":                 "NT",
+		"municipio_trabalho_id": e2eMunicipioID,
+		"residencia":            cidade,
+		"foto":                  "",
 	})
 
 	dataViagem := time.Now().AddDate(0, 0, 9).Format("2006-01-02")
@@ -1041,17 +1026,17 @@ func TestEndToEndReservaCanceladaAntesDoPlanejamentoNaoEntraNaViagem(t *testing.
 		doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/reservas/%d/cancelar", reservaCanceladaID), h.AdminToken, nil, http.StatusOK)
 	}
 	createHorarioTurno(t, h.Router, h.AdminToken, map[string]any{
-		"cidade":        cidade,
-		"turno":         "NT",
-		"horario_ida":   "17:00",
-		"horario_volta": "22:00",
+		"municipio_destino_id": e2eMunicipioID,
+		"turno":                "NT",
+		"horario_ida":          "17:00",
+		"horario_volta":        "22:00",
 	})
 
 	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
-		"data_viagem":     dataViagem,
-		"turno":           "NT",
-		"cidade":          cidade,
-		"rota_interna_id": rotaInternaID,
+		"municipio_destino_id": e2eMunicipioID,
+		"data_viagem":          dataViagem,
+		"turno":                "NT",
+		"rota_interna_id":      rotaInternaID,
 	}, http.StatusCreated)
 	if int(planejamento["quantidade_reservas_ida"].(float64)) != 1 {
 		t.Fatalf("expected only 1 confirmed ida reservation, got %v", planejamento["quantidade_reservas_ida"])
@@ -1085,12 +1070,12 @@ func TestEndToEndFalhaOSRMNaoPersisteRotaDinamica(t *testing.T) {
 		MotoristaPrefix: "77" + suffix[len(suffix)-6:],
 		ClientePrefix:   "77" + suffix[len(suffix)-6:],
 		PlacaPrefix:     "F" + suffix[len(suffix)-5:],
-		Cidade:          cidade,
+		CidadeDestino:   cidade,
 		DestinoPrefix:   "Destino Base E2E " + suffix,
 	})
 
 	rotaInternaID, dataViagem := setupPlanejamentoBase(t, h, planejamentoBaseOptions{
-		Cidade:          cidade,
+		CidadeDestino:   cidade,
 		Prefixo:         suffix,
 		MotoristaPrefix: "77" + suffix[len(suffix)-6:],
 		ClientePrefix:   "77" + suffix[len(suffix)-6:],
@@ -1101,10 +1086,10 @@ func TestEndToEndFalhaOSRMNaoPersisteRotaDinamica(t *testing.T) {
 	})
 
 	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
-		"data_viagem":     dataViagem,
-		"turno":           "NT",
-		"cidade":          cidade,
-		"rota_interna_id": rotaInternaID,
+		"municipio_destino_id": e2eMunicipioID,
+		"data_viagem":          dataViagem,
+		"turno":                "NT",
+		"rota_interna_id":      rotaInternaID,
 	}, http.StatusCreated)
 	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
 
@@ -1124,58 +1109,55 @@ func TestEndToEndAutorizacaoPorDono(t *testing.T) {
 		MotoristaPrefix: "93" + suffix[len(suffix)-6:],
 		ClientePrefix:   "83" + suffix[len(suffix)-6:],
 		PlacaPrefix:     "D" + suffix[len(suffix)-5:],
-		Cidade:          cidade,
+		CidadeDestino:   cidade,
 		DestinoPrefix:   "Destino Dono E2E " + suffix,
 	})
 
 	destinoID := createDestino(t, h.Router, h.AdminToken, map[string]any{
-		"nome":      "Destino Dono E2E " + suffix,
-		"rua":       "Av. Teste",
-		"cidade":    "maceio",
-		"latitude":  -9.5584,
-		"longitude": -35.7777,
+		"nome":         "Destino Dono E2E " + suffix,
+		"rua":          "Av. Teste",
+		"municipio_id": e2eMunicipioID,
+		"latitude":     -9.5584,
+		"longitude":    -35.7777,
 	})
 	paradaID := createParada(t, h.Router, h.AdminToken, map[string]any{
 		"nome":      "Parada Dono E2E",
 		"latitude":  -9.7812,
 		"longitude": -36.3501,
-		"cidade":    cidade,
 	})
 	rotaInternaID := createRotaInterna(t, h.Router, h.AdminToken, map[string]any{
-		"cidade":  cidade,
 		"paradas": []map[string]any{{"parada_id": paradaID, "ordem": 1}},
 	})
 	createVeiculo(t, h.Router, h.AdminToken, map[string]any{
-		"placa":       "D" + suffix[len(suffix)-5:] + "7",
-		"modelo":      "Carro Dono E2E",
-		"categoria":   "carro_7_lugares",
-		"capacidade":  7,
-		"cidade_base": cidade,
-		"status":      "ativo",
+		"placa":      "D" + suffix[len(suffix)-5:] + "7",
+		"modelo":     "Carro Dono E2E",
+		"categoria":  "carro_7_lugares",
+		"capacidade": 7,
+		"status":     "ativo",
 	})
 	motoristaCPF := "93" + suffix[len(suffix)-6:] + "00"
 	outroMotoristaCPF := "93" + suffix[len(suffix)-6:] + "01"
 	createMotorista(t, h.Router, h.AdminToken, map[string]any{
-		"nome":            "Motorista Dono E2E",
-		"cpf":             motoristaCPF,
-		"senha":           "senha123",
-		"telefone":        "82999990000",
-		"data_nasc":       "1980-05-20",
-		"turno":           "NT",
-		"cidade_trabalho": cidade,
-		"residencia":      cidade,
-		"foto":            "",
+		"nome":                  "Motorista Dono E2E",
+		"cpf":                   motoristaCPF,
+		"senha":                 "senha123",
+		"telefone":              "82999990000",
+		"data_nasc":             "1980-05-20",
+		"turno":                 "NT",
+		"municipio_trabalho_id": e2eMunicipioID,
+		"residencia":            cidade,
+		"foto":                  "",
 	})
 	createMotorista(t, h.Router, h.AdminToken, map[string]any{
-		"nome":            "Outro Motorista Dono E2E",
-		"cpf":             outroMotoristaCPF,
-		"senha":           "senha123",
-		"telefone":        "82999990001",
-		"data_nasc":       "1980-05-20",
-		"turno":           "NT",
-		"cidade_trabalho": cidade + "-fora",
-		"residencia":      cidade + "-fora",
-		"foto":            "",
+		"nome":                  "Outro Motorista Dono E2E",
+		"cpf":                   outroMotoristaCPF,
+		"senha":                 "senha123",
+		"telefone":              "82999990001",
+		"data_nasc":             "1980-05-20",
+		"turno":                 "NT",
+		"municipio_trabalho_id": e2eOtherMunicipioID,
+		"residencia":            cidade + "-fora",
+		"foto":                  "",
 	})
 	clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
 		"nome":      "Cliente Dono E2E",
@@ -1210,16 +1192,16 @@ func TestEndToEndAutorizacaoPorDono(t *testing.T) {
 		"sentido":     "ida",
 	})
 	createHorarioTurno(t, h.Router, h.AdminToken, map[string]any{
-		"cidade":        cidade,
-		"turno":         "NT",
-		"horario_ida":   "17:00",
-		"horario_volta": "22:00",
+		"municipio_destino_id": e2eMunicipioID,
+		"turno":                "NT",
+		"horario_ida":          "17:00",
+		"horario_volta":        "22:00",
 	})
 	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
-		"data_viagem":     dataViagem,
-		"turno":           "NT",
-		"cidade":          cidade,
-		"rota_interna_id": rotaInternaID,
+		"municipio_destino_id": e2eMunicipioID,
+		"data_viagem":          dataViagem,
+		"turno":                "NT",
+		"rota_interna_id":      rotaInternaID,
 	}, http.StatusCreated)
 	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
 	motoristaToken := loginMotorista(t, h.Router, motoristaCPF, "senha123")
@@ -1263,25 +1245,23 @@ func TestEndToEndReservaDuplicadaECancelada(t *testing.T) {
 	h.Cleanup(e2eCleanupData{
 		AdminEmail:    h.AdminEmail,
 		ClientePrefix: "84" + suffix[len(suffix)-6:],
-		Cidade:        cidade,
+		CidadeDestino: cidade,
 		DestinoPrefix: "Destino Reserva E2E " + suffix,
 	})
 
 	destinoID := createDestino(t, h.Router, h.AdminToken, map[string]any{
-		"nome":      "Destino Reserva E2E " + suffix,
-		"rua":       "Av. Teste",
-		"cidade":    "maceio",
-		"latitude":  -9.5584,
-		"longitude": -35.7777,
+		"nome":         "Destino Reserva E2E " + suffix,
+		"rua":          "Av. Teste",
+		"municipio_id": e2eMunicipioID,
+		"latitude":     -9.5584,
+		"longitude":    -35.7777,
 	})
 	paradaID := createParada(t, h.Router, h.AdminToken, map[string]any{
 		"nome":      "Parada Reserva E2E",
 		"latitude":  -9.7812,
 		"longitude": -36.3501,
-		"cidade":    cidade,
 	})
 	rotaInternaID := createRotaInterna(t, h.Router, h.AdminToken, map[string]any{
-		"cidade":  cidade,
 		"paradas": []map[string]any{{"parada_id": paradaID, "ordem": 1}},
 	})
 	clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
@@ -1349,12 +1329,12 @@ func TestEndToEndPlanejamentoErrosSemRecursos(t *testing.T) {
 			MotoristaPrefix: "95" + suffix[len(suffix)-6:],
 			ClientePrefix:   "85" + suffix[len(suffix)-6:],
 			PlacaPrefix:     "H" + suffix[len(suffix)-5:],
-			Cidade:          cidade,
+			CidadeDestino:   cidade,
 			DestinoPrefix:   "Destino Base E2E " + suffix,
 		})
 
 		rotaInternaID, dataViagem := setupPlanejamentoBase(t, h, planejamentoBaseOptions{
-			Cidade:          cidade,
+			CidadeDestino:   cidade,
 			Prefixo:         suffix,
 			MotoristaPrefix: "95" + suffix[len(suffix)-6:],
 			ClientePrefix:   "85" + suffix[len(suffix)-6:],
@@ -1364,10 +1344,10 @@ func TestEndToEndPlanejamentoErrosSemRecursos(t *testing.T) {
 		})
 
 		doStatus(t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
-			"data_viagem":     dataViagem,
-			"turno":           "NT",
-			"cidade":          cidade,
-			"rota_interna_id": rotaInternaID,
+			"municipio_destino_id": e2eMunicipioID,
+			"data_viagem":          dataViagem,
+			"turno":                "NT",
+			"rota_interna_id":      rotaInternaID,
 		}, http.StatusNotFound)
 	})
 
@@ -1379,12 +1359,12 @@ func TestEndToEndPlanejamentoErrosSemRecursos(t *testing.T) {
 			AdminEmail:      h.AdminEmail,
 			MotoristaPrefix: "96" + suffix[len(suffix)-6:],
 			ClientePrefix:   "86" + suffix[len(suffix)-6:],
-			Cidade:          cidade,
+			CidadeDestino:   cidade,
 			DestinoPrefix:   "Destino Base E2E " + suffix,
 		})
 
 		rotaInternaID, dataViagem := setupPlanejamentoBase(t, h, planejamentoBaseOptions{
-			Cidade:          cidade,
+			CidadeDestino:   cidade,
 			Prefixo:         suffix,
 			MotoristaPrefix: "96" + suffix[len(suffix)-6:],
 			ClientePrefix:   "86" + suffix[len(suffix)-6:],
@@ -1393,10 +1373,10 @@ func TestEndToEndPlanejamentoErrosSemRecursos(t *testing.T) {
 		})
 
 		doStatus(t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
-			"data_viagem":     dataViagem,
-			"turno":           "NT",
-			"cidade":          cidade,
-			"rota_interna_id": rotaInternaID,
+			"municipio_destino_id": e2eMunicipioID,
+			"data_viagem":          dataViagem,
+			"turno":                "NT",
+			"rota_interna_id":      rotaInternaID,
 		}, http.StatusNotFound)
 	})
 
@@ -1408,12 +1388,12 @@ func TestEndToEndPlanejamentoErrosSemRecursos(t *testing.T) {
 			AdminEmail:    h.AdminEmail,
 			ClientePrefix: "87" + suffix[len(suffix)-6:],
 			PlacaPrefix:   "S" + suffix[len(suffix)-5:],
-			Cidade:        cidade,
+			CidadeDestino: cidade,
 			DestinoPrefix: "Destino Base E2E " + suffix,
 		})
 
 		rotaInternaID, dataViagem := setupPlanejamentoBase(t, h, planejamentoBaseOptions{
-			Cidade:        cidade,
+			CidadeDestino: cidade,
 			Prefixo:       suffix,
 			ClientePrefix: "87" + suffix[len(suffix)-6:],
 			PlacaPrefix:   "S" + suffix[len(suffix)-5:],
@@ -1422,10 +1402,10 @@ func TestEndToEndPlanejamentoErrosSemRecursos(t *testing.T) {
 		})
 
 		doStatus(t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
-			"data_viagem":     dataViagem,
-			"turno":           "NT",
-			"cidade":          cidade,
-			"rota_interna_id": rotaInternaID,
+			"municipio_destino_id": e2eMunicipioID,
+			"data_viagem":          dataViagem,
+			"turno":                "NT",
+			"rota_interna_id":      rotaInternaID,
 		}, http.StatusNotFound)
 	})
 }
@@ -1439,12 +1419,12 @@ func TestEndToEndViagemCanceladaNaoInicia(t *testing.T) {
 		MotoristaPrefix: "98" + suffix[len(suffix)-6:],
 		ClientePrefix:   "88" + suffix[len(suffix)-6:],
 		PlacaPrefix:     "V" + suffix[len(suffix)-5:],
-		Cidade:          cidade,
+		CidadeDestino:   cidade,
 		DestinoPrefix:   "Destino Base E2E " + suffix,
 	})
 
 	rotaInternaID, dataViagem := setupPlanejamentoBase(t, h, planejamentoBaseOptions{
-		Cidade:          cidade,
+		CidadeDestino:   cidade,
 		Prefixo:         suffix,
 		MotoristaPrefix: "98" + suffix[len(suffix)-6:],
 		ClientePrefix:   "88" + suffix[len(suffix)-6:],
@@ -1455,10 +1435,10 @@ func TestEndToEndViagemCanceladaNaoInicia(t *testing.T) {
 	})
 
 	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/planejamentos/viagens", h.AdminToken, map[string]any{
-		"data_viagem":     dataViagem,
-		"turno":           "NT",
-		"cidade":          cidade,
-		"rota_interna_id": rotaInternaID,
+		"municipio_destino_id": e2eMunicipioID,
+		"data_viagem":          dataViagem,
+		"turno":                "NT",
+		"rota_interna_id":      rotaInternaID,
 	}, http.StatusCreated)
 	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
 
@@ -1471,7 +1451,7 @@ func TestEndToEndViagemCanceladaNaoInicia(t *testing.T) {
 }
 
 type planejamentoBaseOptions struct {
-	Cidade          string
+	CidadeDestino   string
 	Prefixo         string
 	MotoristaPrefix string
 	ClientePrefix   string
@@ -1485,44 +1465,41 @@ func setupPlanejamentoBase(t *testing.T, h *e2eHarness, options planejamentoBase
 	t.Helper()
 
 	destinoID := createDestino(t, h.Router, h.AdminToken, map[string]any{
-		"nome":      "Destino Base E2E " + options.Prefixo,
-		"rua":       "Av. Teste",
-		"cidade":    "maceio",
-		"latitude":  -9.5584,
-		"longitude": -35.7777,
+		"nome":         "Destino Base E2E " + options.Prefixo,
+		"rua":          "Av. Teste",
+		"municipio_id": e2eMunicipioID,
+		"latitude":     -9.5584,
+		"longitude":    -35.7777,
 	})
 	paradaID := createParada(t, h.Router, h.AdminToken, map[string]any{
 		"nome":      "Parada Base E2E",
 		"latitude":  -9.7812,
 		"longitude": -36.3501,
-		"cidade":    options.Cidade,
 	})
 	rotaInternaID := createRotaInterna(t, h.Router, h.AdminToken, map[string]any{
-		"cidade":  options.Cidade,
 		"paradas": []map[string]any{{"parada_id": paradaID, "ordem": 1}},
 	})
 
 	if options.CriarVeiculo {
 		createVeiculo(t, h.Router, h.AdminToken, map[string]any{
-			"placa":       options.PlacaPrefix + "7",
-			"modelo":      "Carro Base E2E",
-			"categoria":   "carro_7_lugares",
-			"capacidade":  7,
-			"cidade_base": options.Cidade,
-			"status":      "ativo",
+			"placa":      options.PlacaPrefix + "7",
+			"modelo":     "Carro Base E2E",
+			"categoria":  "carro_7_lugares",
+			"capacidade": 7,
+			"status":     "ativo",
 		})
 	}
 	if options.CriarMotorista {
 		createMotorista(t, h.Router, h.AdminToken, map[string]any{
-			"nome":            "Motorista Base E2E",
-			"cpf":             options.MotoristaPrefix + "00",
-			"senha":           "senha123",
-			"telefone":        "82999990000",
-			"data_nasc":       "1980-05-20",
-			"turno":           "NT",
-			"cidade_trabalho": options.Cidade,
-			"residencia":      options.Cidade,
-			"foto":            "",
+			"nome":                  "Motorista Base E2E",
+			"cpf":                   options.MotoristaPrefix + "00",
+			"senha":                 "senha123",
+			"telefone":              "82999990000",
+			"data_nasc":             "1980-05-20",
+			"turno":                 "NT",
+			"municipio_trabalho_id": e2eMunicipioID,
+			"residencia":            options.CidadeDestino,
+			"foto":                  "",
 		})
 	}
 
@@ -1553,10 +1530,10 @@ func setupPlanejamentoBase(t *testing.T, h *e2eHarness, options planejamentoBase
 	})
 	if options.CriarHorario {
 		createHorarioTurno(t, h.Router, h.AdminToken, map[string]any{
-			"cidade":        options.Cidade,
-			"turno":         "NT",
-			"horario_ida":   "17:00",
-			"horario_volta": "22:00",
+			"municipio_destino_id": e2eMunicipioID,
+			"turno":                "NT",
+			"horario_ida":          "17:00",
+			"horario_volta":        "22:00",
 		})
 	}
 
@@ -1633,6 +1610,7 @@ func buildE2ERouter(pool *pgxpool.Pool, authSvc *auth.AuthService, options e2eRo
 	alocacaoVeiculoSvc := veiculos.NewAlocacaoService(alocacaoVeiculoStore)
 
 	destinoStore := destinos.NewDestinoStore(pool)
+	municipioStore := municipios.NewStore(pool)
 	paradaStore := paradas.NewParadaStore(pool)
 
 	rotaInternaStore := rotasinternas.NewRotaInternaStore(pool)
@@ -1681,6 +1659,7 @@ func buildE2ERouter(pool *pgxpool.Pool, authSvc *auth.AuthService, options e2eRo
 		AdminHandler:        admin.NewAdminHandler(adminSvc),
 		VeiculoHandler:      veiculos.NewVeiculoHandler(veiculoStore),
 		DestinoHandler:      destinos.NewDestinoHandler(destinoStore),
+		MunicipioHandler:    municipios.NewHandler(municipioStore),
 		ParadaHandler:       paradas.NewParadaHandler(paradaStore),
 		RotaInternaHandler:  rotasinternas.NewRotaInternaHandler(rotaInternaSvc),
 		MotoristaHandler:    motoristas.NewMotoristaHandler(motoristaSvc),
@@ -1695,7 +1674,7 @@ func buildE2ERouter(pool *pgxpool.Pool, authSvc *auth.AuthService, options e2eRo
 	}
 
 	apiRouter := chi.NewRouter()
-	server.NewServer(handlers, authSvc).RegisterRoutes(apiRouter)
+	server.NewServer(handlers, authSvc, server.Config{BaseCity: "Campo Alegre"}).RegisterRoutes(apiRouter)
 
 	root := chi.NewRouter()
 	root.Mount("/api/v1", apiRouter)
@@ -1704,6 +1683,14 @@ func buildE2ERouter(pool *pgxpool.Pool, authSvc *auth.AuthService, options e2eRo
 
 func seedAdmin(t *testing.T, ctx context.Context, pool *pgxpool.Pool, email, password string) {
 	t.Helper()
+	_, err := pool.Exec(ctx, `
+		INSERT INTO municipios (codigo_ibge, nome, uf)
+		VALUES ($1, 'Maceio', 'AL'), ($2, 'Recife', 'PE')
+		ON CONFLICT (codigo_ibge) DO NOTHING
+	`, e2eMunicipioID, e2eOtherMunicipioID)
+	if err != nil {
+		t.Fatalf("seed municipios: %v", err)
+	}
 	hash, err := crypto.NewBcryptHasher(crypto.DefaultCost).Hash(password)
 	if err != nil {
 		t.Fatalf("hash admin password: %v", err)
@@ -1726,7 +1713,7 @@ type e2eCleanupData struct {
 	ClientePrefix   string
 	Placa           string
 	PlacaPrefix     string
-	Cidade          string
+	CidadeDestino   string
 	DestinoNome     string
 	DestinoPrefix   string
 }
@@ -1738,15 +1725,17 @@ func cleanupE2EData(ctx context.Context, t *testing.T, pool *pgxpool.Pool, data 
 		query string
 		args  []any
 	}{
-		{query: `DELETE FROM ciclos_viagem WHERE cidade = $1`, args: []any{data.Cidade}},
-		{query: `DELETE FROM reservas WHERE cidade = $1`, args: []any{data.Cidade}},
-		{query: `DELETE FROM cliente_vinculos WHERE cliente_id IN (SELECT id FROM clientes WHERE cpf = $1)`, args: []any{data.ClienteCPF}},
-		{query: `DELETE FROM cliente_vinculos WHERE cliente_id IN (SELECT id FROM clientes WHERE cpf LIKE $1 || '%')`, args: []any{data.ClientePrefix}},
+		{query: `DELETE FROM ciclos_viagem WHERE motorista_id IN (SELECT id FROM motoristas WHERE cpf = $1)`, args: []any{data.MotoristaCPF}},
+		{query: `DELETE FROM ciclos_viagem WHERE motorista_id IN (SELECT id FROM motoristas WHERE cpf LIKE $1 || '%')`, args: []any{data.MotoristaPrefix}},
+		{query: `DELETE FROM ciclos_viagem WHERE veiculo_id IN (SELECT id FROM veiculos WHERE placa = $1)`, args: []any{data.Placa}},
+		{query: `DELETE FROM ciclos_viagem WHERE veiculo_id IN (SELECT id FROM veiculos WHERE placa LIKE $1 || '%')`, args: []any{data.PlacaPrefix}},
+		{query: `DELETE FROM reservas WHERE cliente_id IN (SELECT id FROM clientes WHERE cpf = $1)`, args: []any{data.ClienteCPF}},
+		{query: `DELETE FROM reservas WHERE cliente_id IN (SELECT id FROM clientes WHERE cpf LIKE $1 || '%')`, args: []any{data.ClientePrefix}},
+		{query: `WITH removidos AS (DELETE FROM cliente_vinculos WHERE cliente_id IN (SELECT id FROM clientes WHERE cpf = $1) RETURNING rota_interna_id) DELETE FROM rotas_internas WHERE id IN (SELECT rota_interna_id FROM removidos)`, args: []any{data.ClienteCPF}},
+		{query: `WITH removidos AS (DELETE FROM cliente_vinculos WHERE cliente_id IN (SELECT id FROM clientes WHERE cpf LIKE $1 || '%') RETURNING rota_interna_id) DELETE FROM rotas_internas WHERE id IN (SELECT rota_interna_id FROM removidos)`, args: []any{data.ClientePrefix}},
 		{query: `DELETE FROM clientes WHERE cpf = $1`, args: []any{data.ClienteCPF}},
 		{query: `DELETE FROM clientes WHERE cpf LIKE $1 || '%'`, args: []any{data.ClientePrefix}},
-		{query: `DELETE FROM horarios_turno_viagem WHERE cidade = $1`, args: []any{data.Cidade}},
-		{query: `DELETE FROM rotas_internas WHERE cidade = $1`, args: []any{data.Cidade}},
-		{query: `DELETE FROM paradas WHERE cidade = $1`, args: []any{data.Cidade}},
+		{query: `DELETE FROM horarios_turno_viagem WHERE municipio_destino_id IN ($1, $2)`, args: []any{e2eMunicipioID, e2eOtherMunicipioID}},
 		{query: `DELETE FROM destinos WHERE nome = $1`, args: []any{data.DestinoNome}},
 		{query: `DELETE FROM destinos WHERE nome LIKE $1 || '%'`, args: []any{data.DestinoPrefix}},
 		{query: `DELETE FROM veiculos WHERE placa = $1`, args: []any{data.Placa}},

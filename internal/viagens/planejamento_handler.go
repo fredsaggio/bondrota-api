@@ -20,10 +20,10 @@ func NewPlanejamentoHandler(svc PlanejamentoService) *PlanejamentoHandler {
 }
 
 type PlanejarViagensRequest struct {
-	DataViagem    string      `json:"data_viagem"`
-	Turno         TurnoViagem `json:"turno"`
-	Cidade        string      `json:"cidade"`
-	RotaInternaID int64       `json:"rota_interna_id"`
+	DataViagem         string      `json:"data_viagem"`
+	Turno              TurnoViagem `json:"turno"`
+	MunicipioDestinoID int64       `json:"municipio_destino_id"`
+	RotaInternaID      int64       `json:"rota_interna_id"`
 }
 
 type PlanejamentoViagensResponse struct {
@@ -89,10 +89,10 @@ func toPlanejamentoInput(req PlanejarViagensRequest) (PlanejamentoViagensInput, 
 	}
 
 	return PlanejamentoViagensInput{
-		DataViagem:    dataViagem,
-		Turno:         req.Turno,
-		Cidade:        req.Cidade,
-		RotaInternaID: req.RotaInternaID,
+		DataViagem:         dataViagem,
+		Turno:              req.Turno,
+		MunicipioDestinoID: req.MunicipioDestinoID,
+		RotaInternaID:      req.RotaInternaID,
 	}, nil
 }
 

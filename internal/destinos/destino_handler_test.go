@@ -22,7 +22,7 @@ func newDestinoRouter(h *destinos.DestinoHandler) http.Handler {
 	r.Post("/destinos", h.Create)
 	r.Get("/destinos", h.List)
 	r.Get("/destinos/{id}", h.GetByID)
-	r.Get("/destinos/cidade/{cidade}", h.ListByCity)
+	r.Get("/destinos/municipio/{municipioID}", h.ListByMunicipio)
 	r.Patch("/destinos/{id}", h.Update)
 	r.Delete("/destinos/{id}", h.Delete)
 	return r
@@ -36,12 +36,12 @@ func jsonBuf(v any) *bytes.Buffer {
 
 func sampleDestino() *destinos.Destino {
 	return &destinos.Destino{
-		ID:        1,
-		Nome:      "UFPE",
-		Rua:       "Av. Jornalista Anibal Fernandes",
-		Cidade:    "recife",
-		Latitude:  -8.052000,
-		Longitude: -34.951000,
+		ID:          1,
+		Nome:        "UFPE",
+		Rua:         "Av. Jornalista Anibal Fernandes",
+		MunicipioID: 2611606,
+		Latitude:    -8.052000,
+		Longitude:   -34.951000,
 	}
 }
 
@@ -52,11 +52,11 @@ var anyUpdateFunc = mock.MatchedBy(func(_ func(*destinos.Destino) (bool, error))
 func TestDestinoHandler_Create(t *testing.T) {
 	validBody := func() *bytes.Buffer {
 		return jsonBuf(map[string]any{
-			"nome":      "UFPE",
-			"rua":       "Av. Jornalista Anibal Fernandes",
-			"cidade":    "Recife",
-			"latitude":  -8.052,
-			"longitude": -34.951,
+			"nome":         "UFPE",
+			"rua":          "Av. Jornalista Anibal Fernandes",
+			"municipio_id": int64(2611606),
+			"latitude":     -8.052,
+			"longitude":    -34.951,
 		})
 	}
 
@@ -71,7 +71,7 @@ func TestDestinoHandler_Create(t *testing.T) {
 			body: validBody(),
 			setup: func(st *mocks.MockDestinoStore) {
 				st.EXPECT().Create(mock.Anything, mock.MatchedBy(func(in destinos.DestinoInput) bool {
-					return in.Nome == "UFPE" && in.Cidade == "recife" // normaliza para lowercase
+					return in.Nome == "UFPE" && in.MunicipioID == 2611606
 				})).Return(sampleDestino(), nil)
 			},
 			wantStatus: http.StatusCreated,
@@ -84,25 +84,25 @@ func TestDestinoHandler_Create(t *testing.T) {
 		},
 		{
 			name:       "nome vazio → 400",
-			body:       jsonBuf(map[string]any{"rua": "Rua X", "cidade": "Recife", "latitude": -8.0, "longitude": -34.0}),
+			body:       jsonBuf(map[string]any{"rua": "Rua X", "municipio_id": 2611606, "latitude": -8.0, "longitude": -34.0}),
 			setup:      func(_ *mocks.MockDestinoStore) {},
 			wantStatus: http.StatusBadRequest,
 		},
 		{
 			name:       "rua vazia → 400",
-			body:       jsonBuf(map[string]any{"nome": "UFPE", "cidade": "Recife", "latitude": -8.0, "longitude": -34.0}),
+			body:       jsonBuf(map[string]any{"nome": "UFPE", "municipio_id": 2611606, "latitude": -8.0, "longitude": -34.0}),
 			setup:      func(_ *mocks.MockDestinoStore) {},
 			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:       "cidade vazia → 400",
+			name:       "municipio ausente → 400",
 			body:       jsonBuf(map[string]any{"nome": "UFPE", "rua": "Rua X", "latitude": -8.0, "longitude": -34.0}),
 			setup:      func(_ *mocks.MockDestinoStore) {},
 			wantStatus: http.StatusBadRequest,
 		},
 		{
 			name:       "latitude e longitude zero → 400",
-			body:       jsonBuf(map[string]any{"nome": "UFPE", "rua": "Rua X", "cidade": "Recife"}),
+			body:       jsonBuf(map[string]any{"nome": "UFPE", "rua": "Rua X", "municipio_id": 2611606}),
 			setup:      func(_ *mocks.MockDestinoStore) {},
 			wantStatus: http.StatusBadRequest,
 		},
@@ -230,37 +230,36 @@ func TestDestinoHandler_List(t *testing.T) {
 	}
 }
 
-// --- ListByCity ---
+// --- ListByMunicipio ---
 
-func TestDestinoHandler_ListByCity(t *testing.T) {
+func TestDestinoHandler_ListByMunicipio(t *testing.T) {
 	tests := []struct {
-		name       string
-		cidade     string
-		setup      func(*mocks.MockDestinoStore)
-		wantStatus int
+		name        string
+		municipioID string
+		setup       func(*mocks.MockDestinoStore)
+		wantStatus  int
 	}{
 		{
-			name:   "sucesso — normaliza para lowercase",
-			cidade: "Recife",
+			name:        "sucesso",
+			municipioID: "2611606",
 			setup: func(st *mocks.MockDestinoStore) {
-				// handler faz strings.ToLower antes de passar ao store
-				st.EXPECT().ListByCity(mock.Anything, "recife").Return([]destinos.Destino{*sampleDestino()}, nil)
+				st.EXPECT().ListByMunicipio(mock.Anything, int64(2611606)).Return([]destinos.Destino{*sampleDestino()}, nil)
 			},
 			wantStatus: http.StatusOK,
 		},
 		{
-			name:   "lista vazia",
-			cidade: "Olinda",
+			name:        "lista vazia",
+			municipioID: "2609600",
 			setup: func(st *mocks.MockDestinoStore) {
-				st.EXPECT().ListByCity(mock.Anything, "olinda").Return([]destinos.Destino{}, nil)
+				st.EXPECT().ListByMunicipio(mock.Anything, int64(2609600)).Return([]destinos.Destino{}, nil)
 			},
 			wantStatus: http.StatusOK,
 		},
 		{
-			name:   "erro interno → 500",
-			cidade: "Recife",
+			name:        "erro interno → 500",
+			municipioID: "2611606",
 			setup: func(st *mocks.MockDestinoStore) {
-				st.EXPECT().ListByCity(mock.Anything, "recife").Return(nil, errors.New("db"))
+				st.EXPECT().ListByMunicipio(mock.Anything, int64(2611606)).Return(nil, errors.New("db"))
 			},
 			wantStatus: http.StatusInternalServerError,
 		},
@@ -271,7 +270,7 @@ func TestDestinoHandler_ListByCity(t *testing.T) {
 			st := mocks.NewMockDestinoStore(t)
 			tc.setup(st)
 			h := destinos.NewDestinoHandler(st)
-			req := httptest.NewRequest(http.MethodGet, "/destinos/cidade/"+tc.cidade, nil)
+			req := httptest.NewRequest(http.MethodGet, "/destinos/municipio/"+tc.municipioID, nil)
 			rr := httptest.NewRecorder()
 			newDestinoRouter(h).ServeHTTP(rr, req)
 			if rr.Code != tc.wantStatus {

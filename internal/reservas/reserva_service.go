@@ -40,7 +40,6 @@ func (s *reservaService) Create(ctx context.Context, input ReservaInput) (*Reser
 	input.Turno = turno
 	input.DestinoID = snapshot.DestinoID
 	input.RotaInternaID = snapshot.RotaInternaID
-	input.Cidade = snapshot.Cidade
 
 	return s.store.Create(ctx, input)
 }
