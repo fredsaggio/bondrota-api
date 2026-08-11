@@ -100,6 +100,8 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 		r.Route("/admin", func(r chi.Router) {
 			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin))
 			r.Get("/session", srv.handlers.AdminHandler.Session)
+			// Age so sobre quem faz a requisicao: o ID sai do JWT, nao do path.
+			r.With(loginLimiter.authenticatedMiddleware("admin-senha")).Put("/senha", srv.handlers.AdminHandler.ChangePassword)
 			r.Get("/", srv.handlers.AdminHandler.List)
 			r.Get("/{adminID}", srv.handlers.AdminHandler.GetByID)
 		})

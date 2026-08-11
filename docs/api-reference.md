@@ -227,6 +227,7 @@ Permissao: `admin`.
 | --- | --- | --- | --- | --- | --- |
 | `GET` | `BASE_URL/admin/` | Lista admins. | nenhum | `200 AdminResponse[]` | `401`, `403`, `500` |
 | `GET` | `BASE_URL/admin/{adminID}` | Busca admin por ID. | nenhum | `200 AdminResponse` | `400`, `401`, `403`, `404`, `500` |
+| `PUT` | `BASE_URL/admin/senha` | Troca a senha do proprio admin autenticado. | `AdminChangePasswordRequest` | `204` | `400`, `401`, `403`, `429`, `500` |
 
 Response de consulta:
 
@@ -236,6 +237,32 @@ Response de consulta:
   "email": "admin@bondrota.com"
 }
 ```
+
+Troca de senha:
+
+```json
+{
+  "senha_atual": "senha-de-agora",
+  "nova_senha": "senha-nova-com-8+"
+}
+```
+
+O admin alvo sai do JWT, nunca do corpo nem do path — nao ha como mirar outra conta.
+A senha atual e exigida: sem ela, uma sessao roubada trocaria a senha e trancaria o
+admin legitimo do lado de fora. A nova senha precisa de pelo menos 8 caracteres
+(`admin.MinPasswordLen`, a mesma regra do `cmd/admin`).
+
+Respostas de erro que importam:
+
+| Status | Quando | Por que nao e outro |
+| --- | --- | --- |
+| `403` | Senha atual incorreta. | `401` faria o painel encerrar a sessao, deslogando quem so errou a digitacao. |
+| `400` | Nova senha com menos de 8 caracteres. | — |
+| `429` | Tentativas demais. | Limite por admin autenticado, alem do limite por IP. |
+
+Em caso de sucesso o cookie de sessao e reemitido, entao a aba que trocou a senha
+continua logada. **As demais sessoes daquele admin seguem validas ate expirarem
+sozinhas** — nao ha revogacao de JWT.
 
 **Criar, alterar e remover administrador nao tem endpoint.** Enquanto existir uma
 unica role de admin, expor essas operacoes por HTTP significa que qualquer sessao

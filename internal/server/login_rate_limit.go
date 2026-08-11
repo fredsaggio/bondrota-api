@@ -13,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/fredsaggio/bondrota-api/internal/auth"
 )
 
 const (
@@ -119,6 +121,31 @@ func (limiter *loginRateLimiter) middleware(loginType, identityField string) fun
 			identity := readLoginIdentity(r, identityField)
 			if identity != "" {
 				key := hashedIdentityKey(loginType, identity)
+				if allowed, retryAfter := limiter.byIdentity.allow(key); !allowed {
+					respondRateLimited(w, retryAfter)
+					return
+				}
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// authenticatedMiddleware limita por usuario autenticado, para endpoints que conferem
+// credencial mas nao trazem identidade no corpo — hoje so a troca de senha. Sem isso
+// uma sessao roubada poderia forcar a senha atual no limite do teto por IP.
+func (limiter *loginRateLimiter) authenticatedMiddleware(scope string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ip := clientIP(r, limiter.trustProxyHeaders)
+			if allowed, retryAfter := limiter.byIP.allow(ip); !allowed {
+				respondRateLimited(w, retryAfter)
+				return
+			}
+
+			if claims, ok := r.Context().Value(auth.ClaimsKey).(*auth.Claims); ok && claims.UserID > 0 {
+				key := hashedIdentityKey(scope, strconv.FormatInt(claims.UserID, 10))
 				if allowed, retryAfter := limiter.byIdentity.allow(key); !allowed {
 					respondRateLimited(w, retryAfter)
 					return

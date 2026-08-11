@@ -115,6 +115,19 @@ components:
         uf:
           type: string
           example: AL
+    AdminChangePasswordRequest:
+      type: object
+      required:
+      - senha_atual
+      - nova_senha
+      properties:
+        senha_atual:
+          type: string
+          example: senha-de-agora
+        nova_senha:
+          type: string
+          minLength: 8
+          example: senha-nova-com-8+
     AdminResponse:
       type: object
       properties:
@@ -1598,6 +1611,30 @@ paths:
         required: true
         schema:
           type: integer
+  /admin/senha:
+    put:
+      summary: Troca a senha do proprio admin autenticado
+      description: >-
+        O admin alvo vem do JWT, nunca do corpo ou do path. A senha atual e exigida
+        para que uma sessao roubada nao consiga tomar a conta de vez. Em caso de
+        sucesso o cookie de sessao e reemitido.
+      tags:
+      - Admin
+      responses:
+        '204':
+          description: Senha trocada, cookie de sessao reemitido
+        '400':
+          description: Corpo invalido ou nova senha com menos de 8 caracteres
+        '403':
+          description: Senha atual incorreta
+        '429':
+          description: Tentativas demais
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminChangePasswordRequest'
   /veiculos/:
     post:
       summary: Cria veiculo

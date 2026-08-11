@@ -462,6 +462,84 @@ func (_m *MockAdminService) EXPECT() *MockAdminService_Expecter {
 	return &MockAdminService_Expecter{mock: &_m.Mock}
 }
 
+// ChangePassword provides a mock function for the type MockAdminService
+func (_mock *MockAdminService) ChangePassword(ctx context.Context, adminID int64, senhaAtual string, novaSenha string) (string, error) {
+	ret := _mock.Called(ctx, adminID, senhaAtual, novaSenha)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ChangePassword")
+	}
+
+	var r0 string
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, string, string) (string, error)); ok {
+		return returnFunc(ctx, adminID, senhaAtual, novaSenha)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, string, string) string); ok {
+		r0 = returnFunc(ctx, adminID, senhaAtual, novaSenha)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int64, string, string) error); ok {
+		r1 = returnFunc(ctx, adminID, senhaAtual, novaSenha)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockAdminService_ChangePassword_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ChangePassword'
+type MockAdminService_ChangePassword_Call struct {
+	*mock.Call
+}
+
+// ChangePassword is a helper method to define mock.On call
+//   - ctx context.Context
+//   - adminID int64
+//   - senhaAtual string
+//   - novaSenha string
+func (_e *MockAdminService_Expecter) ChangePassword(ctx interface{}, adminID interface{}, senhaAtual interface{}, novaSenha interface{}) *MockAdminService_ChangePassword_Call {
+	return &MockAdminService_ChangePassword_Call{Call: _e.mock.On("ChangePassword", ctx, adminID, senhaAtual, novaSenha)}
+}
+
+func (_c *MockAdminService_ChangePassword_Call) Run(run func(ctx context.Context, adminID int64, senhaAtual string, novaSenha string)) *MockAdminService_ChangePassword_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int64
+		if args[1] != nil {
+			arg1 = args[1].(int64)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 string
+		if args[3] != nil {
+			arg3 = args[3].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAdminService_ChangePassword_Call) Return(s string, err error) *MockAdminService_ChangePassword_Call {
+	_c.Call.Return(s, err)
+	return _c
+}
+
+func (_c *MockAdminService_ChangePassword_Call) RunAndReturn(run func(ctx context.Context, adminID int64, senhaAtual string, novaSenha string) (string, error)) *MockAdminService_ChangePassword_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Create provides a mock function for the type MockAdminService
 func (_mock *MockAdminService) Create(ctx context.Context, input admin.AdminInput) (*admin.Admin, error) {
 	ret := _mock.Called(ctx, input)

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -26,6 +27,7 @@ func newAdminRouter(h *admin.AdminHandler) http.Handler {
 	r.Post("/admin/login", h.Login)
 	r.Post("/admin/logout", h.Logout)
 	r.Get("/admin/session", h.Session)
+	r.Put("/admin/senha", h.ChangePassword)
 	r.Post("/admin", h.Create)
 	r.Get("/admin", h.List)
 	r.Get("/admin/{adminID}", h.GetByID)
@@ -453,6 +455,136 @@ func TestAdminHandler_Delete(t *testing.T) {
 			newAdminRouter(h).ServeHTTP(rr, req)
 			if rr.Code != tc.wantStatus {
 				t.Errorf("want %d, got %d", tc.wantStatus, rr.Code)
+			}
+		})
+	}
+}
+
+// --- ChangePassword ---
+
+func changePasswordRequest(body string, claims *auth.Claims) *http.Request {
+	req := httptest.NewRequest(http.MethodPut, "/admin/senha", bytes.NewBufferString(body))
+	if claims != nil {
+		req = req.WithContext(context.WithValue(req.Context(), auth.ClaimsKey, claims))
+	}
+	return req
+}
+
+func adminClaims(userID int64) *auth.Claims {
+	return &auth.Claims{
+		RegisteredClaims: jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour))},
+		UserID:           userID,
+		Role:             auth.RoleAdmin,
+	}
+}
+
+// O alvo da troca vem do JWT. Mesmo mandando outro id no corpo, o service tem que
+// receber o id de quem esta autenticado.
+func TestAdminHandler_ChangePasswordIgnoresBodyTarget(t *testing.T) {
+	svc := mocks.NewMockAdminService(t)
+	svc.EXPECT().ChangePassword(mock.Anything, int64(7), "atual", "nova-senha-1").Return("novo-token", nil)
+	h := admin.NewAdminHandler(svc, admin.SessionCookieConfig{Name: "sessao", Secure: true})
+
+	rr := httptest.NewRecorder()
+	newAdminRouter(h).ServeHTTP(rr, changePasswordRequest(
+		`{"admin_id":999,"id":999,"senha_atual":"atual","nova_senha":"nova-senha-1"}`,
+		adminClaims(7),
+	))
+
+	if rr.Code != http.StatusNoContent {
+		t.Fatalf("want %d, got %d: %s", http.StatusNoContent, rr.Code, rr.Body.String())
+	}
+	cookies := rr.Result().Cookies()
+	if len(cookies) != 1 || cookies[0].Value != "novo-token" {
+		t.Fatalf("a sessao de quem trocou precisa receber o token novo, got %#v", cookies)
+	}
+	if !cookies[0].HttpOnly {
+		t.Fatal("o cookie reemitido tem que continuar HttpOnly")
+	}
+}
+
+// Senha atual errada nao pode responder 401: o painel derruba a sessao em qualquer
+// 401, entao um erro de digitacao deslogaria quem esta trocando a senha.
+func TestAdminHandler_ChangePasswordWrongCurrentIsNotUnauthorized(t *testing.T) {
+	svc := mocks.NewMockAdminService(t)
+	svc.EXPECT().ChangePassword(mock.Anything, int64(7), "errada", "nova-senha-1").
+		Return("", auth.ErrInvalidCredentials)
+	h := admin.NewAdminHandler(svc)
+
+	rr := httptest.NewRecorder()
+	newAdminRouter(h).ServeHTTP(rr, changePasswordRequest(
+		`{"senha_atual":"errada","nova_senha":"nova-senha-1"}`,
+		adminClaims(7),
+	))
+
+	if rr.Code == http.StatusUnauthorized {
+		t.Fatal("401 desloga o usuario no painel; senha atual errada precisa de outro status")
+	}
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("want %d, got %d: %s", http.StatusForbidden, rr.Code, rr.Body.String())
+	}
+	if len(rr.Result().Cookies()) != 0 {
+		t.Fatal("nao pode reemitir cookie quando a troca falha")
+	}
+}
+
+func TestAdminHandler_ChangePasswordErrors(t *testing.T) {
+	tests := []struct {
+		name       string
+		body       string
+		claims     *auth.Claims
+		setup      func(*mocks.MockAdminService)
+		wantStatus int
+	}{
+		{
+			name:       "sem sessao",
+			body:       `{"senha_atual":"a","nova_senha":"nova-senha-1"}`,
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name:       "corpo invalido",
+			body:       `{`,
+			claims:     adminClaims(7),
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:   "senha nova curta",
+			body:   `{"senha_atual":"atual","nova_senha":"curta"}`,
+			claims: adminClaims(7),
+			setup: func(svc *mocks.MockAdminService) {
+				svc.EXPECT().ChangePassword(mock.Anything, int64(7), "atual", "curta").
+					Return("", admin.ErrSenhaFraca)
+			},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:   "falha inesperada nao vaza detalhe",
+			body:   `{"senha_atual":"atual","nova_senha":"nova-senha-1"}`,
+			claims: adminClaims(7),
+			setup: func(svc *mocks.MockAdminService) {
+				svc.EXPECT().ChangePassword(mock.Anything, int64(7), "atual", "nova-senha-1").
+					Return("", errors.New("connection refused to 10.0.0.5"))
+			},
+			wantStatus: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := mocks.NewMockAdminService(t)
+			if tc.setup != nil {
+				tc.setup(svc)
+			}
+			h := admin.NewAdminHandler(svc)
+
+			rr := httptest.NewRecorder()
+			newAdminRouter(h).ServeHTTP(rr, changePasswordRequest(tc.body, tc.claims))
+
+			if rr.Code != tc.wantStatus {
+				t.Fatalf("want %d, got %d: %s", tc.wantStatus, rr.Code, rr.Body.String())
+			}
+			if tc.wantStatus == http.StatusInternalServerError && strings.Contains(rr.Body.String(), "10.0.0.5") {
+				t.Fatalf("erro interno vazou para a resposta: %s", rr.Body.String())
 			}
 		})
 	}

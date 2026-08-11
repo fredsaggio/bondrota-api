@@ -112,10 +112,14 @@ make migration/fix                          # Converte timestamps para sequencia
 
 ## Gerenciamento de administradores
 
-Contas de administrador **não são gerenciadas pelo painel web**. A decisão é
-deliberada: se o painel pudesse criar admins, uma única sessão comprometida bastaria
-para o invasor fabricar acessos próprios e apagar os legítimos. Todas as operações de
-conta ficam no comando `cmd/admin`, que exige acesso direto ao banco.
+Criar, editar e remover contas de administrador **não é feito pelo painel web**. A
+decisão é deliberada: se o painel pudesse criar admins, uma única sessão comprometida
+bastaria para o invasor fabricar acessos próprios e apagar os legítimos. Essas
+operações ficam no comando `cmd/admin`, que exige acesso direto ao banco.
+
+A única exceção é cada admin **trocar a própria senha** pelo painel, exigindo a senha
+atual. Isso não abre a brecha acima: a conta alvo vem do JWT, então ninguém age sobre
+outra conta, e sem a senha atual uma sessão roubada não consegue tomar a conta de vez.
 
 ```bash
 go run ./cmd/admin list                                  # lista os admins cadastrados
@@ -152,8 +156,10 @@ Algumas garantias do comando, e o porquê de cada uma:
 - **`delete` recusa remover o último administrador** e exige que você digite o e-mail
   por extenso para confirmar. Sem isso dá para perder todo o acesso ao painel de uma
   vez, e a única recuperação seria voltar aqui com acesso ao banco.
-- **`passwd` é o único jeito de trocar a senha de um admin.** A API só permite alterar
-  o e-mail (`PUT /admin/{id}`), nunca a senha.
+- **`passwd` troca a senha de qualquer admin, sem saber a atual.** É o caminho de
+  recuperação para quem esqueceu a senha e ficou trancado do lado de fora. No painel
+  cada admin troca a própria senha (`PUT /admin/senha`), mas ali a senha atual é
+  exigida — por isso ela não serve para recuperar acesso perdido.
 - **Trocar a senha ou remover a conta não derruba sessões abertas.** Os JWTs não têm
   revogação: continuam valendo até expirar sozinhos (24h). O comando avisa sobre isso
   ao final.

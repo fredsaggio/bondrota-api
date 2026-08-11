@@ -110,6 +110,49 @@ func (h *AdminHandler) Login(w http.ResponseWriter, r *http.Request) {
 	httputils.Respond(w, http.StatusOK, LoginResponse{Token: token})
 }
 
+type ChangePasswordRequest struct {
+	SenhaAtual string `json:"senha_atual"`
+	NovaSenha  string `json:"nova_senha"`
+}
+
+func (h *AdminHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	claims, ok := ctx.Value(auth.ClaimsKey).(*auth.Claims)
+	if !ok || claims.UserID <= 0 {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req ChangePasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	token, err := h.svc.ChangePassword(ctx, claims.UserID, req.SenhaAtual, req.NovaSenha)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrSenhaFraca):
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		case errors.Is(err, auth.ErrInvalidCredentials):
+			// 403 e nao 401 de proposito: o painel derruba a sessao em qualquer 401,
+			// entao errar a senha atual deslogaria quem so digitou errado.
+			http.Error(w, "senha atual incorreta", http.StatusForbidden)
+		case errors.Is(err, ErrNotFound):
+			http.Error(w, "admin not found", http.StatusNotFound)
+		default:
+			slog.Error("failed to change admin password", "error", err)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// A sessao de quem trocou a senha continua de pe com um token novo. As demais
+	// sessoes seguem valendo ate expirar: nao ha revogacao de JWT.
+	h.setSessionCookie(w, token)
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *AdminHandler) Session(w http.ResponseWriter, r *http.Request) {
 	claims, ok := r.Context().Value(auth.ClaimsKey).(*auth.Claims)
 	if !ok || claims.ExpiresAt == nil {

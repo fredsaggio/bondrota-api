@@ -29,11 +29,6 @@ const (
 	targetLocal = "local"
 	targetProd  = "prod"
 
-	// minPasswordLen vale apenas para as senhas digitadas neste comando. A API nao
-	// impoe tamanho minimo, e credencial de administrador de orgao publico nao
-	// deveria depender de quem digita lembrar disso.
-	minPasswordLen = 12
-
 	connectTimeout = 30 * time.Second
 )
 
@@ -117,6 +112,9 @@ func runSeed(ctx context.Context, args []string) error {
 	}
 	if strings.TrimSpace(password) == "" {
 		return errors.New("ADMIN_PASSWORD is required")
+	}
+	if err := admin.ValidarSenha(password); err != nil {
+		return fmt.Errorf("ADMIN_PASSWORD: %w", err)
 	}
 
 	pool, store, err := connect(ctx, *target)
@@ -445,8 +443,9 @@ func promptNewPassword(label string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if len(first) < minPasswordLen {
-		return "", fmt.Errorf("a senha precisa de pelo menos %d caracteres", minPasswordLen)
+	// Mesma regra do painel: admin.ValidarSenha e a fonte unica.
+	if err := admin.ValidarSenha(first); err != nil {
+		return "", err
 	}
 
 	second, err := promptPassword("Repita a senha: ")

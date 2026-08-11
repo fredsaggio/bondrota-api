@@ -368,3 +368,87 @@ func TestAdminService_List(t *testing.T) {
 		})
 	}
 }
+
+// --- ChangePassword ---
+
+func TestAdminService_ChangePassword(t *testing.T) {
+	const (
+		senhaAtual = "senha-atual"
+		novaSenha  = "nova-senha-1"
+	)
+
+	t.Run("sucesso — grava o hash da nova senha e devolve token do proprio admin", func(t *testing.T) {
+		var gravada string
+		store := mocks.NewMockAdminStore(t)
+		store.EXPECT().Update(mock.Anything, int64(7), mock.Anything).
+			RunAndReturn(func(_ context.Context, _ int64, fn func(*admin.Admin) (bool, error)) (*admin.Admin, error) {
+				a := &admin.Admin{ID: 7, Email: "a@b.com", Senha: "hashed:" + senhaAtual}
+				updated, err := fn(a)
+				assert.NoError(t, err)
+				assert.True(t, updated)
+				gravada = a.Senha
+				return a, nil
+			})
+
+		authSvc := newAuthSvc(okHasher())
+		token, err := admin.NewAdminService(store, authSvc).ChangePassword(bgCtx, 7, senhaAtual, novaSenha)
+
+		assert.NoError(t, err)
+		assert.Equal(t, "hashed:"+novaSenha, gravada)
+
+		claims, err := authSvc.ValidateToken(token)
+		assert.NoError(t, err)
+		assert.Equal(t, int64(7), claims.UserID)
+		assert.Equal(t, auth.RoleAdmin, claims.Role)
+	})
+
+	// Sem isso, um cookie roubado bastaria para tomar a conta de vez: o atacante
+	// trocaria a senha e trancaria o admin legitimo do lado de fora.
+	t.Run("senha atual errada — nao grava e devolve ErrInvalidCredentials", func(t *testing.T) {
+		store := mocks.NewMockAdminStore(t)
+		store.EXPECT().Update(mock.Anything, int64(7), mock.Anything).
+			RunAndReturn(func(_ context.Context, _ int64, fn func(*admin.Admin) (bool, error)) (*admin.Admin, error) {
+				a := &admin.Admin{ID: 7, Senha: "hashed:" + senhaAtual}
+				updated, err := fn(a)
+				assert.False(t, updated)
+				assert.Equal(t, "hashed:"+senhaAtual, a.Senha, "a senha nao pode ser tocada")
+				return nil, err
+			})
+
+		token, err := admin.NewAdminService(store, newAuthSvc(okHasher())).
+			ChangePassword(bgCtx, 7, "senha-errada", novaSenha)
+
+		assert.ErrorIs(t, err, auth.ErrInvalidCredentials)
+		assert.Empty(t, token)
+	})
+
+	// O store nem chega a ser chamado: MockAdminStore falha o teste se receber algo
+	// que nao foi declarado com EXPECT.
+	t.Run("nova senha curta — rejeita antes de tocar no banco", func(t *testing.T) {
+		store := mocks.NewMockAdminStore(t)
+
+		token, err := admin.NewAdminService(store, newAuthSvc(okHasher())).
+			ChangePassword(bgCtx, 7, senhaAtual, "curta")
+
+		assert.ErrorIs(t, err, admin.ErrSenhaFraca)
+		assert.Empty(t, token)
+	})
+
+	t.Run("admin inexistente — ErrNotFound", func(t *testing.T) {
+		store := mocks.NewMockAdminStore(t)
+		store.EXPECT().Update(mock.Anything, int64(99), mock.Anything).Return(nil, admin.ErrNotFound)
+
+		_, err := admin.NewAdminService(store, newAuthSvc(okHasher())).
+			ChangePassword(bgCtx, 99, senhaAtual, novaSenha)
+
+		assert.ErrorIs(t, err, admin.ErrNotFound)
+	})
+}
+
+func TestValidarSenha(t *testing.T) {
+	assert.ErrorIs(t, admin.ValidarSenha(""), admin.ErrSenhaFraca)
+	assert.ErrorIs(t, admin.ValidarSenha("1234567"), admin.ErrSenhaFraca)
+	assert.NoError(t, admin.ValidarSenha("12345678"))
+	// Acentuada com 8 letras tem mais de 8 bytes: a regra conta caracteres.
+	assert.NoError(t, admin.ValidarSenha("senhaçãí"))
+}

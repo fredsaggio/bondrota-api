@@ -37,6 +37,34 @@ func (s *adminService) Login(ctx context.Context, email, password string) (strin
 	return token, nil
 }
 
+func (s *adminService) ChangePassword(ctx context.Context, adminID int64, senhaAtual, novaSenha string) (string, error) {
+	if err := ValidarSenha(novaSenha); err != nil {
+		return "", err
+	}
+
+	hashed, err := s.authSvc.HashPassword(novaSenha)
+	if err != nil {
+		return "", err
+	}
+
+	// A conferencia da senha atual acontece dentro do Update porque so ali a linha
+	// esta travada (SELECT ... FOR UPDATE) e o hash gravado e o mesmo que foi lido.
+	// Checar antes abriria janela para duas trocas simultaneas se perderem.
+	_, err = s.store.Update(ctx, adminID, func(a *Admin) (bool, error) {
+		ok, err := s.authSvc.CheckPassword(a.Senha, senhaAtual)
+		if err != nil || !ok {
+			return false, auth.ErrInvalidCredentials
+		}
+		a.Senha = hashed
+		return true, nil
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return s.authSvc.GenerateToken(adminID, auth.RoleAdmin)
+}
+
 func (s *adminService) Create(ctx context.Context, input AdminInput) (*Admin, error) {
 	hashed, err := s.authSvc.HashPassword(input.Senha)
 	if err != nil {
