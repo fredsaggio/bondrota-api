@@ -1571,11 +1571,15 @@ rotas_dinamicas
 
 ### 1. Bootstrap/Admin inicial
 
-Antes de usar o painel, precisa existir um administrador. O projeto possui comando de seed admin. Com as variaveis `ADMIN_EMAIL`, `ADMIN_PASSWORD` e `DATABASE_URL` configuradas, rode:
+Antes de usar o painel, precisa existir um administrador. Com as variaveis `ADMIN_EMAIL`, `ADMIN_PASSWORD` e `DATABASE_URL` configuradas, rode:
 
 ```bash
-go run ./cmd/seed-admin
+go run ./cmd/admin seed
 ```
+
+O painel nao expoe cadastro de administradores: criar, listar, trocar senha e remover
+contas de admin sao operacoes do `cmd/admin`, feitas com acesso direto ao banco. Veja
+"Gerenciamento de administradores" no README.
 
 Depois, o frontend faz:
 

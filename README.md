@@ -110,25 +110,53 @@ make migration/status/prod                  # Status das migrations em produçã
 make migration/fix                          # Converte timestamps para sequencial
 ```
 
-## Seed de administrador
+## Gerenciamento de administradores
 
-Para criar o primeiro administrador, configure as variáveis `ADMIN_EMAIL` e
-`ADMIN_PASSWORD` no `.env` e execute:
-
-```bash
-go run ./cmd/seed-admin
-```
-
-O comando usa o banco local de `DATABASE_URL` por padrão. Para semear o banco de
-produção é preciso pedir isso explicitamente, e aí ele lê `PROD_DATABASE_URL`:
+Contas de administrador **não são gerenciadas pelo painel web**. A decisão é
+deliberada: se o painel pudesse criar admins, uma única sessão comprometida bastaria
+para o invasor fabricar acessos próprios e apagar os legítimos. Todas as operações de
+conta ficam no comando `cmd/admin`, que exige acesso direto ao banco.
 
 ```bash
-go run ./cmd/seed-admin -target=prod
+go run ./cmd/admin list                                  # lista os admins cadastrados
+go run ./cmd/admin create -email=novo@prefeitura.gov.br  # cria, pedindo a senha no terminal
+go run ./cmd/admin passwd -email=admin@prefeitura.gov.br # troca a senha
+go run ./cmd/admin delete -email=antigo@prefeitura.gov.br
 ```
 
-Use `-target=prod` apenas de propósito: ele cria um administrador real, com a senha
-que estiver em `ADMIN_PASSWORD`. O comando registra o alvo e o host antes de conectar,
-sem expor credenciais, para que dê para conferir onde a escrita vai acontecer.
+Para criar o primeiro administrador, configure `ADMIN_EMAIL` e `ADMIN_PASSWORD` no
+`.env` e execute o seed. Ele é idempotente — se o e-mail já existir, não faz nada —
+então pode ser reexecutado com segurança durante o provisionamento:
+
+```bash
+go run ./cmd/admin seed
+```
+
+Todos os subcomandos usam o banco local de `DATABASE_URL` por padrão. Para agir em
+produção é preciso pedir isso explicitamente, e aí o comando lê `PROD_DATABASE_URL`
+do `.env.prod`:
+
+```bash
+go run ./cmd/admin passwd -email=admin@prefeitura.gov.br -target=prod
+```
+
+Use `-target=prod` apenas de propósito. O comando registra o alvo e o host antes de
+conectar, sem expor credenciais, para que dê para conferir onde a escrita vai
+acontecer.
+
+Algumas garantias do comando, e o porquê de cada uma:
+
+- **A senha nunca vem por flag.** É lida no terminal com o eco desligado e confirmada
+  duas vezes. Passar senha por argumento a deixaria no histórico do shell e visível
+  em `ps` para qualquer processo da máquina.
+- **`delete` recusa remover o último administrador** e exige que você digite o e-mail
+  por extenso para confirmar. Sem isso dá para perder todo o acesso ao painel de uma
+  vez, e a única recuperação seria voltar aqui com acesso ao banco.
+- **`passwd` é o único jeito de trocar a senha de um admin.** A API só permite alterar
+  o e-mail (`PUT /admin/{id}`), nunca a senha.
+- **Trocar a senha ou remover a conta não derruba sessões abertas.** Os JWTs não têm
+  revogação: continuam valendo até expirar sozinhos (24h). O comando avisa sobre isso
+  ao final.
 
 ## Estrutura do projeto
 
@@ -138,7 +166,7 @@ sem expor credenciais, para que dê para conferir onde a escrita vai acontecer.
 │   ├── main.go              # Entrypoint
 │   ├── dependencies.go      # Wiring de dependências
 │   ├── import-municipios/   # Importador do catálogo oficial do IBGE
-│   └── seed-admin/          # Comando para criar admin inicial
+│   └── admin/               # Gerenciamento de contas de administrador (fora do painel)
 ├── internal/
 │   ├── admin/               # Domínio de administradores
 │   ├── auth/                # JWT, middleware e roles

@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 func TestDatabaseEnvFor(t *testing.T) {
 	tests := []struct {
@@ -35,7 +38,7 @@ func TestDatabaseEnvFor(t *testing.T) {
 }
 
 // O alvo padrao da flag precisa ser local: e ele que impede que rodar o comando
-// durante o desenvolvimento acabe criando um administrador em producao.
+// durante o desenvolvimento acabe mexendo em producao.
 func TestDefaultTargetIsLocal(t *testing.T) {
 	got, err := databaseEnvFor(targetLocal)
 	if err != nil {
@@ -74,6 +77,33 @@ func TestSafeHostHidesCredentials(t *testing.T) {
 			got := safeHost(tc.raw)
 			if got != tc.want {
 				t.Fatalf("want %q, got %q", tc.want, got)
+			}
+		})
+	}
+}
+
+// Sem subcomando o comando precisa falhar em vez de assumir um padrao: o antigo
+// seed-admin era um binario so, e rodar `go run ./cmd/admin` por engano nao pode
+// virar uma escrita silenciosa no banco.
+func TestRunRequiresKnownSubcommand(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		wantErr bool
+	}{
+		{name: "sem argumentos falha", args: nil, wantErr: true},
+		{name: "subcomando desconhecido falha", args: []string{"seedadmin"}, wantErr: true},
+		{name: "help nao e erro", args: []string{"help"}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := run(context.Background(), tc.args)
+			if tc.wantErr && err == nil {
+				t.Fatalf("want error for args %v, got nil", tc.args)
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("unexpected error: %v", err)
 			}
 		})
 	}
