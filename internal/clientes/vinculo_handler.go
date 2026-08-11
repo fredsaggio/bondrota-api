@@ -51,6 +51,14 @@ type VinculoResponse struct {
 	HorariosFixos []HorarioFixoResponse `json:"horarios_fixos"`
 }
 
+// VinculoComClienteResponse acrescenta o nome do cliente ao vinculo. Ela e usada
+// apenas na listagem administrativa, para que o painel identifique o passageiro
+// sem consultar cada cliente.
+type VinculoComClienteResponse struct {
+	VinculoResponse
+	ClienteNome string `json:"cliente_nome"`
+}
+
 func (h *VinculoHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -79,6 +87,27 @@ func (h *VinculoHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httputils.Respond(w, http.StatusCreated, toVinculoResponse(vinculo))
+}
+
+func (h *VinculoHandler) List(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vinculos, err := h.svc.List(ctx)
+	if err != nil {
+		slog.Error("failed to list vinculos", "error", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	resp := make([]VinculoComClienteResponse, 0, len(vinculos))
+	for _, v := range vinculos {
+		resp = append(resp, VinculoComClienteResponse{
+			VinculoResponse: toVinculoResponse(&v.Vinculo),
+			ClienteNome:     v.ClienteNome,
+		})
+	}
+
+	httputils.Respond(w, http.StatusOK, resp)
 }
 
 func (h *VinculoHandler) ListByCliente(w http.ResponseWriter, r *http.Request) {

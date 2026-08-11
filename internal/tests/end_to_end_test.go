@@ -392,6 +392,11 @@ func TestEndToEndAutorizacaoRoles(t *testing.T) {
 	doStatus(t, router, http.MethodPost, "/api/v1/veiculos/", clienteToken, map[string]any{}, http.StatusForbidden)
 	doStatus(t, router, http.MethodPost, "/api/v1/clientes/1/vinculos/", motoristaToken, map[string]any{}, http.StatusForbidden)
 	doStatus(t, router, http.MethodPut, "/api/v1/viagens/1/localizacao", clienteToken, map[string]any{}, http.StatusForbidden)
+
+	// A listagem global de vinculos expoe dados de todos os clientes, entao so admin acessa.
+	doStatus(t, router, http.MethodGet, "/api/v1/vinculos/", "", nil, http.StatusUnauthorized)
+	doStatus(t, router, http.MethodGet, "/api/v1/vinculos/", clienteToken, nil, http.StatusForbidden)
+	doStatus(t, router, http.MethodGet, "/api/v1/vinculos/", motoristaToken, nil, http.StatusForbidden)
 }
 
 func TestEndToEndPlanejamentoMultiplosVeiculosPorCapacidade(t *testing.T) {

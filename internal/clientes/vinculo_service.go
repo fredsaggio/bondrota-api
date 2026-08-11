@@ -24,6 +24,10 @@ func (s *vinculoService) GetByID(ctx context.Context, vinculoID int64) (*Vinculo
 	return s.store.GetByID(ctx, vinculoID)
 }
 
+func (s *vinculoService) List(ctx context.Context) ([]VinculoComCliente, error) {
+	return s.store.List(ctx)
+}
+
 func (s *vinculoService) ListByCliente(ctx context.Context, clienteID int64) ([]Vinculo, error) {
 	return s.store.ListByCliente(ctx, clienteID)
 }

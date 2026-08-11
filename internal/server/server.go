@@ -175,6 +175,11 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 			})
 		})
 
+		r.Route("/vinculos", func(r chi.Router) {
+			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin))
+			r.Get("/", srv.handlers.VinculoHandler.List)
+		})
+
 		r.Route("/reservas", func(r chi.Router) {
 			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin, auth.RoleCliente))
 			r.With(srv.authSvc.RequireRole(auth.RoleAdmin)).Get("/", srv.handlers.ReservaHandler.List)

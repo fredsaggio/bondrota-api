@@ -635,6 +635,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/VinculoHorarioFixo'
+    VinculoComClienteResponse:
+      allOf:
+      - $ref: '#/components/schemas/VinculoResponse'
+      - type: object
+        properties:
+          cliente_nome:
+            type: string
+            example: Maria Souza
     ClienteComVinculosResponse:
       allOf:
       - $ref: '#/components/schemas/ClienteResponse'
@@ -2205,6 +2213,22 @@ paths:
         required: true
         schema:
           type: integer
+  /vinculos/:
+    get:
+      summary: Lista vinculos de todos os clientes (somente admin)
+      tags:
+      - Vínculos
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VinculoComClienteResponse'
+        '403':
+          description: Role sem permissao
   /clientes/{clienteID}/vinculos/:
     post:
       summary: Cria vinculo para cliente

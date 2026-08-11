@@ -77,6 +77,14 @@ type Vinculo struct {
 	HorariosFixos []HorarioFixo
 }
 
+// VinculoComCliente carrega o nome do cliente dono do vinculo. Ele existe para a
+// listagem administrativa, que precisa identificar o passageiro sem obrigar o
+// consumidor a buscar cada cliente separadamente.
+type VinculoComCliente struct {
+	Vinculo
+	ClienteNome string
+}
+
 type VinculoInput struct {
 	ClienteID     int64
 	Tipo          TipoConta
@@ -118,6 +126,7 @@ type ClienteStore interface {
 type VinculoStore interface {
 	Create(ctx context.Context, input VinculoInput) (*Vinculo, error)
 	GetByID(ctx context.Context, vinculoID int64) (*Vinculo, error)
+	List(ctx context.Context) ([]VinculoComCliente, error)
 	ListByCliente(ctx context.Context, clienteID int64) ([]Vinculo, error)
 	Update(ctx context.Context, vinculoID int64, input VinculoUpdateInput) (*Vinculo, error)
 	Delete(ctx context.Context, vinculoID int64) error
@@ -135,6 +144,7 @@ type ClienteService interface {
 type VinculoService interface {
 	Create(ctx context.Context, input VinculoInput) (*Vinculo, error)
 	GetByID(ctx context.Context, vinculoID int64) (*Vinculo, error)
+	List(ctx context.Context) ([]VinculoComCliente, error)
 	ListByCliente(ctx context.Context, clienteID int64) ([]Vinculo, error)
 	Update(ctx context.Context, vinculoID int64, input VinculoUpdateInput) (*Vinculo, error)
 	Delete(ctx context.Context, vinculoID int64) error

@@ -1229,6 +1229,7 @@ DELETE /clientes/{clienteID}
 Os vinculos agora ficam aninhados em clientes. Isso deixa explicito a qual cliente cada vinculo pertence.
 
 ```http
+GET /vinculos/
 POST /clientes/{clienteID}/vinculos/
 GET /clientes/{clienteID}/vinculos/
 GET /clientes/{clienteID}/vinculos/{vinculoID}
@@ -1238,7 +1239,7 @@ POST /clientes/{clienteID}/vinculos/{vinculoID}/reservas/
 GET /clientes/{clienteID}/vinculos/{vinculoID}/reservas/
 ```
 
-Use `GET /clientes/{clienteID}/vinculos/` quando a tela precisar escolher apenas um vinculo. Use `GET /clientes/{clienteID}` quando precisar do cliente completo com seus vinculos e horarios. Quando a rota recebe `clienteID` e `vinculoID`, a API valida se o vinculo pertence ao cliente informado. Se nao pertencer, retorna `404 Not Found`.
+Use `GET /vinculos/` quando a tela administrativa precisar de todos os vinculos de uma vez; ela e exclusiva de `admin`, ja devolve `cliente_nome` em cada item e evita uma consulta por cliente. Use `GET /clientes/{clienteID}/vinculos/` quando a tela precisar escolher apenas um vinculo. Use `GET /clientes/{clienteID}` quando precisar do cliente completo com seus vinculos e horarios. Quando a rota recebe `clienteID` e `vinculoID`, a API valida se o vinculo pertence ao cliente informado. Se nao pertencer, retorna `404 Not Found`.
 
 ---
 

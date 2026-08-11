@@ -84,6 +84,19 @@ func TestVinculoService_CreateValidation(t *testing.T) {
 	}
 }
 
+func TestVinculoService_List(t *testing.T) {
+	store := mocks.NewMockVinculoStore(t)
+	svc := clientes.NewVinculoService(store)
+
+	want := []clientes.VinculoComCliente{{Vinculo: *sampleVinculo(), ClienteNome: "Maria Souza"}}
+	store.EXPECT().List(mock.Anything).Return(want, nil)
+
+	got, err := svc.List(context.Background())
+
+	assert.NoError(t, err)
+	assert.Equal(t, want, got)
+}
+
 func TestVinculoService_UpdateValidation(t *testing.T) {
 	store := mocks.NewMockVinculoStore(t)
 	svc := clientes.NewVinculoService(store)

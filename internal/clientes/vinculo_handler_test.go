@@ -2,9 +2,11 @@ package clientes_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -15,9 +17,14 @@ import (
 type fakeVinculoService struct {
 	createFn        func(ctx context.Context, input clientes.VinculoInput) (*clientes.Vinculo, error)
 	getFn           func(ctx context.Context, vinculoID int64) (*clientes.Vinculo, error)
+	listFn          func(ctx context.Context) ([]clientes.VinculoComCliente, error)
 	listByClienteFn func(ctx context.Context, clienteID int64) ([]clientes.Vinculo, error)
 	updateFn        func(ctx context.Context, vinculoID int64, input clientes.VinculoUpdateInput) (*clientes.Vinculo, error)
 	deleteFn        func(ctx context.Context, vinculoID int64) error
+}
+
+func (s fakeVinculoService) List(ctx context.Context) ([]clientes.VinculoComCliente, error) {
+	return s.listFn(ctx)
 }
 
 func (s fakeVinculoService) Create(ctx context.Context, input clientes.VinculoInput) (*clientes.Vinculo, error) {
@@ -42,6 +49,7 @@ func (s fakeVinculoService) Delete(ctx context.Context, vinculoID int64) error {
 
 func newVinculoRouter(h *clientes.VinculoHandler) http.Handler {
 	r := chi.NewRouter()
+	r.Get("/vinculos/", h.List)
 	r.Post("/clientes/{clienteID}/vinculos", h.Create)
 	r.Get("/clientes/{clienteID}/vinculos", h.ListByCliente)
 	r.Get("/clientes/{clienteID}/vinculos/{vinculoID}", h.GetByID)
@@ -135,6 +143,76 @@ func TestVinculoHandler_Create(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestVinculoHandler_List(t *testing.T) {
+	t.Run("returns vinculos with cliente_nome flattened", func(t *testing.T) {
+		svc := fakeVinculoService{
+			listFn: func(_ context.Context) ([]clientes.VinculoComCliente, error) {
+				return []clientes.VinculoComCliente{
+					{Vinculo: *sampleVinculo(), ClienteNome: "Maria Souza"},
+				}, nil
+			},
+		}
+
+		rr := httptest.NewRecorder()
+		newVinculoRouter(clientes.NewVinculoHandler(svc)).ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/vinculos/", nil))
+
+		if rr.Code != http.StatusOK {
+			t.Fatalf("want 200, got %d: %s", rr.Code, rr.Body.String())
+		}
+
+		var got []map[string]any
+		if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
+			t.Fatalf("invalid json: %v", err)
+		}
+		if len(got) != 1 {
+			t.Fatalf("want 1 vinculo, got %d", len(got))
+		}
+		if got[0]["cliente_nome"] != "Maria Souza" {
+			t.Fatalf("want cliente_nome Maria Souza, got %v", got[0]["cliente_nome"])
+		}
+		// O painel espera os campos do vinculo no mesmo nivel de cliente_nome.
+		if got[0]["id"] != float64(10) || got[0]["cliente_id"] != float64(1) {
+			t.Fatalf("vinculo fields not flattened: %v", got[0])
+		}
+		if got[0]["validade"] != "2026-07-01" {
+			t.Fatalf("want validade 2026-07-01, got %v", got[0]["validade"])
+		}
+	})
+
+	t.Run("returns empty array when there is no vinculo", func(t *testing.T) {
+		svc := fakeVinculoService{
+			listFn: func(_ context.Context) ([]clientes.VinculoComCliente, error) {
+				return nil, nil
+			},
+		}
+
+		rr := httptest.NewRecorder()
+		newVinculoRouter(clientes.NewVinculoHandler(svc)).ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/vinculos/", nil))
+
+		if rr.Code != http.StatusOK {
+			t.Fatalf("want 200, got %d", rr.Code)
+		}
+		if body := strings.TrimSpace(rr.Body.String()); body != "[]" {
+			t.Fatalf("want [], got %s", body)
+		}
+	})
+
+	t.Run("translates store failure to 500", func(t *testing.T) {
+		svc := fakeVinculoService{
+			listFn: func(_ context.Context) ([]clientes.VinculoComCliente, error) {
+				return nil, errors.New("db")
+			},
+		}
+
+		rr := httptest.NewRecorder()
+		newVinculoRouter(clientes.NewVinculoHandler(svc)).ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/vinculos/", nil))
+
+		if rr.Code != http.StatusInternalServerError {
+			t.Fatalf("want 500, got %d", rr.Code)
+		}
+	})
 }
 
 func TestVinculoHandler_ListByCliente(t *testing.T) {

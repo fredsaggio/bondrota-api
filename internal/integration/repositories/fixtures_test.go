@@ -123,11 +123,16 @@ func seedMotorista(t *testing.T, ctx context.Context, tx pgx.Tx, cpf string, mun
 
 func seedCliente(t *testing.T, ctx context.Context, tx pgx.Tx, cpf string) int64 {
 	t.Helper()
+	return seedClienteComNome(t, ctx, tx, cpf, "Cliente Teste")
+}
+
+func seedClienteComNome(t *testing.T, ctx context.Context, tx pgx.Tx, cpf, nome string) int64 {
+	t.Helper()
 	var id int64
 	err := tx.QueryRow(ctx, `
 		INSERT INTO clientes (nome, cpf, senha, telefone, data_nasc, foto)
-		VALUES ('Cliente Teste', $1, 'hash', '82999991111', '2002-08-10', '')
-		RETURNING id`, cpf).Scan(&id)
+		VALUES ($1, $2, 'hash', '82999991111', '2002-08-10', '')
+		RETURNING id`, nome, cpf).Scan(&id)
 	require.NoError(t, err)
 	return id
 }
