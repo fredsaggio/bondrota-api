@@ -93,14 +93,15 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 	r.Group(func(r chi.Router) {
 		r.Use(srv.authSvc.AuthenticateWithCookie(srv.config.AdminCookieName))
 
+		// Criar, alterar e remover administrador nao tem rota de proposito: com uma
+		// unica role de admin, qualquer sessao roubada conseguiria fabricar acessos
+		// proprios e apagar os legitimos. Essas operacoes vivem em cmd/admin, que
+		// exige acesso direto ao banco. Nao reintroduza sem uma role acima de admin.
 		r.Route("/admin", func(r chi.Router) {
 			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin))
 			r.Get("/session", srv.handlers.AdminHandler.Session)
-			r.Post("/", srv.handlers.AdminHandler.Create)
 			r.Get("/", srv.handlers.AdminHandler.List)
 			r.Get("/{adminID}", srv.handlers.AdminHandler.GetByID)
-			r.Put("/{adminID}", srv.handlers.AdminHandler.Update)
-			r.Delete("/{adminID}", srv.handlers.AdminHandler.Delete)
 		})
 
 		r.Route("/veiculos", func(r chi.Router) {

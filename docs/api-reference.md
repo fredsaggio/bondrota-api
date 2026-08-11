@@ -225,28 +225,8 @@ Permissao: `admin`.
 
 | Metodo | Path completo | Descricao | Body | Sucesso | Erros |
 | --- | --- | --- | --- | --- | --- |
-| `POST` | `BASE_URL/admin/` | Cria admin. | `AdminCreateRequest` | `201 AdminCreateResponse` | `400`, `401`, `403`, `500` |
 | `GET` | `BASE_URL/admin/` | Lista admins. | nenhum | `200 AdminResponse[]` | `401`, `403`, `500` |
 | `GET` | `BASE_URL/admin/{adminID}` | Busca admin por ID. | nenhum | `200 AdminResponse` | `400`, `401`, `403`, `404`, `500` |
-| `PUT` | `BASE_URL/admin/{adminID}` | Atualiza email do admin. | `AdminUpdateRequest` | `200 AdminResponse` | `400`, `401`, `403`, `404`, `500` |
-| `DELETE` | `BASE_URL/admin/{adminID}` | Remove admin. | nenhum | `204` | `400`, `401`, `403`, `404`, `500` |
-
-Request de criacao:
-
-```json
-{
-  "email": "admin@bondrota.com",
-  "senha": "admin123"
-}
-```
-
-Response de criacao:
-
-```json
-{
-  "id": 1
-}
-```
 
 Response de consulta:
 
@@ -257,13 +237,19 @@ Response de consulta:
 }
 ```
 
-Update:
+**Criar, alterar e remover administrador nao tem endpoint.** Enquanto existir uma
+unica role de admin, expor essas operacoes por HTTP significa que qualquer sessao
+roubada consegue fabricar acessos proprios e apagar os legitimos. Elas ficam no
+comando `cmd/admin`, que exige acesso direto ao banco:
 
-```json
-{
-  "email": "novo-admin@bondrota.com"
-}
+```bash
+go run ./cmd/admin create -email=novo@prefeitura.gov.br
+go run ./cmd/admin passwd -email=admin@prefeitura.gov.br
+go run ./cmd/admin delete -email=antigo@prefeitura.gov.br
 ```
+
+Reintroduzir essas rotas exige antes uma role acima de `admin`. Ha um teste
+(`TestAdminRoutesAreReadOnly`) que falha se elas voltarem ao roteador.
 
 ### Veiculos
 

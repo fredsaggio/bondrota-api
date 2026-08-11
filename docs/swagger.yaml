@@ -115,32 +115,6 @@ components:
         uf:
           type: string
           example: AL
-    AdminCreateRequest:
-      type: object
-      required:
-      - email
-      - senha
-      properties:
-        email:
-          type: string
-          example: admin@bondrota.com
-        senha:
-          type: string
-          example: admin123
-    AdminUpdateRequest:
-      type: object
-      required:
-      - email
-      properties:
-        email:
-          type: string
-          example: novo-admin@bondrota.com
-    AdminCreateResponse:
-      type: object
-      properties:
-        id:
-          type: integer
-          example: 1
     AdminResponse:
       type: object
       properties:
@@ -1589,24 +1563,10 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/LoginRequestCPF'
+  # Criar, alterar e remover admin nao tem endpoint: essas operacoes vivem em
+  # cmd/admin, que exige acesso direto ao banco. Com uma unica role de admin, expor
+  # isso por HTTP deixaria qualquer sessao roubada fabricar os proprios acessos.
   /admin/:
-    post:
-      summary: Cria admin
-      tags:
-      - Admin
-      responses:
-        '201':
-          description: Criado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AdminCreateResponse'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AdminCreateRequest'
     get:
       summary: Lista admins
       tags:
@@ -1632,42 +1592,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AdminResponse'
-      parameters:
-      - name: adminID
-        in: path
-        required: true
-        schema:
-          type: integer
-    put:
-      summary: Atualiza email do admin
-      tags:
-      - Admin
-      responses:
-        '200':
-          description: Sucesso
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AdminResponse'
-      parameters:
-      - name: adminID
-        in: path
-        required: true
-        schema:
-          type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AdminUpdateRequest'
-    delete:
-      summary: Remove admin
-      tags:
-      - Admin
-      responses:
-        '204':
-          description: No Content
       parameters:
       - name: adminID
         in: path
