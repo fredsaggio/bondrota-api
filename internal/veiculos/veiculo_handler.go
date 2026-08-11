@@ -8,6 +8,7 @@ import (
 
 	"github.com/fredsaggio/bondrota-api/internal/brerror"
 	"github.com/fredsaggio/bondrota-api/internal/conv"
+	"github.com/fredsaggio/bondrota-api/internal/db"
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
 )
 
@@ -228,6 +229,10 @@ func (h *VeiculoHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			http.Error(w, "veiculo not found", http.StatusNotFound)
+			return
+		}
+		if db.IsAnyForeignKeyViolation(err) {
+			http.Error(w, "veículo alocado em ciclos de viagem e não pode ser excluído", http.StatusConflict)
 			return
 		}
 		slog.Error("failed to delete veiculo", "error", err)

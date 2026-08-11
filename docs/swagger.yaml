@@ -1716,6 +1716,8 @@ paths:
       responses:
         '204':
           description: No Content
+        '409':
+          description: Registro em uso por outro cadastro
       parameters:
       - name: veiculoID
         in: path
@@ -1845,6 +1847,8 @@ paths:
       responses:
         '204':
           description: No Content
+        '409':
+          description: Registro em uso por outro cadastro
       parameters:
       - name: id
         in: path
@@ -1930,6 +1934,8 @@ paths:
       responses:
         '204':
           description: No Content
+        '409':
+          description: Registro em uso por outro cadastro
       parameters:
       - name: id
         in: path
@@ -1992,6 +1998,8 @@ paths:
       responses:
         '204':
           description: No Content
+        '409':
+          description: Registro em uso por outro cadastro
       parameters:
       - name: id
         in: path
@@ -2101,6 +2109,8 @@ paths:
       responses:
         '204':
           description: No Content
+        '409':
+          description: Registro em uso por outro cadastro
       parameters:
       - name: id
         in: path
@@ -2186,6 +2196,8 @@ paths:
       responses:
         '204':
           description: No Content
+        '409':
+          description: Registro em uso por outro cadastro
       parameters:
       - name: clienteID
         in: path
@@ -2330,6 +2342,8 @@ paths:
       responses:
         '204':
           description: No Content
+        '409':
+          description: Registro em uso por outro cadastro
       parameters:
       - name: clienteID
         in: path

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/fredsaggio/bondrota-api/internal/conv"
+	"github.com/fredsaggio/bondrota-api/internal/db"
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
 )
 
@@ -160,8 +161,12 @@ func (h *ParadaHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "parada not found", http.StatusNotFound)
 			return
 		}
+		if db.IsAnyForeignKeyViolation(err) {
+			http.Error(w, "parada em uso por uma rota interna e não pode ser excluída", http.StatusConflict)
+			return
+		}
 		slog.Error("failed to delete parada", "error", err)
-		http.Error(w, "parada em uso por uma rota interna", http.StatusConflict)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 

@@ -281,7 +281,7 @@ Status validos: `ativo`, `inativo`, `manutencao`.
 | `GET` | `BASE_URL/veiculos/` | Lista veiculos. | nenhum | `200 VeiculoResponse[]` | `401`, `403`, `500` |
 | `GET` | `BASE_URL/veiculos/{veiculoID}` | Busca veiculo por ID. | nenhum | `200 VeiculoResponse` | `400`, `401`, `403`, `404`, `500` |
 | `PUT` | `BASE_URL/veiculos/{veiculoID}` | Atualiza veiculo. | `VeiculoUpdateRequest` | `200 VeiculoResponse` | `400`, `401`, `403`, `404`, `422`, `500` |
-| `DELETE` | `BASE_URL/veiculos/{veiculoID}` | Remove veiculo. | nenhum | `204` | `400`, `401`, `403`, `404`, `500` |
+| `DELETE` | `BASE_URL/veiculos/{veiculoID}` | Remove veiculo. | nenhum | `204` | `400`, `401`, `403`, `404`, `409`, `500` |
 
 Create:
 
@@ -361,7 +361,7 @@ Destino representa a faculdade/local de desembarque do cliente. Tambem e o local
 | `GET` | `BASE_URL/destinos/municipio/{municipioID}` | Lista destinos por municipio. | nenhum | `200 DestinoResponse[]` | `400`, `401`, `403`, `500` |
 | `GET` | `BASE_URL/destinos/{id}` | Busca destino. | nenhum | `200 DestinoResponse` | `400`, `401`, `403`, `404`, `500` |
 | `PUT` | `BASE_URL/destinos/{id}` | Atualiza destino. | `DestinoRequest` parcial | `200 DestinoResponse` | `400`, `401`, `403`, `404`, `500` |
-| `DELETE` | `BASE_URL/destinos/{id}` | Remove destino. | nenhum | `204` | `400`, `401`, `403`, `404`, `500` |
+| `DELETE` | `BASE_URL/destinos/{id}` | Remove destino. | nenhum | `204` | `400`, `401`, `403`, `404`, `409`, `500` |
 
 Request:
 
@@ -435,7 +435,7 @@ Rota interna e a sequencia de paradas dentro da cidade de origem. Ela e usada pa
 | `GET` | `BASE_URL/rotas-internas/` | Lista rotas internas. | nenhum | `200 RotaInternaResponse[]` | `401`, `403`, `500` |
 | `GET` | `BASE_URL/rotas-internas/{id}` | Busca rota interna. | nenhum | `200 RotaInternaResponse` | `400`, `401`, `403`, `404`, `500` |
 | `PUT` | `BASE_URL/rotas-internas/{id}/paradas` | Substitui a sequencia de paradas. | `UpdateParadasRequest` | `200 RotaInternaResponse` | `400`, `401`, `403`, `404`, `422`, `500` |
-| `DELETE` | `BASE_URL/rotas-internas/{id}` | Remove rota interna. | nenhum | `204` | `400`, `401`, `403`, `404`, `500` |
+| `DELETE` | `BASE_URL/rotas-internas/{id}` | Remove rota interna. | nenhum | `204` | `400`, `401`, `403`, `404`, `409`, `500` |
 
 Create:
 
@@ -483,7 +483,7 @@ Turnos validos: `MT`, `VT`, `NT`, `IN`.
 | `GET` | `BASE_URL/motoristas/` | Lista motoristas. | nenhum | `200 MotoristaResponse[]` | `401`, `403`, `500` |
 | `GET` | `BASE_URL/motoristas/{id}` | Busca motorista. | nenhum | `200 MotoristaResponse` | `400`, `401`, `403`, `404`, `500` |
 | `PUT` | `BASE_URL/motoristas/{id}` | Atualiza motorista. | `UpdateMotoristaRequest` parcial | `200 MotoristaResponse` | `400`, `401`, `403`, `404`, `500` |
-| `DELETE` | `BASE_URL/motoristas/{id}` | Remove motorista. | nenhum | `204` | `400`, `401`, `403`, `404`, `500` |
+| `DELETE` | `BASE_URL/motoristas/{id}` | Remove motorista. | nenhum | `204` | `400`, `401`, `403`, `404`, `409`, `500` |
 
 Create:
 
@@ -530,7 +530,7 @@ Permissoes:
 | `GET` | `BASE_URL/clientes/` | Lista clientes. | nenhum | `200 ClienteResponse[]` | `401`, `403`, `500` |
 | `GET` | `BASE_URL/clientes/{clienteID}` | Busca cliente com vinculos. | nenhum | `200 ClienteComVinculosResponse` | `400`, `401`, `403`, `404`, `500` |
 | `PUT` | `BASE_URL/clientes/{clienteID}` | Atualiza cliente. | `UpdateClienteRequest` parcial | `200 ClienteResponse` | `400`, `401`, `403`, `404`, `500` |
-| `DELETE` | `BASE_URL/clientes/{clienteID}` | Remove cliente. | nenhum | `204` | `400`, `401`, `403`, `404`, `500` |
+| `DELETE` | `BASE_URL/clientes/{clienteID}` | Remove cliente. | nenhum | `204` | `400`, `401`, `403`, `404`, `409`, `500` |
 | `GET` | `BASE_URL/clientes/{clienteID}/reservas/` | Lista reservas do cliente. | nenhum | `200 ReservaResponse[]` | `400`, `401`, `403`, `500` |
 
 Create:
@@ -612,7 +612,7 @@ Dias da semana em `horarios_fixos`: `1` a `5`, onde a API apenas valida o interv
 | `GET` | `BASE_URL/clientes/{clienteID}/vinculos/` | Lista vinculos do cliente. | nenhum | `200 VinculoResponse[]` | `400`, `401`, `403`, `500` |
 | `GET` | `BASE_URL/clientes/{clienteID}/vinculos/{vinculoID}` | Busca vinculo do cliente. | nenhum | `200 VinculoResponse` | `400`, `401`, `403`, `404`, `500` |
 | `PUT` | `BASE_URL/clientes/{clienteID}/vinculos/{vinculoID}` | Atualiza vinculo. | `VinculoRequest` | `200 VinculoResponse` | `400`, `401`, `403`, `404`, `422`, `500` |
-| `DELETE` | `BASE_URL/clientes/{clienteID}/vinculos/{vinculoID}` | Remove vinculo. | nenhum | `204` | `400`, `401`, `403`, `404`, `500` |
+| `DELETE` | `BASE_URL/clientes/{clienteID}/vinculos/{vinculoID}` | Remove vinculo. | nenhum | `204` | `400`, `401`, `403`, `404`, `409`, `500` |
 | `POST` | `BASE_URL/clientes/{clienteID}/vinculos/{vinculoID}/reservas/` | Cria reserva usando o vinculo. | `CreateReservaRequest` | `201 ReservaResponse` | `400`, `401`, `403`, `404`, `409`, `422`, `500` |
 | `GET` | `BASE_URL/clientes/{clienteID}/vinculos/{vinculoID}/reservas/` | Lista reservas desse vinculo. | nenhum | `200 ReservaResponse[]` | `400`, `401`, `403`, `404`, `500` |
 

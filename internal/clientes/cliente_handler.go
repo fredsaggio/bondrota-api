@@ -254,6 +254,12 @@ func (h *ClienteHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "cliente not found", http.StatusNotFound)
 			return
 		}
+		// Vinculos e reservas do cliente somem em cascata, mas uma reserva ja alocada
+		// a uma viagem e protegida por RESTRICT em viagem_reservas.
+		if db.IsAnyForeignKeyViolation(err) {
+			http.Error(w, "cliente possui reservas alocadas a viagens e não pode ser excluído", http.StatusConflict)
+			return
+		}
 		slog.Error("failed to delete cliente", "error", err, "clienteID", clienteID)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return

@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/fredsaggio/bondrota-api/internal/conv"
+	"github.com/fredsaggio/bondrota-api/internal/db"
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
 )
 
@@ -208,6 +209,10 @@ func (h *DestinoHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			http.Error(w, "destino not found", http.StatusNotFound)
+			return
+		}
+		if db.IsAnyForeignKeyViolation(err) {
+			http.Error(w, "destino em uso por vínculos, reservas ou rotas e não pode ser excluído", http.StatusConflict)
 			return
 		}
 		slog.Error("failed to delete destino", "error", err)

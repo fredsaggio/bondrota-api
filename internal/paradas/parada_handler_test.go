@@ -4,16 +4,24 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/fredsaggio/bondrota-api/internal/mocks"
 	"github.com/fredsaggio/bondrota-api/internal/paradas"
 )
+
+// foreignKeyError reproduz o erro que o Postgres devolve quando a exclusão é
+// bloqueada por uma referência, embrulhado como o store faz.
+func foreignKeyError(constraint string) error {
+	return fmt.Errorf("db/paradaStore.Delete: %w", &pgconn.PgError{Code: "23503", ConstraintName: constraint})
+}
 
 // --- helpers ---
 
@@ -306,13 +314,22 @@ func TestParadaHandler_Delete(t *testing.T) {
 			wantStatus: http.StatusNotFound,
 		},
 		{
-			// qualquer outro erro (ex: FK violation por rota interna) → 409 Conflict
+			// violação de chave estrangeira (rota interna usa a parada) → 409 Conflict
 			name: "parada em uso por rota interna → 409",
 			id:   "1",
 			setup: func(st *mocks.MockParadaStore) {
-				st.EXPECT().Delete(mock.Anything, int64(1)).Return(errors.New("fk violation"))
+				st.EXPECT().Delete(mock.Anything, int64(1)).Return(foreignKeyError("rota_interna_paradas_parada_id_fkey"))
 			},
 			wantStatus: http.StatusConflict,
+		},
+		{
+			// falha genérica não pode ser confundida com "em uso": ela é 500, não 409
+			name: "erro inesperado do banco → 500",
+			id:   "1",
+			setup: func(st *mocks.MockParadaStore) {
+				st.EXPECT().Delete(mock.Anything, int64(1)).Return(errors.New("connection refused"))
+			},
+			wantStatus: http.StatusInternalServerError,
 		},
 	}
 

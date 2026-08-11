@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/fredsaggio/bondrota-api/internal/destinos"
@@ -383,6 +385,16 @@ func TestDestinoHandler_Delete(t *testing.T) {
 			id:         "1",
 			setup:      func(st *mocks.MockDestinoStore) { st.EXPECT().Delete(mock.Anything, int64(1)).Return(errors.New("db")) },
 			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			// destino referenciado por vínculo, reserva ou rota dinâmica (ON DELETE RESTRICT)
+			name: "destino em uso → 409",
+			id:   "1",
+			setup: func(st *mocks.MockDestinoStore) {
+				st.EXPECT().Delete(mock.Anything, int64(1)).
+					Return(fmt.Errorf("db/destinoStore.Delete: %w", &pgconn.PgError{Code: "23503", ConstraintName: "cliente_vinculos_destino_id_fkey"}))
+			},
+			wantStatus: http.StatusConflict,
 		},
 	}
 

@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/fredsaggio/bondrota-api/internal/clientes"
 )
@@ -395,6 +397,26 @@ func TestVinculoHandler_Delete(t *testing.T) {
 
 		if rr.Code != http.StatusNoContent {
 			t.Fatalf("want %d, got %d", http.StatusNoContent, rr.Code)
+		}
+	})
+
+	t.Run("vinculo com reservas registradas vira 409", func(t *testing.T) {
+		h := clientes.NewVinculoHandler(fakeVinculoService{
+			getFn: func(_ context.Context, _ int64) (*clientes.Vinculo, error) {
+				return sampleVinculo(), nil
+			},
+			deleteFn: func(_ context.Context, _ int64) error {
+				// reservas.vinculo_id usa ON DELETE RESTRICT
+				return fmt.Errorf("db/vinculoStore.Delete: %w", &pgconn.PgError{Code: "23503", ConstraintName: "reservas_vinculo_id_fkey"})
+			},
+		})
+
+		req := httptest.NewRequest(http.MethodDelete, "/clientes/1/vinculos/10", nil)
+		rr := httptest.NewRecorder()
+		newVinculoRouter(h).ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusConflict {
+			t.Fatalf("want %d, got %d", http.StatusConflict, rr.Code)
 		}
 	})
 

@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/fredsaggio/bondrota-api/internal/conv"
+	"github.com/fredsaggio/bondrota-api/internal/db"
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
 )
 
@@ -156,6 +157,10 @@ func (h *RotaInternaHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	if err := h.svc.Delete(ctx, rotaInternaID); err != nil {
 		if errors.Is(err, ErrNotFound) {
 			http.Error(w, "rota interna not found", http.StatusNotFound)
+			return
+		}
+		if db.IsAnyForeignKeyViolation(err) {
+			http.Error(w, "rota interna em uso por vínculos, reservas ou viagens e não pode ser excluída", http.StatusConflict)
 			return
 		}
 		http.Error(w, "internal server error", http.StatusInternalServerError)

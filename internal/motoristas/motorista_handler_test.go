@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/fredsaggio/bondrota-api/internal/mocks"
@@ -454,6 +456,16 @@ func TestMotoristaHandler_Delete(t *testing.T) {
 				svc.EXPECT().Delete(mock.Anything, int64(1)).Return(errors.New("db"))
 			},
 			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			// motorista alocado em um ciclo de viagem (ON DELETE RESTRICT)
+			name: "motorista em uso → 409",
+			id:   "1",
+			setup: func(svc *mocks.MockMotoristaService) {
+				svc.EXPECT().Delete(mock.Anything, int64(1)).
+					Return(fmt.Errorf("db/motoristaStore.Delete: %w", &pgconn.PgError{Code: "23503", ConstraintName: "ciclos_viagem_motorista_id_fkey"}))
+			},
+			wantStatus: http.StatusConflict,
 		},
 	}
 

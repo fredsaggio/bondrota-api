@@ -318,6 +318,10 @@ func (h *MotoristaHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "motorista not found", http.StatusNotFound)
 			return
 		}
+		if db.IsAnyForeignKeyViolation(err) {
+			http.Error(w, "motorista alocado em ciclos de viagem e não pode ser excluído", http.StatusConflict)
+			return
+		}
 		slog.Error("failed to delete motorista", "error", err, "motoristaID", motoristaID)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return

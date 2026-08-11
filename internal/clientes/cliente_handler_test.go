@@ -5,11 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/fredsaggio/bondrota-api/internal/auth"
 	"github.com/fredsaggio/bondrota-api/internal/clientes"
@@ -251,6 +253,37 @@ func TestClienteHandler_GetListUpdateDelete(t *testing.T) {
 
 		if rr.Code != http.StatusNoContent {
 			t.Fatalf("want %d, got %d", http.StatusNoContent, rr.Code)
+		}
+	})
+
+	t.Run("cliente com reserva alocada a viagem vira 409", func(t *testing.T) {
+		h := clientes.NewClienteHandler(fakeClienteService{
+			deleteFn: func(_ context.Context, _ int64) error {
+				// A cascata chega em reservas, mas viagem_reservas usa ON DELETE RESTRICT.
+				return fmt.Errorf("db/clienteStore.Delete: %w", &pgconn.PgError{Code: "23503", ConstraintName: "viagem_reservas_reserva_id_fkey"})
+			},
+		})
+
+		req := httptest.NewRequest(http.MethodDelete, "/clientes/1", nil)
+		rr := httptest.NewRecorder()
+		newClienteRouter(h).ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusConflict {
+			t.Fatalf("want %d, got %d", http.StatusConflict, rr.Code)
+		}
+	})
+
+	t.Run("falha generica do banco continua 500", func(t *testing.T) {
+		h := clientes.NewClienteHandler(fakeClienteService{
+			deleteFn: func(_ context.Context, _ int64) error { return errors.New("connection refused") },
+		})
+
+		req := httptest.NewRequest(http.MethodDelete, "/clientes/1", nil)
+		rr := httptest.NewRecorder()
+		newClienteRouter(h).ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusInternalServerError {
+			t.Fatalf("want %d, got %d", http.StatusInternalServerError, rr.Code)
 		}
 	})
 }

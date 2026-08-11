@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/fredsaggio/bondrota-api/internal/mocks"
@@ -348,6 +350,16 @@ func TestRotaInternaHandler_Delete(t *testing.T) {
 				svc.EXPECT().Delete(mock.Anything, int64(99)).Return(rotasinternas.ErrNotFound)
 			},
 			wantStatus: http.StatusNotFound,
+		},
+		{
+			// rota usada por vínculo, reserva ou ciclo de viagem (ON DELETE RESTRICT)
+			name: "rota interna em uso → 409",
+			id:   "1",
+			setup: func(svc *mocks.MockRotaInternaService) {
+				svc.EXPECT().Delete(mock.Anything, int64(1)).
+					Return(fmt.Errorf("db/rotaInternaStore.Delete: %w", &pgconn.PgError{Code: "23503", ConstraintName: "ciclos_viagem_rota_interna_id_fkey"}))
+			},
+			wantStatus: http.StatusConflict,
 		},
 		{
 			name: "erro interno → 500",
