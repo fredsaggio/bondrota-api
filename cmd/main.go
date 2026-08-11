@@ -17,6 +17,7 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/auth"
 	"github.com/fredsaggio/bondrota-api/internal/crypto"
 	"github.com/fredsaggio/bondrota-api/internal/db"
+	"github.com/fredsaggio/bondrota-api/internal/retencao"
 	"github.com/fredsaggio/bondrota-api/internal/server"
 	"github.com/fredsaggio/bondrota-api/internal/storage"
 	"github.com/go-chi/chi/v5"
@@ -115,7 +116,21 @@ func Run(ctx context.Context, getEnv func(string) string) error {
 		ServiceKey: getEnv("SUPABASE_SERVICE_KEY"),
 	}
 
-	handlers, rotaDinamicaWorker := buildHandlers(pool, authSvc, adminCookieConfig, storageConfig, getEnv("OSRM_BASE_URL"), appLocation)
+	retencaoMeses, err := positiveIntEnv(getEnv, "RETENTION_MONTHS", retencao.MesesPadrao)
+	if err != nil {
+		return err
+	}
+	retencaoLote, err := positiveIntEnv(getEnv, "RETENTION_BATCH_LIMIT", retencao.LoteMaximoPadrao)
+	if err != nil {
+		return err
+	}
+	retencaoConfig := retencao.Config{
+		Meses:      retencaoMeses,
+		LoteMaximo: retencaoLote,
+		Location:   appLocation,
+	}
+
+	handlers, rotaDinamicaWorker := buildHandlers(pool, authSvc, adminCookieConfig, storageConfig, getEnv("OSRM_BASE_URL"), appLocation, retencaoConfig)
 	srv := server.NewServer(handlers, authSvc, server.Config{
 		BaseCity:           baseCity,
 		TimeZone:           appTimezone,

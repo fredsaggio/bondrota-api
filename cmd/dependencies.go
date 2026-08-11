@@ -13,6 +13,7 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/municipios"
 	"github.com/fredsaggio/bondrota-api/internal/paradas"
 	"github.com/fredsaggio/bondrota-api/internal/reservas"
+	"github.com/fredsaggio/bondrota-api/internal/retencao"
 	"github.com/fredsaggio/bondrota-api/internal/rotasdinamicas"
 	"github.com/fredsaggio/bondrota-api/internal/rotasinternas"
 	"github.com/fredsaggio/bondrota-api/internal/server"
@@ -21,7 +22,7 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/viagens"
 )
 
-func buildHandlers(pool db.DB, authSvc *auth.AuthService, adminCookieConfig admin.SessionCookieConfig, storageConfig storage.SupabaseConfig, osrmBaseURL string, appLocation *time.Location) (server.Handlers, *rotasdinamicas.RotaDinamicaWorker) {
+func buildHandlers(pool db.DB, authSvc *auth.AuthService, adminCookieConfig admin.SessionCookieConfig, storageConfig storage.SupabaseConfig, osrmBaseURL string, appLocation *time.Location, retencaoConfig retencao.Config) (server.Handlers, *rotasdinamicas.RotaDinamicaWorker) {
 	adminStore := admin.NewAdminStore(pool)
 	adminSvc := admin.NewAdminService(adminStore, authSvc)
 	adminHandler := admin.NewAdminHandler(adminSvc, adminCookieConfig)
@@ -111,6 +112,10 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService, adminCookieConfig admi
 	storageSvc := storage.NewService(storageClient)
 	storageHandler := storage.NewHandler(storageSvc)
 
+	retencaoStore := retencao.NewStore(pool)
+	retencaoSvc := retencao.NewService(retencaoStore, retencaoConfig)
+	retencaoHandler := retencao.NewHandler(retencaoSvc)
+
 	return server.Handlers{
 		AdminHandler:        adminHandler,
 		VeiculoHandler:      veiculoHandler,
@@ -128,5 +133,6 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService, adminCookieConfig admi
 		HorarioTurnoHandler: horarioTurnoHandler,
 		RotaDinamicaHandler: rotaDinamicaHandler,
 		StorageHandler:      storageHandler,
+		RetencaoHandler:     retencaoHandler,
 	}, rotaDinamicaWorker
 }

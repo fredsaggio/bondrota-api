@@ -12,6 +12,7 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/municipios"
 	"github.com/fredsaggio/bondrota-api/internal/paradas"
 	"github.com/fredsaggio/bondrota-api/internal/reservas"
+	"github.com/fredsaggio/bondrota-api/internal/retencao"
 	"github.com/fredsaggio/bondrota-api/internal/rotasdinamicas"
 	"github.com/fredsaggio/bondrota-api/internal/rotasinternas"
 	"github.com/fredsaggio/bondrota-api/internal/storage"
@@ -39,6 +40,7 @@ type Handlers struct {
 	HorarioTurnoHandler *viagens.HorarioTurnoViagemHandler
 	RotaDinamicaHandler *rotasdinamicas.RotaDinamicaHandler
 	StorageHandler      *storage.Handler
+	RetencaoHandler     *retencao.Handler
 }
 
 type Server struct {
@@ -85,6 +87,7 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 	r.Route("/internal", func(r chi.Router) {
 		r.Use(requireBearerSecret(srv.config.PlanningCronSecret))
 		r.Post("/planejamentos/processar", srv.handlers.ProcessadorHandler.Processar)
+		r.Post("/retencao/limpar", srv.handlers.RetencaoHandler.Limpar)
 	})
 
 	r.Group(func(r chi.Router) {
