@@ -69,6 +69,30 @@ components:
           type: integer
           format: int64
           description: Expiração da sessão em milissegundos desde o Unix epoch
+    ResumoLimpezaResponse:
+      type: object
+      properties:
+        corte:
+          type: string
+          format: date-time
+          description: Data limite; tudo com data_viagem anterior foi removido.
+          example: '2026-05-11T00:00:00-03:00'
+        ciclos_removidos:
+          type: integer
+          format: int64
+          example: 12
+        reservas_removidas:
+          type: integer
+          format: int64
+          example: 340
+        execucoes_removidas:
+          type: integer
+          format: int64
+          example: 24
+        lote_saturado:
+          type: boolean
+          description: Indica que o limite do lote foi atingido e sobrou trabalho para a proxima execucao.
+          example: false
     ConfigResponse:
       type: object
       properties:
@@ -2664,6 +2688,22 @@ paths:
           description: Apenas administradores
         '500':
           description: Erro interno
+  /internal/retencao/limpar:
+    post:
+      summary: Remove dados operacionais fora da janela de retencao (somente cron)
+      tags:
+      - Interno
+      security:
+      - planningCronAuth: []
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResumoLimpezaResponse'
+        '401':
+          description: Segredo do cron ausente ou invalido
   /internal/planejamentos/processar:
     post:
       summary: Processa planejamentos devidos

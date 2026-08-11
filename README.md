@@ -211,6 +211,38 @@ Brasil. O bootstrap não é executado em deploys comuns.
 3. Abra [`deploy/supabase/planning_cron.sql`](deploy/supabase/planning_cron.sql), substitua `<PLANNING_CRON_SECRET>` pelo mesmo segredo do Render e `<RENDER_PLANNING_ENDPOINT>` pela URL completa `https://SEU-SERVICO.onrender.com/api/v1/internal/planejamentos/processar`.
 4. Execute o SQL uma única vez no SQL Editor do Supabase. Os valores ficam criptografados no Vault e o job chama a API a cada minuto.
 
+### Cron de retenção de dados no Supabase
+
+As tabelas operacionais (`ciclos_viagem`, `viagens` e dependentes, `reservas` e
+`execucoes_planejamento`) crescem a cada dia de operação e nunca são limpas pelo
+fluxo normal. A limpeza roda **diariamente** e apaga o que passou da janela de
+retenção, mantendo os últimos 3 meses para auditoria externa.
+
+1. Execute o `planning_cron.sql` primeiro: o script de retenção reutiliza o schema
+   `bondrota_internal` e o segredo `bondrota_planning_cron_secret`.
+2. Abra [`deploy/supabase/retention_cron.sql`](deploy/supabase/retention_cron.sql),
+   substitua `<RENDER_RETENTION_ENDPOINT>` pela URL completa
+   `https://SEU-SERVICO.onrender.com/api/v1/internal/retencao/limpar` e execute o SQL
+   uma única vez no SQL Editor do Supabase.
+
+A janela e o tamanho do lote são configuráveis no Render:
+
+| Variável | Padrão | Para que serve |
+| --- | --- | --- |
+| `RETENTION_MONTHS` | `3` | Meses de dados mantidos, contados no fuso de `APP_TIMEZONE`. |
+| `RETENTION_BATCH_LIMIT` | `5000` | Máximo de linhas removidas por tabela em cada execução. |
+
+O lote existe porque o `pg_net` encerra a chamada HTTP em 55s; apagar um trimestre
+inteiro de uma vez estouraria o tempo e seguraria lock nas tabelas. Quando o limite
+é atingido, a resposta traz `"lote_saturado": true` — sinal de que sobrou trabalho
+para a execução seguinte e que o limite pode precisar ser aumentado.
+
+A ordem de remoção importa: os ciclos saem primeiro e o `ON DELETE CASCADE` leva
+junto viagens, `viagem_reservas`, `viagem_reserva_confirmacoes`, `viagem_horarios`,
+`viagem_localizacoes`, `rotas_dinamicas` e `rota_dinamica_destinos`. Só então as
+reservas ficam livres da FK `RESTRICT` de `viagem_reservas`. Cadastros (clientes,
+vínculos, motoristas, veículos, destinos, rotas) nunca são tocados.
+
 Para consultar as execuções do cron:
 
 ```sql

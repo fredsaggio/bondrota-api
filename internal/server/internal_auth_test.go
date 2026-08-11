@@ -8,9 +8,16 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/fredsaggio/bondrota-api/internal/retencao"
 	"github.com/fredsaggio/bondrota-api/internal/viagens"
 	"github.com/go-chi/chi/v5"
 )
+
+type limpezaStub struct{}
+
+func (limpezaStub) Limpar(context.Context) (retencao.ResumoLimpeza, error) {
+	return retencao.ResumoLimpeza{}, nil
+}
 
 type processadorPlanejamentoStub struct{}
 
@@ -113,6 +120,51 @@ func TestInternalPlanningRouteUsesDedicatedSecret(t *testing.T) {
 
 	t.Run("rejects user request without cron secret", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/internal/planejamentos/processar", nil)
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusUnauthorized {
+			t.Fatalf("expected 401, got %d: %s", rr.Code, rr.Body.String())
+		}
+	})
+}
+
+// A limpeza de retencao apaga dados em definitivo. Ela precisa estar sob o mesmo
+// segredo do cron, inacessivel por JWT de qualquer role.
+func TestRetentionRouteRequiresCronSecret(t *testing.T) {
+	const secret = "0123456789abcdef0123456789abcdef"
+	handler := retencao.NewHandler(limpezaStub{})
+	srv := NewServer(Handlers{RetencaoHandler: handler}, nil, Config{PlanningCronSecret: secret})
+	router := chi.NewRouter()
+	srv.RegisterRoutes(router)
+
+	t.Run("accepts cron secret", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/internal/retencao/limpar", nil)
+		req.Header.Set("Authorization", "Bearer "+secret)
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+		}
+	})
+
+	t.Run("rejects request without cron secret", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/internal/retencao/limpar", nil)
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusUnauthorized {
+			t.Fatalf("expected 401, got %d: %s", rr.Code, rr.Body.String())
+		}
+	})
+
+	t.Run("rejects wrong secret", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/internal/retencao/limpar", nil)
+		req.Header.Set("Authorization", "Bearer nao-e-o-segredo-do-cron-000000000")
 		rr := httptest.NewRecorder()
 
 		router.ServeHTTP(rr, req)

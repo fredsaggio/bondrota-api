@@ -890,6 +890,38 @@ Resposta:
 
 Esse endpoint nao aceita JWT de admin, cliente ou motorista. O Supabase Cron o chama a cada minuto com um segredo exclusivo armazenado no Vault. A configuracao executavel esta em `deploy/supabase/planning_cron.sql`.
 
+#### Limpeza interna de retencao
+
+| Metodo | Path completo | Autenticacao | Sucesso | Erros |
+| --- | --- | --- | --- | --- |
+| `POST` | `BASE_URL/internal/retencao/limpar` | `Authorization: Bearer <PLANNING_CRON_SECRET>` | `200 ResumoLimpezaResponse` | `401`, `500` |
+
+Remove os dados operacionais fora da janela de retencao (padrao: 3 meses, contados
+no fuso de `APP_TIMEZONE`). Como o planejamento, nao aceita JWT de nenhuma role. O
+Supabase Cron o chama uma vez por dia; a configuracao esta em
+`deploy/supabase/retention_cron.sql`.
+
+Resposta:
+
+```json
+{
+  "corte": "2026-05-11T00:00:00-03:00",
+  "ciclos_removidos": 12,
+  "reservas_removidas": 340,
+  "execucoes_removidas": 24,
+  "lote_saturado": false
+}
+```
+
+`corte` e a data limite: tudo com `data_viagem` anterior a ela foi removido. Os
+ciclos saem primeiro e o `ON DELETE CASCADE` leva junto viagens, `viagem_reservas`,
+`viagem_reserva_confirmacoes`, `viagem_horarios`, `viagem_localizacoes`,
+`rotas_dinamicas` e `rota_dinamica_destinos`; so entao as reservas ficam livres da
+FK `RESTRICT` de `viagem_reservas`. Cadastros nunca sao removidos.
+
+`lote_saturado: true` indica que alguma tabela atingiu `RETENTION_BATCH_LIMIT` e
+ainda ha registros vencidos para a proxima execucao.
+
 ### Viagens
 
 Permissao: `admin` ou `motorista`. O motorista lista apenas as viagens atribuidas a ele e recebe `403` ao tentar consultar ou operar uma viagem de outro motorista.
