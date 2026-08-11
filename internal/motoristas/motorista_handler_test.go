@@ -2,6 +2,7 @@ package motoristas_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -418,6 +419,105 @@ func TestMotoristaHandler_Update(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestMotoristaHandler_UpdateOptionalFields captura a closure passada a
+// svc.Update e a executa contra um motorista de amostra, porque os subtestes
+// acima usam anyUpdateFunc e nunca invocam a closure de verdade — eles não
+// bastam para provar que telefone/residencia/foto distinguem "campo ausente"
+// de "campo explicitamente limpo".
+func TestMotoristaHandler_UpdateOptionalFields(t *testing.T) {
+	capture := func(t *testing.T, body map[string]any) (*motoristas.Motorista, bool, error) {
+		t.Helper()
+		var capturedMotorista *motoristas.Motorista
+		var capturedUpdated bool
+		var capturedErr error
+
+		svc := mocks.NewMockMotoristaService(t)
+		svc.EXPECT().Update(mock.Anything, int64(1), mock.Anything).
+			RunAndReturn(func(_ context.Context, _ int64, updateFunc func(*motoristas.Motorista) (bool, error)) (*motoristas.Motorista, error) {
+				m := sampleMotorista()
+				updated, err := updateFunc(m)
+				capturedMotorista, capturedUpdated, capturedErr = m, updated, err
+				return m, err
+			})
+
+		h := motoristas.NewMotoristaHandler(svc)
+		req := httptest.NewRequest(http.MethodPatch, "/motoristas/1", jsonBuf(body))
+		req.Header.Set("Content-Type", "application/json")
+		rr := httptest.NewRecorder()
+		newMotoristaRouter(h).ServeHTTP(rr, req)
+		if capturedErr == nil && rr.Code != http.StatusOK {
+			t.Fatalf("want 200, got %d: %s", rr.Code, rr.Body.String())
+		}
+
+		return capturedMotorista, capturedUpdated, capturedErr
+	}
+
+	t.Run("telefone ausente preserva o valor atual", func(t *testing.T) {
+		m, updated, err := capture(t, map[string]any{})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if updated {
+			t.Fatal("want updated=false when no field is sent")
+		}
+		if m.Telefone != "81999990000" {
+			t.Fatalf("want telefone untouched, got %q", m.Telefone)
+		}
+	})
+
+	t.Run("telefone vazio explicito limpa o campo", func(t *testing.T) {
+		m, updated, err := capture(t, map[string]any{"telefone": ""})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !updated {
+			t.Fatal("want updated=true when clearing a non-empty field")
+		}
+		if m.Telefone != "" {
+			t.Fatalf("want telefone cleared, got %q", m.Telefone)
+		}
+	})
+
+	t.Run("telefone com valor atualiza o campo", func(t *testing.T) {
+		m, updated, err := capture(t, map[string]any{"telefone": "82988887777"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !updated {
+			t.Fatal("want updated=true")
+		}
+		if m.Telefone != "82988887777" {
+			t.Fatalf("want telefone updated, got %q", m.Telefone)
+		}
+	})
+
+	t.Run("residencia vazia explicita limpa o campo", func(t *testing.T) {
+		m, updated, err := capture(t, map[string]any{"residencia": ""})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !updated {
+			t.Fatal("want updated=true when clearing a non-empty field")
+		}
+		if m.Residencia != "" {
+			t.Fatalf("want residencia cleared, got %q", m.Residencia)
+		}
+	})
+
+	t.Run("foto ausente nao mexe no campo mesmo ja vazio", func(t *testing.T) {
+		m, updated, err := capture(t, map[string]any{})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if updated {
+			t.Fatal("want updated=false when no field is sent")
+		}
+		if m.Foto != "" {
+			t.Fatalf("want foto untouched, got %q", m.Foto)
+		}
+	})
 }
 
 // --- Delete ---

@@ -400,6 +400,8 @@ components:
           example: senha123
         telefone:
           type: string
+          nullable: true
+          description: Omitido/null preserva o valor atual; string vazia limpa o campo.
           example: '82999990000'
         data_nasc:
           type: string
@@ -419,9 +421,13 @@ components:
           example: 2704302
         residencia:
           type: string
+          nullable: true
+          description: Omitido/null preserva o valor atual; string vazia limpa o campo.
           example: campo alegre
         foto:
           type: string
+          nullable: true
+          description: Omitido/null preserva o valor atual; string vazia limpa o campo.
           example: https://...
     MotoristaResponse:
       type: object
@@ -501,6 +507,8 @@ components:
           example: senha123
         telefone:
           type: string
+          nullable: true
+          description: Omitido/null preserva o valor atual; string vazia limpa o campo.
           example: '82999991111'
         data_nasc:
           type: string
@@ -508,6 +516,8 @@ components:
           example: '2002-08-10'
         foto:
           type: string
+          nullable: true
+          description: Omitido/null preserva o valor atual; string vazia limpa o campo.
           example: https://...
     ClienteResponse:
       type: object

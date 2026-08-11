@@ -237,6 +237,87 @@ func TestClienteHandler_GetListUpdateDelete(t *testing.T) {
 		}
 	})
 
+	t.Run("telefone vazio explicito limpa o campo", func(t *testing.T) {
+		var captured *clientes.Cliente
+		h := clientes.NewClienteHandler(fakeClienteService{
+			updateFn: func(_ context.Context, _ int64, updateFunc func(*clientes.Cliente) (bool, error)) (*clientes.Cliente, error) {
+				c := sampleCliente()
+				changed, err := updateFunc(c)
+				if err != nil || !changed {
+					t.Fatalf("expected changed without error, changed=%v err=%v", changed, err)
+				}
+				captured = c
+				return c, nil
+			},
+		})
+
+		req := httptest.NewRequest(http.MethodPut, "/clientes/1", body(map[string]any{"telefone": ""}))
+		rr := httptest.NewRecorder()
+		newClienteRouter(h).ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Fatalf("want %d, got %d: %s", http.StatusOK, rr.Code, rr.Body.String())
+		}
+		if captured.Telefone != "" {
+			t.Fatalf("want telefone cleared, got %q", captured.Telefone)
+		}
+	})
+
+	t.Run("telefone ausente preserva o valor atual", func(t *testing.T) {
+		var captured *clientes.Cliente
+		h := clientes.NewClienteHandler(fakeClienteService{
+			updateFn: func(_ context.Context, _ int64, updateFunc func(*clientes.Cliente) (bool, error)) (*clientes.Cliente, error) {
+				c := sampleCliente()
+				changed, err := updateFunc(c)
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				if changed {
+					t.Fatal("want changed=false when only nome is sent unchanged and no other field is present")
+				}
+				captured = c
+				return c, nil
+			},
+		})
+
+		req := httptest.NewRequest(http.MethodPut, "/clientes/1", body(map[string]any{}))
+		rr := httptest.NewRecorder()
+		newClienteRouter(h).ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Fatalf("want %d, got %d: %s", http.StatusOK, rr.Code, rr.Body.String())
+		}
+		if captured.Telefone != "82999999999" {
+			t.Fatalf("want telefone untouched, got %q", captured.Telefone)
+		}
+	})
+
+	t.Run("foto vazia explicita limpa o campo", func(t *testing.T) {
+		var captured *clientes.Cliente
+		h := clientes.NewClienteHandler(fakeClienteService{
+			updateFn: func(_ context.Context, _ int64, updateFunc func(*clientes.Cliente) (bool, error)) (*clientes.Cliente, error) {
+				c := sampleCliente()
+				changed, err := updateFunc(c)
+				if err != nil || !changed {
+					t.Fatalf("expected changed without error, changed=%v err=%v", changed, err)
+				}
+				captured = c
+				return c, nil
+			},
+		})
+
+		req := httptest.NewRequest(http.MethodPut, "/clientes/1", body(map[string]any{"foto": ""}))
+		rr := httptest.NewRecorder()
+		newClienteRouter(h).ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Fatalf("want %d, got %d: %s", http.StatusOK, rr.Code, rr.Body.String())
+		}
+		if captured.Foto != "" {
+			t.Fatalf("want foto cleared, got %q", captured.Foto)
+		}
+	})
+
 	t.Run("delete success", func(t *testing.T) {
 		h := clientes.NewClienteHandler(fakeClienteService{
 			deleteFn: func(_ context.Context, clienteID int64) error {

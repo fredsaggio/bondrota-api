@@ -34,10 +34,14 @@ type CreateClienteRequest struct {
 }
 
 type UpdateClienteRequest struct {
-	Nome     string `json:"nome"`
-	Telefone string `json:"telefone"`
-	DataNasc string `json:"data_nasc"`
-	Foto     string `json:"foto"`
+	Nome string `json:"nome"`
+	// Telefone e Foto sao ponteiros porque sao opcionais e podem ser legitimamente
+	// limpos: chave ausente/null preserva o valor atual, string vazia explicita
+	// apaga o campo. Nome e DataNasc sao obrigatorios e nunca fazem sentido em
+	// branco, entao continuam string simples.
+	Telefone *string `json:"telefone"`
+	DataNasc string  `json:"data_nasc"`
+	Foto     *string `json:"foto"`
 }
 
 type ClienteResponse struct {
@@ -193,9 +197,9 @@ func (h *ClienteHandler) Update(w http.ResponseWriter, r *http.Request) {
 				updated = true
 			}
 		}
-		if req.Telefone != "" {
-			telefone := strings.TrimSpace(req.Telefone)
-			if telefone != "" && telefone != c.Telefone {
+		if req.Telefone != nil {
+			telefone := strings.TrimSpace(*req.Telefone)
+			if telefone != c.Telefone {
 				c.Telefone = telefone
 				updated = true
 			}
@@ -210,9 +214,9 @@ func (h *ClienteHandler) Update(w http.ResponseWriter, r *http.Request) {
 				updated = true
 			}
 		}
-		if req.Foto != "" {
-			foto := strings.TrimSpace(req.Foto)
-			if foto != "" && foto != c.Foto {
+		if req.Foto != nil {
+			foto := strings.TrimSpace(*req.Foto)
+			if foto != c.Foto {
 				c.Foto = foto
 				updated = true
 			}

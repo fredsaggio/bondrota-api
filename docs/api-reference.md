@@ -489,6 +489,11 @@ Turnos validos: `MT`, `VT`, `NT`, `IN`.
 | `PUT` | `BASE_URL/motoristas/{id}` | Atualiza motorista. | `UpdateMotoristaRequest` parcial | `200 MotoristaResponse` | `400`, `401`, `403`, `404`, `500` |
 | `DELETE` | `BASE_URL/motoristas/{id}` | Remove motorista. | nenhum | `204` | `400`, `401`, `403`, `404`, `409`, `500` |
 
+`telefone`, `residencia` e `foto` sao opcionais no update: omita a chave (ou envie
+`null`) para manter o valor atual, e envie `""` explicitamente para limpar o campo.
+`nome`, `data_nasc`, `turno` e `municipio_trabalho_id` continuam sendo ignorados
+quando enviados em branco, porque nao existe valor valido em branco para eles.
+
 Create:
 
 ```json
@@ -536,6 +541,10 @@ Permissoes:
 | `PUT` | `BASE_URL/clientes/{clienteID}` | Atualiza cliente. | `UpdateClienteRequest` parcial | `200 ClienteResponse` | `400`, `401`, `403`, `404`, `500` |
 | `DELETE` | `BASE_URL/clientes/{clienteID}` | Remove cliente. | nenhum | `204` | `400`, `401`, `403`, `404`, `409`, `500` |
 | `GET` | `BASE_URL/clientes/{clienteID}/reservas/` | Lista reservas do cliente. | nenhum | `200 ReservaResponse[]` | `400`, `401`, `403`, `500` |
+
+`telefone` e `foto` sao opcionais no update: omita a chave (ou envie `null`) para
+manter o valor atual, e envie `""` explicitamente para limpar o campo. `nome` e
+`data_nasc` continuam sendo ignorados quando enviados em branco.
 
 Create:
 
