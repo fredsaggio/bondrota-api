@@ -49,6 +49,7 @@ type Server struct {
 
 type Config struct {
 	BaseCity           string               `json:"cidade_base"`
+	TimeZone           string               `json:"fuso_horario"`
 	PlanningCronSecret string               `json:"-"`
 	AdminCookieName    string               `json:"-"`
 	LoginRateLimit     LoginRateLimitConfig `json:"-"`

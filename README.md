@@ -76,7 +76,9 @@ A API estará disponível em `http://localhost:8080/api/v1`.
 
 A cidade base identifica a única cidade atendida pela instância e fica fora do
 banco de dados operacional. O frontend pode consultá-la em `GET /api/v1/config`,
-que retorna `{"cidade_base":"Campo Alegre"}`.
+que retorna `{"cidade_base":"Campo Alegre","fuso_horario":"America/Maceio"}`.
+O fuso é o mesmo configurado em `APP_TIMEZONE`; use-o para calcular datas como
+"hoje" no fuso correto em vez do fuso do navegador.
 
 ## Comandos disponíveis
 

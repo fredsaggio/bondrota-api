@@ -75,6 +75,9 @@ components:
         cidade_base:
           type: string
           example: Campo Alegre
+        fuso_horario:
+          type: string
+          example: America/Maceio
     MunicipioResponse:
       type: object
       properties:

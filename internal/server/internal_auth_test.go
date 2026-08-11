@@ -64,6 +64,34 @@ func TestConfigDoesNotExposePlanningCronSecret(t *testing.T) {
 	}
 }
 
+func TestGetConfigRouteExposesBaseCityAndTimeZone(t *testing.T) {
+	srv := NewServer(Handlers{}, nil, Config{BaseCity: "Campo Alegre", TimeZone: "America/Maceio", PlanningCronSecret: "0123456789abcdef0123456789abcdef"})
+	router := chi.NewRouter()
+	srv.RegisterRoutes(router)
+
+	req := httptest.NewRequest(http.MethodGet, "/config", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d", rr.Code)
+	}
+
+	var body map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatalf("invalid json: %v", err)
+	}
+	if body["cidade_base"] != "Campo Alegre" {
+		t.Fatalf("want cidade_base Campo Alegre, got %v", body["cidade_base"])
+	}
+	if body["fuso_horario"] != "America/Maceio" {
+		t.Fatalf("want fuso_horario America/Maceio, got %v", body["fuso_horario"])
+	}
+	if strings.Contains(rr.Body.String(), "0123456789abcdef0123456789abcdef") {
+		t.Fatalf("config route exposed cron secret: %s", rr.Body.String())
+	}
+}
+
 func TestInternalPlanningRouteUsesDedicatedSecret(t *testing.T) {
 	const secret = "0123456789abcdef0123456789abcdef"
 	processadorHandler := viagens.NewProcessadorPlanejamentoHandler(processadorPlanejamentoStub{})

@@ -118,6 +118,7 @@ func Run(ctx context.Context, getEnv func(string) string) error {
 	handlers, rotaDinamicaWorker := buildHandlers(pool, authSvc, adminCookieConfig, storageConfig, getEnv("OSRM_BASE_URL"), appLocation)
 	srv := server.NewServer(handlers, authSvc, server.Config{
 		BaseCity:           baseCity,
+		TimeZone:           appTimezone,
 		PlanningCronSecret: planningCronSecret,
 		AdminCookieName:    adminCookieConfig.Name,
 		LoginRateLimit:     loginRateLimitConfig,

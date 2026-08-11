@@ -33,11 +33,15 @@ invalid request body
 
 Deletes bem-sucedidos retornam `204 No Content`, sem corpo.
 
-`GET BASE_URL/config` e publico e retorna a cidade base da instancia:
+`GET BASE_URL/config` e publico e retorna a cidade base e o fuso horario da instancia:
 
 ```json
-{ "cidade_base": "Campo Alegre" }
+{ "cidade_base": "Campo Alegre", "fuso_horario": "America/Maceio" }
 ```
+
+`fuso_horario` e o mesmo nome IANA configurado em `APP_TIMEZONE` no backend. O
+frontend deve usa-lo para calcular datas relativas a "agora" (como "hoje" no
+dashboard), em vez do fuso do navegador do admin.
 
 ### Autenticacao
 
