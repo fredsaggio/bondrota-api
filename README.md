@@ -110,11 +110,23 @@ make migration/fix                          # Converte timestamps para sequencia
 
 ## Seed de administrador
 
-Para criar o primeiro administrador, configure as variáveis `ADMIN_EMAIL` e `ADMIN_PASSWORD` no `.env` e execute:
+Para criar o primeiro administrador, configure as variáveis `ADMIN_EMAIL` e
+`ADMIN_PASSWORD` no `.env` e execute:
 
 ```bash
 go run ./cmd/seed-admin
 ```
+
+O comando usa o banco local de `DATABASE_URL` por padrão. Para semear o banco de
+produção é preciso pedir isso explicitamente, e aí ele lê `PROD_DATABASE_URL`:
+
+```bash
+go run ./cmd/seed-admin -target=prod
+```
+
+Use `-target=prod` apenas de propósito: ele cria um administrador real, com a senha
+que estiver em `ADMIN_PASSWORD`. O comando registra o alvo e o host antes de conectar,
+sem expor credenciais, para que dê para conferir onde a escrita vai acontecer.
 
 ## Estrutura do projeto
 

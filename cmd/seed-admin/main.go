@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -22,16 +24,57 @@ func main() {
 	}
 }
 
-func run(ctx context.Context) error {
-	_ = godotenv.Load(".env")
-	_ = godotenv.Overload(".env.prod")
+const (
+	targetLocal = "local"
+	targetProd  = "prod"
+)
 
-	dbURL := strings.TrimSpace(os.Getenv("PROD_DATABASE_URL"))
+// databaseEnvFor devolve a variavel que guarda a URL do banco de cada alvo. O alvo
+// padrao e o local: producao exige `-target=prod` explicito, para que rodar o
+// comando durante o desenvolvimento nunca crie um administrador em producao.
+func databaseEnvFor(target string) (string, error) {
+	switch target {
+	case targetLocal:
+		return "DATABASE_URL", nil
+	case targetProd:
+		return "PROD_DATABASE_URL", nil
+	default:
+		return "", fmt.Errorf("invalid -target %q: use %s or %s", target, targetLocal, targetProd)
+	}
+}
+
+// safeHost extrai apenas host:porta da URL de conexao, para registrar o alvo sem
+// expor usuario e senha no log.
+func safeHost(rawURL string) string {
+	parsed, err := url.Parse(rawURL)
+	if err != nil || parsed.Host == "" {
+		return "desconhecido"
+	}
+	return parsed.Host
+}
+
+func run(ctx context.Context) error {
+	target := flag.String("target", targetLocal, "banco alvo: local (DATABASE_URL) ou prod (PROD_DATABASE_URL)")
+	flag.Parse()
+
+	dbEnv, err := databaseEnvFor(*target)
+	if err != nil {
+		return err
+	}
+
+	_ = godotenv.Load(".env")
+	if *target == targetProd {
+		// .env.prod so e carregado no alvo de producao. Carregar sempre faria
+		// PROD_DATABASE_URL vazar para execucoes locais.
+		_ = godotenv.Overload(".env.prod")
+	}
+
+	dbURL := strings.TrimSpace(os.Getenv(dbEnv))
 	email := strings.TrimSpace(os.Getenv("ADMIN_EMAIL"))
 	password := os.Getenv("ADMIN_PASSWORD")
 
 	if dbURL == "" {
-		return errors.New("PROD_DATABASE_URL is required")
+		return fmt.Errorf("%s is required for -target=%s", dbEnv, *target)
 	}
 	if email == "" {
 		return errors.New("ADMIN_EMAIL is required")
@@ -39,6 +82,8 @@ func run(ctx context.Context) error {
 	if strings.TrimSpace(password) == "" {
 		return errors.New("ADMIN_PASSWORD is required")
 	}
+
+	slog.Info("seeding admin", "target", *target, "host", safeHost(dbURL), "email", email)
 
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
