@@ -37,6 +37,15 @@ packages:
       ReservaStore:
       ReservaService:
 
+  github.com/fredsaggio/bondrota-api/internal/retencao:
+    config:
+      dir: internal/mocks
+      pkgname: mocks
+      filename: retencaomocks.go
+    interfaces:
+      Store:
+      Service:
+
   github.com/fredsaggio/bondrota-api/internal/rotasinternas:
     config:
       dir: internal/mocks
