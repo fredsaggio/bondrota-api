@@ -13,7 +13,7 @@ import (
 var (
 	ErrNomeInvalido     = errors.New("nome must contain only letters and spaces")
 	ErrCPFInvalido      = errors.New("cpf must have 11 digits")
-	ErrTelefoneInvalido = errors.New("telefone must have 10 or 11 digits with a valid ddd")
+	ErrTelefoneInvalido = errors.New("telefone must be a valid cellphone number: ddd + 9 digits starting with 9")
 )
 
 var naoDigito = regexp.MustCompile(`\D`)
@@ -50,15 +50,17 @@ func CPF(cpf string) (string, error) {
 	return digits, nil
 }
 
-// Telefone limpa a pontuacao e confere 10 ou 11 digitos (DDD + numero fixo ou
-// celular) com DDD valido. O campo e opcional: string vazia (ou so
-// pontuacao/espacos) retorna vazio sem erro. Retorna o telefone ja limpo.
+// Telefone limpa a pontuacao e confere 11 digitos de celular: DDD valido
+// seguido do 9 que todo celular brasileiro tem desde a expansao do nono
+// digito. Fixo nao e aceito aqui — so cadastramos celular. O campo e
+// opcional: string vazia (ou so pontuacao/espacos) retorna vazio sem erro.
+// Retorna o telefone ja limpo.
 func Telefone(telefone string) (string, error) {
 	digits := LimparDigitos(telefone)
 	if digits == "" {
 		return "", nil
 	}
-	if (len(digits) != 10 && len(digits) != 11) || digits[0] == '0' {
+	if len(digits) != 11 || digits[0] == '0' || digits[2] != '9' {
 		return "", ErrTelefoneInvalido
 	}
 	return digits, nil

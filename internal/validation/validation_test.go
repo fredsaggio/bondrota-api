@@ -66,10 +66,11 @@ func TestTelefone(t *testing.T) {
 		wantErr error
 	}{
 		{"celular formatado", "(82) 98888-7777", "82988887777", nil},
-		{"fixo formatado", "(82) 3333-4444", "8233334444", nil},
+		{"fixo nao e aceito", "(82) 3333-4444", "", validation.ErrTelefoneInvalido},
 		{"vazio e opcional", "", "", nil},
 		{"so espacos e opcional", "   ", "", nil},
 		{"ddd zero invalido", "(00) 98888-7777", "", validation.ErrTelefoneInvalido},
+		{"nono digito ausente", "82888887777", "", validation.ErrTelefoneInvalido},
 		{"curto demais", "988887777", "", validation.ErrTelefoneInvalido},
 		{"longo demais", "829888877771", "", validation.ErrTelefoneInvalido},
 	}
