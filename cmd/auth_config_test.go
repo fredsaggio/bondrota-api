@@ -52,6 +52,42 @@ func TestCookieIsSecureWhenProductionAndLocalOriginsAreMixed(t *testing.T) {
 	}
 }
 
+func TestCoordinateEnv(t *testing.T) {
+	values := map[string]string{
+		"BASE_CITY_LATITUDE":  " -9.7817 ",
+		"BASE_CITY_LONGITUDE": "-36.3506",
+	}
+	getEnv := func(key string) string { return values[key] }
+
+	latitude, err := coordinateEnv(getEnv, "BASE_CITY_LATITUDE", 90)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if latitude != -9.7817 {
+		t.Fatalf("unexpected latitude: %v", latitude)
+	}
+
+	longitude, err := coordinateEnv(getEnv, "BASE_CITY_LONGITUDE", 180)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if longitude != -36.3506 {
+		t.Fatalf("unexpected longitude: %v", longitude)
+	}
+
+	if _, err := coordinateEnv(func(string) string { return "" }, "BASE_CITY_LATITUDE", 90); err == nil {
+		t.Fatal("expected a missing coordinate to be rejected")
+	}
+	if _, err := coordinateEnv(func(string) string { return "sul" }, "BASE_CITY_LATITUDE", 90); err == nil {
+		t.Fatal("expected a non-numeric coordinate to be rejected")
+	}
+	// Longitude valida nao pode passar por latitude: -100 cabe em [-180, 180]
+	// mas esta fora de [-90, 90], e trocar os dois campos e o erro mais provavel.
+	if _, err := coordinateEnv(func(string) string { return "-100" }, "BASE_CITY_LATITUDE", 90); err == nil {
+		t.Fatal("expected an out-of-range latitude to be rejected")
+	}
+}
+
 func TestLoadLoginRateLimitConfig(t *testing.T) {
 	values := map[string]string{
 		"LOGIN_RATE_LIMIT_PER_IP":              "30",

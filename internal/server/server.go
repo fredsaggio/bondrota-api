@@ -51,6 +51,8 @@ type Server struct {
 
 type Config struct {
 	BaseCity           string               `json:"cidade_base"`
+	BaseLatitude       float64              `json:"latitude_base"`
+	BaseLongitude      float64              `json:"longitude_base"`
 	TimeZone           string               `json:"fuso_horario"`
 	PlanningCronSecret string               `json:"-"`
 	AdminCookieName    string               `json:"-"`

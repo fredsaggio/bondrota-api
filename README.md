@@ -34,6 +34,8 @@ Crie um arquivo `.env` na raiz do projeto:
 ```env
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/bondrota_db?sslmode=disable
 BASE_CITY=Campo Alegre
+BASE_CITY_LATITUDE=-9.7799
+BASE_CITY_LONGITUDE=-36.3576
 APP_TIMEZONE=America/Maceio
 PORT=8080
 ALLOWED_ORIGINS=http://localhost:3000
@@ -76,9 +78,17 @@ A API estará disponível em `http://localhost:8080/api/v1`.
 
 A cidade base identifica a única cidade atendida pela instância e fica fora do
 banco de dados operacional. O frontend pode consultá-la em `GET /api/v1/config`,
-que retorna `{"cidade_base":"Campo Alegre","fuso_horario":"America/Maceio"}`.
+que retorna `{"cidade_base":"Campo Alegre","latitude_base":-9.7817,
+"longitude_base":-36.3506,"fuso_horario":"America/Maceio"}`.
 O fuso é o mesmo configurado em `APP_TIMEZONE`; use-o para calcular datas como
 "hoje" no fuso correto em vez do fuso do navegador.
+
+`BASE_CITY_LATITUDE` e `BASE_CITY_LONGITUDE` são as coordenadas do centro da
+cidade base, em graus decimais. O painel as usa para enquadrar os mapas — tanto
+o de monitoramento quanto o seletor de coordenadas dos cadastros — em vez de
+carregar um ponto fixo no código, que estaria errado em qualquer outra cidade.
+Não há valor padrão de propósito: um centro chutado colocaria o admin para
+trabalhar na região errada sem nenhum aviso, então a API recusa subir sem elas.
 
 ## Comandos disponíveis
 
@@ -201,7 +211,7 @@ Consulte [`docs/api-reference.md`](docs/api-reference.md) para a referência com
 
 A API é containerizada via Docker e pode ser deployada em qualquer plataforma que suporte containers. O `Dockerfile` usa build multi-stage com imagem final `distroless` para manter o binário mínimo e seguro.
 
-Variáveis de ambiente necessárias em produção: `DATABASE_URL`, `BASE_CITY`, `APP_TIMEZONE`, `PORT`, `ALLOWED_ORIGINS`, `JWT_SECRET`, `PLANNING_CRON_SECRET`, `SUPABASE_URL` e `SUPABASE_SERVICE_KEY`. O painel administrativo autentica por cookie HttpOnly: em produção, use `AUTH_COOKIE_SECURE=true`; use `AUTH_COOKIE_SAME_SITE=none` apenas quando painel e API estiverem em sites diferentes (essa opção exige HTTPS). `AUTH_COOKIE_NAME` e `AUTH_COOKIE_DOMAIN` são opcionais. `ALLOWED_ORIGINS` deve listar origens exatas e não aceita `*`. `APP_TIMEZONE` deve usar um nome IANA, como `America/Maceio`, e determina o fuso dos horários operacionais e dos limites de reserva. `PLANNING_CRON_SECRET` deve ter pelo menos 32 caracteres e autentica exclusivamente o processador interno de planejamentos. Configure também `OSRM_BASE_URL` para usar uma instância dedicada do OSRM; quando omitida, a API usa o servidor público de demonstração.
+Variáveis de ambiente necessárias em produção: `DATABASE_URL`, `BASE_CITY`, `BASE_CITY_LATITUDE`, `BASE_CITY_LONGITUDE`, `APP_TIMEZONE`, `PORT`, `ALLOWED_ORIGINS`, `JWT_SECRET`, `PLANNING_CRON_SECRET`, `SUPABASE_URL` e `SUPABASE_SERVICE_KEY`. O painel administrativo autentica por cookie HttpOnly: em produção, use `AUTH_COOKIE_SECURE=true`; use `AUTH_COOKIE_SAME_SITE=none` apenas quando painel e API estiverem em sites diferentes (essa opção exige HTTPS). `AUTH_COOKIE_NAME` e `AUTH_COOKIE_DOMAIN` são opcionais. `ALLOWED_ORIGINS` deve listar origens exatas e não aceita `*`. `APP_TIMEZONE` deve usar um nome IANA, como `America/Maceio`, e determina o fuso dos horários operacionais e dos limites de reserva. `PLANNING_CRON_SECRET` deve ter pelo menos 32 caracteres e autentica exclusivamente o processador interno de planejamentos. Configure também `OSRM_BASE_URL` para usar uma instância dedicada do OSRM; quando omitida, a API usa o servidor público de demonstração.
 
 Os três logins possuem rate limit em memória por IP e por e-mail/CPF. Os padrões
 são 20 tentativas por IP e 5 por identidade a cada minuto; ajuste-os com

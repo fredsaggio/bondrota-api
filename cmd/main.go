@@ -54,6 +54,15 @@ func Run(ctx context.Context, getEnv func(string) string) error {
 		return fmt.Errorf("BASE_CITY is required")
 	}
 
+	baseLatitude, err := coordinateEnv(getEnv, "BASE_CITY_LATITUDE", 90)
+	if err != nil {
+		return err
+	}
+	baseLongitude, err := coordinateEnv(getEnv, "BASE_CITY_LONGITUDE", 180)
+	if err != nil {
+		return err
+	}
+
 	appTimezone := strings.TrimSpace(getEnv("APP_TIMEZONE"))
 	if appTimezone == "" {
 		return fmt.Errorf("APP_TIMEZONE is required")
@@ -133,6 +142,8 @@ func Run(ctx context.Context, getEnv func(string) string) error {
 	handlers, rotaDinamicaWorker := buildHandlers(pool, authSvc, adminCookieConfig, storageConfig, getEnv("OSRM_BASE_URL"), appLocation, retencaoConfig)
 	srv := server.NewServer(handlers, authSvc, server.Config{
 		BaseCity:           baseCity,
+		BaseLatitude:       baseLatitude,
+		BaseLongitude:      baseLongitude,
 		TimeZone:           appTimezone,
 		PlanningCronSecret: planningCronSecret,
 		AdminCookieName:    adminCookieConfig.Name,
@@ -283,6 +294,25 @@ func loadLoginRateLimitConfig(getEnv func(string) string) (server.LoginRateLimit
 		Window:              window,
 		TrustProxyHeaders:   trustProxyHeaders,
 	}, nil
+}
+
+// coordinateEnv le uma coordenada obrigatoria em graus decimais e confere que
+// ela cabe no intervalo valido (limit e 90 para latitude, 180 para longitude).
+// Nao ha fallback de proposito: um centro de mapa chutado colocaria o admin
+// para trabalhar na cidade errada sem nenhum aviso.
+func coordinateEnv(getEnv func(string) string, name string, limit float64) (float64, error) {
+	raw := strings.TrimSpace(getEnv(name))
+	if raw == "" {
+		return 0, fmt.Errorf("%s is required", name)
+	}
+	value, err := strconv.ParseFloat(raw, 64)
+	if err != nil {
+		return 0, fmt.Errorf("%s must be a decimal number in degrees", name)
+	}
+	if value < -limit || value > limit {
+		return 0, fmt.Errorf("%s must be between -%g and %g", name, limit, limit)
+	}
+	return value, nil
 }
 
 func positiveIntEnv(getEnv func(string) string, name string, fallback int) (int, error) {
