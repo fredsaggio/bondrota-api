@@ -129,7 +129,7 @@ func TestMotoristaHandler_Login(t *testing.T) {
 func validCreateBody() *bytes.Buffer {
 	return jsonBuf(map[string]any{
 		"nome":                  "João Silva",
-		"cpf":                   "123.456.789-00",
+		"cpf":                   "123.456.789-01",
 		"senha":                 "secret",
 		"turno":                 "MT",
 		"data_nasc":             "1990-01-01",
@@ -149,7 +149,7 @@ func TestMotoristaHandler_Create(t *testing.T) {
 			body: validCreateBody(),
 			setup: func(svc *mocks.MockMotoristaService) {
 				svc.EXPECT().Create(mock.Anything, mock.MatchedBy(func(in motoristas.MotoristaInput) bool {
-					return in.Nome == "João Silva" && in.CPF == "123.456.789-00" && in.Turno == motoristas.TurnoMatutino && in.MunicipioTrabalhoID == 2611606
+					return in.Nome == "João Silva" && in.CPF == "12345678901" && in.Turno == motoristas.TurnoMatutino && in.MunicipioTrabalhoID == 2611606
 				})).Return(sampleMotorista(), nil)
 			},
 			wantStatus: http.StatusCreated,
@@ -162,7 +162,19 @@ func TestMotoristaHandler_Create(t *testing.T) {
 		},
 		{
 			name:       "nome vazio → 400",
-			body:       jsonBuf(map[string]any{"cpf": "123.456.789-00", "senha": "pw", "turno": "MT", "data_nasc": "1990-01-01"}),
+			body:       jsonBuf(map[string]any{"cpf": "123.456.789-01", "senha": "pw", "turno": "MT", "data_nasc": "1990-01-01"}),
+			setup:      func(_ *mocks.MockMotoristaService) {},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "nome com digito → 400",
+			body:       jsonBuf(map[string]any{"nome": "João 2", "cpf": "123.456.789-01", "senha": "pw", "turno": "MT", "data_nasc": "1990-01-01", "municipio_trabalho_id": int64(2611606)}),
+			setup:      func(_ *mocks.MockMotoristaService) {},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "cpf curto → 400",
+			body:       jsonBuf(map[string]any{"nome": "João Silva", "cpf": "123", "senha": "pw", "turno": "MT", "data_nasc": "1990-01-01", "municipio_trabalho_id": int64(2611606)}),
 			setup:      func(_ *mocks.MockMotoristaService) {},
 			wantStatus: http.StatusBadRequest,
 		},

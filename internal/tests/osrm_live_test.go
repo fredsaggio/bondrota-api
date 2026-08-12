@@ -18,8 +18,8 @@ func TestLiveOSRMRotaDinamica(t *testing.T) {
 	cidade := "e2e-osrm-live-" + suffix
 	h.Cleanup(e2eCleanupData{
 		AdminEmail:      h.AdminEmail,
-		MotoristaPrefix: "99" + suffix[len(suffix)-6:],
-		ClientePrefix:   "89" + suffix[len(suffix)-6:],
+		MotoristaPrefix: "99" + suffix[len(suffix)-7:],
+		ClientePrefix:   "89" + suffix[len(suffix)-7:],
 		PlacaPrefix:     "O" + suffix[len(suffix)-5:],
 		CidadeDestino:   cidade,
 		DestinoPrefix:   "Destino Base E2E " + suffix,
@@ -28,8 +28,8 @@ func TestLiveOSRMRotaDinamica(t *testing.T) {
 	rotaInternaID, dataViagem := setupPlanejamentoBase(t, h, planejamentoBaseOptions{
 		CidadeDestino:   cidade,
 		Prefixo:         suffix,
-		MotoristaPrefix: "99" + suffix[len(suffix)-6:],
-		ClientePrefix:   "89" + suffix[len(suffix)-6:],
+		MotoristaPrefix: "99" + suffix[len(suffix)-7:],
+		ClientePrefix:   "89" + suffix[len(suffix)-7:],
 		PlacaPrefix:     "O" + suffix[len(suffix)-5:],
 		CriarVeiculo:    true,
 		CriarMotorista:  true,

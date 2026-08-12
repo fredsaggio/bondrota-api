@@ -12,6 +12,7 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/conv"
 	"github.com/fredsaggio/bondrota-api/internal/db"
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
+	"github.com/fredsaggio/bondrota-api/internal/validation"
 )
 
 type CreateMotoristaRequest struct {
@@ -106,12 +107,22 @@ func (h *MotoristaHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if strings.TrimSpace(req.Nome) == "" {
+	nome := strings.TrimSpace(req.Nome)
+	if nome == "" {
 		http.Error(w, "nome is required", http.StatusBadRequest)
+		return
+	}
+	if err := validation.Nome(nome); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	if strings.TrimSpace(req.CPF) == "" {
 		http.Error(w, "cpf is required", http.StatusBadRequest)
+		return
+	}
+	cpf, err := validation.CPF(req.CPF)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	if strings.TrimSpace(req.Senha) == "" {
@@ -145,11 +156,17 @@ func (h *MotoristaHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	telefone, err := validation.Telefone(req.Telefone)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	input := MotoristaInput{
-		Nome:                strings.TrimSpace(req.Nome),
-		CPF:                 strings.TrimSpace(req.CPF),
+		Nome:                nome,
+		CPF:                 cpf,
 		Senha:               req.Senha,
-		Telefone:            strings.TrimSpace(req.Telefone),
+		Telefone:            telefone,
 		DataNasc:            dataNasc,
 		Turno:               req.Turno,
 		MunicipioTrabalhoID: req.MunicipioTrabalhoID,
@@ -234,13 +251,19 @@ func (h *MotoristaHandler) Update(w http.ResponseWriter, r *http.Request) {
 			if nome == "" {
 				return false, ErrNomeObrigatorio
 			}
+			if err := validation.Nome(nome); err != nil {
+				return false, err
+			}
 			if nome != m.Nome {
 				m.Nome = nome
 				updated = true
 			}
 		}
 		if req.Telefone != nil {
-			telefone := strings.TrimSpace(*req.Telefone)
+			telefone, err := validation.Telefone(*req.Telefone)
+			if err != nil {
+				return false, err
+			}
 			if telefone != m.Telefone {
 				m.Telefone = telefone
 				updated = true
@@ -296,7 +319,9 @@ func (h *MotoristaHandler) Update(w http.ResponseWriter, r *http.Request) {
 		}
 		if errors.Is(err, ErrNomeObrigatorio) ||
 			errors.Is(err, ErrTurnoInvalido) ||
-			errors.Is(err, ErrDataNascInvalida) {
+			errors.Is(err, ErrDataNascInvalida) ||
+			errors.Is(err, validation.ErrNomeInvalido) ||
+			errors.Is(err, validation.ErrTelefoneInvalido) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}

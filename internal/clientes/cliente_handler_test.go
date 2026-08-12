@@ -129,8 +129,8 @@ func TestClienteHandler_Login(t *testing.T) {
 
 func TestClienteHandler_Create(t *testing.T) {
 	validBody := map[string]any{
-		"nome":      " Maria ",
-		"cpf":       "123",
+		"nome":      " Maria Souza ",
+		"cpf":       "123.456.789-01",
 		"senha":     "secret",
 		"data_nasc": "2000-01-02",
 	}
@@ -146,7 +146,7 @@ func TestClienteHandler_Create(t *testing.T) {
 			body: body(validBody),
 			svc: fakeClienteService{
 				createFn: func(_ context.Context, input clientes.ClienteInput) (*clientes.Cliente, error) {
-					if input.Nome != "Maria" || input.CPF != "123" {
+					if input.Nome != "Maria Souza" || input.CPF != "12345678901" {
 						t.Fatalf("unexpected input: %+v", input)
 					}
 					return sampleCliente(), nil
@@ -156,7 +156,19 @@ func TestClienteHandler_Create(t *testing.T) {
 		},
 		{
 			name:       "invalid date",
-			body:       body(map[string]any{"nome": "Maria", "cpf": "123", "senha": "secret", "data_nasc": "02-01-2000"}),
+			body:       body(map[string]any{"nome": "Maria Souza", "cpf": "123.456.789-01", "senha": "secret", "data_nasc": "02-01-2000"}),
+			svc:        fakeClienteService{},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "nome com digito → 400",
+			body:       body(map[string]any{"nome": "Maria 2", "cpf": "123.456.789-01", "senha": "secret", "data_nasc": "2000-01-02"}),
+			svc:        fakeClienteService{},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "cpf curto → 400",
+			body:       body(map[string]any{"nome": "Maria Souza", "cpf": "123", "senha": "secret", "data_nasc": "2000-01-02"}),
 			svc:        fakeClienteService{},
 			wantStatus: http.StatusBadRequest,
 		},

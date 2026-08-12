@@ -15,6 +15,7 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/conv"
 	"github.com/fredsaggio/bondrota-api/internal/db"
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
+	"github.com/fredsaggio/bondrota-api/internal/validation"
 )
 
 type ClienteHandler struct {
@@ -268,13 +269,19 @@ func (h *ClienteHandler) Update(w http.ResponseWriter, r *http.Request) {
 			if nome == "" {
 				return false, ErrNomeObrigatorio
 			}
+			if err := validation.Nome(nome); err != nil {
+				return false, err
+			}
 			if nome != c.Nome {
 				c.Nome = nome
 				updated = true
 			}
 		}
 		if req.Telefone != nil {
-			telefone := strings.TrimSpace(*req.Telefone)
+			telefone, err := validation.Telefone(*req.Telefone)
+			if err != nil {
+				return false, err
+			}
 			if telefone != c.Telefone {
 				c.Telefone = telefone
 				updated = true
@@ -304,7 +311,9 @@ func (h *ClienteHandler) Update(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "cliente not found", http.StatusNotFound)
 			return
 		}
-		if errors.Is(err, ErrNomeObrigatorio) {
+		if errors.Is(err, ErrNomeObrigatorio) ||
+			errors.Is(err, validation.ErrNomeInvalido) ||
+			errors.Is(err, validation.ErrTelefoneInvalido) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -349,11 +358,19 @@ func (h *ClienteHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func toClienteInput(req CreateClienteRequest) (ClienteInput, error) {
-	if strings.TrimSpace(req.Nome) == "" {
+	nome := strings.TrimSpace(req.Nome)
+	if nome == "" {
 		return ClienteInput{}, errors.New("nome is required")
+	}
+	if err := validation.Nome(nome); err != nil {
+		return ClienteInput{}, err
 	}
 	if strings.TrimSpace(req.CPF) == "" {
 		return ClienteInput{}, errors.New("cpf is required")
+	}
+	cpf, err := validation.CPF(req.CPF)
+	if err != nil {
+		return ClienteInput{}, err
 	}
 	if strings.TrimSpace(req.Senha) == "" {
 		return ClienteInput{}, errors.New("senha is required")
@@ -367,11 +384,16 @@ func toClienteInput(req CreateClienteRequest) (ClienteInput, error) {
 		return ClienteInput{}, errors.New("data_nasc must be in format YYYY-MM-DD")
 	}
 
+	telefone, err := validation.Telefone(req.Telefone)
+	if err != nil {
+		return ClienteInput{}, err
+	}
+
 	return ClienteInput{
-		Nome:     strings.TrimSpace(req.Nome),
-		CPF:      strings.TrimSpace(req.CPF),
+		Nome:     nome,
+		CPF:      cpf,
 		Senha:    req.Senha,
-		Telefone: strings.TrimSpace(req.Telefone),
+		Telefone: telefone,
 		DataNasc: dataNasc,
 		Foto:     strings.TrimSpace(req.Foto),
 	}, nil
