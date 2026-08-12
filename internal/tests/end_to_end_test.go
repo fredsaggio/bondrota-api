@@ -1384,6 +1384,7 @@ func TestEndToEndPlanejamentoErrosSemRecursos(t *testing.T) {
 			AdminEmail:      h.AdminEmail,
 			MotoristaPrefix: "96" + suffix[len(suffix)-7:],
 			ClientePrefix:   "86" + suffix[len(suffix)-7:],
+			PlacaPrefix:     e2ePlacaPrefix("SEM", suffix),
 			CidadeDestino:   cidade,
 			DestinoPrefix:   "Destino Base E2E " + suffix,
 		})
@@ -1393,6 +1394,7 @@ func TestEndToEndPlanejamentoErrosSemRecursos(t *testing.T) {
 			Prefixo:         suffix,
 			MotoristaPrefix: "96" + suffix[len(suffix)-7:],
 			ClientePrefix:   "86" + suffix[len(suffix)-7:],
+			PlacaPrefix:     e2ePlacaPrefix("SEM", suffix),
 			CriarMotorista:  true,
 			CriarHorario:    true,
 		})
