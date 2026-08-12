@@ -346,6 +346,7 @@ O catalogo local e importado da API oficial de localidades do IBGE. O frontend c
 | Metodo | Path completo | Descricao | Body | Sucesso | Erros |
 | --- | --- | --- | --- | --- | --- |
 | `GET` | `BASE_URL/municipios/?uf=AL` | Lista municipios ativos da UF. | nenhum | `200 MunicipioResponse[]` | `400`, `401`, `403`, `500` |
+| `GET` | `BASE_URL/municipios/{codigoIBGE}` | Busca um municipio pelo codigo IBGE, de qualquer UF. | nenhum | `200 MunicipioResponse` | `400`, `401`, `403`, `404`, `500` |
 
 ```json
 [
@@ -356,6 +357,13 @@ O catalogo local e importado da API oficial de localidades do IBGE. O frontend c
   }
 ]
 ```
+
+`GET /municipios/{codigoIBGE}` existe para resolver o nome de um municipio ja
+referenciado por outro registro (`destinos.municipio_id`,
+`motoristas.municipio_trabalho_id`, `horarios_turno_viagem.municipio_destino_id`)
+sem depender de saber a UF de antemao — diferente do `ListByUF`, nao filtra por
+`ativo`, pois o registro que aponta para o municipio continua existindo mesmo que
+uma reimportacao do IBGE o desative.
 
 Importacao idempotente:
 

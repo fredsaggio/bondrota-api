@@ -128,6 +128,7 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 		r.Route("/municipios", func(r chi.Router) {
 			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin))
 			r.Get("/", srv.handlers.MunicipioHandler.ListByUF)
+			r.Get("/{codigoIBGE}", srv.handlers.MunicipioHandler.GetByID)
 		})
 
 		r.Route("/paradas", func(r chi.Router) {

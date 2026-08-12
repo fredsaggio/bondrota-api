@@ -1,6 +1,11 @@
 package municipios
 
-import "context"
+import (
+	"context"
+	"errors"
+)
+
+var ErrNotFound = errors.New("municipio not found")
 
 type Municipio struct {
 	CodigoIBGE int64
@@ -11,5 +16,6 @@ type Municipio struct {
 
 type Store interface {
 	ListByUF(ctx context.Context, uf string) ([]Municipio, error)
+	GetByID(ctx context.Context, codigoIBGE int64) (*Municipio, error)
 	Upsert(ctx context.Context, municipios []Municipio) error
 }

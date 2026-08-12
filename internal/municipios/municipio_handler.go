@@ -1,11 +1,13 @@
 package municipios
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
 	"unicode"
 
+	"github.com/fredsaggio/bondrota-api/internal/conv"
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
 )
 
@@ -46,6 +48,31 @@ func (h *Handler) ListByUF(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	httputils.Respond(w, http.StatusOK, response)
+}
+
+func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
+	codigoIBGE, err := conv.ParseInt(r, "codigoIBGE")
+	if err != nil {
+		http.Error(w, "invalid codigoIBGE", http.StatusBadRequest)
+		return
+	}
+
+	municipio, err := h.store.GetByID(r.Context(), codigoIBGE)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			http.Error(w, "municipio not found", http.StatusNotFound)
+			return
+		}
+		slog.Error("failed to get municipio", "error", err, "codigo_ibge", codigoIBGE)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	httputils.Respond(w, http.StatusOK, Response{
+		CodigoIBGE: municipio.CodigoIBGE,
+		Nome:       municipio.Nome,
+		UF:         municipio.UF,
+	})
 }
 
 func validUF(uf string) bool {

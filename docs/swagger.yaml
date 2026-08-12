@@ -1745,6 +1745,26 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/MunicipioResponse'
+  /municipios/{codigoIBGE}:
+    get:
+      summary: Busca municipio por codigo IBGE, de qualquer UF
+      tags:
+      - Municipios
+      parameters:
+      - name: codigoIBGE
+        in: path
+        required: true
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MunicipioResponse'
+        '404':
+          description: Nao encontrado
   /destinos/:
     post:
       summary: Cria destino

@@ -2,6 +2,7 @@ package municipios
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -39,6 +40,33 @@ func (s *store) ListByUF(ctx context.Context, uf string) ([]Municipio, error) {
 		return []Municipio{}, nil
 	}
 	return result, nil
+}
+
+func (s *store) GetByID(ctx context.Context, codigoIBGE int64) (*Municipio, error) {
+	const op = "db/municipioStore.GetByID"
+	const q = `
+		SELECT codigo_ibge, nome, uf, ativo
+		FROM municipios
+		WHERE codigo_ibge = @codigo_ibge
+	`
+
+	// Sem filtro de "ativo": um registro existente (motorista, destino, horário)
+	// pode apontar para um município que a última reimportação do IBGE desativou.
+	// A busca por id resolve o nome de qualquer jeito, em vez de tratar como
+	// inexistente.
+	rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{"codigo_ibge": codigoIBGE})
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	municipio, err := pgx.CollectExactlyOneRow(rows, scanMunicipio)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	return &municipio, nil
 }
 
 func (s *store) Upsert(ctx context.Context, items []Municipio) error {
