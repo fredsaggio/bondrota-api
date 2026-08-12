@@ -736,11 +736,48 @@ Turnos operacionais validos: `MT`, `VT`, `NT`. Se o vinculo for `IN`, o frontend
 | Metodo | Path completo | Descricao | Body | Sucesso | Erros |
 | --- | --- | --- | --- | --- | --- |
 | `GET` | `BASE_URL/clientes/{clienteID}/vinculos/{vinculoID}/reservas/disponibilidade?data_viagem=2026-06-10&turno=NT&sentido=ida` | Consulta partida, fechamento e disponibilidade para o vinculo. | nenhum | `200 DisponibilidadeReservaResponse` | `400`, `401`, `403`, `404`, `422`, `500` |
-| `GET` | `BASE_URL/reservas/` | Lista reservas. | nenhum | `200 ReservaResponse[]` | `401`, `403`, `500` |
+| `GET` | `BASE_URL/reservas/?cursor=&limit=50&q=&data_inicio=&data_fim=` | Lista reservas, paginada por cursor. | nenhum | `200 ReservaListResponse` | `400`, `401`, `403`, `500` |
 | `GET` | `BASE_URL/reservas/{reservaID}` | Busca reserva. | nenhum | `200 ReservaResponse` | `400`, `401`, `403`, `404`, `500` |
 | `PUT` | `BASE_URL/reservas/{reservaID}` | Atualiza dados editaveis da reserva. | `UpdateReservaRequest` parcial | `200 ReservaResponse` | `400`, `401`, `403`, `404`, `409`, `422`, `500` |
 | `POST` | `BASE_URL/reservas/{reservaID}/cancelar` | Cancela reserva. | nenhum | `200 ReservaResponse` | `400`, `401`, `403`, `404`, `422`, `500` |
 | `DELETE` | `BASE_URL/reservas/{reservaID}` | Remove reserva. | nenhum | `204` | `400`, `401`, `403`, `404`, `500` |
+
+Listagem paginada (`GET /reservas/`):
+
+| Query param | Obrigatorio | Descricao |
+| --- | --- | --- |
+| `limit` | nao (padrao 50, teto 200) | tamanho da pagina |
+| `cursor` | nao (ausente = primeira pagina) | opaco, devolvido em `next_cursor`; nunca monte um na mao |
+| `q` | nao | busca livre por nome do cliente, nome do destino, status, turno ou sentido. **Nao busca por data** — use `data_inicio`/`data_fim` |
+| `data_inicio`, `data_fim` | nao | filtro de intervalo por `data_viagem`, formato `YYYY-MM-DD`, inclusivo nas duas pontas |
+
+```json
+{
+  "items": [
+    {
+      "id": 1,
+      "cliente_id": 1,
+      "cliente_nome": "Maria Souza",
+      "vinculo_id": 10,
+      "data_viagem": "2026-06-10",
+      "turno": "NT",
+      "destino_id": 1,
+      "destino_nome": "Campus A",
+      "rota_interna_id": 1,
+      "sentido": "ida",
+      "status": "confirmada",
+      "created_at": "2026-06-06T20:00:00Z",
+      "updated_at": "2026-06-06T20:00:00Z"
+    }
+  ],
+  "next_cursor": "MjAyNi0wNi0xMHwx",
+  "has_more": true
+}
+```
+
+`next_cursor` so aparece quando `has_more` e `true`. Repassar esse valor no `cursor`
+da proxima chamada continua exatamente de onde a pagina anterior parou — sem
+`OFFSET`, entao o custo da consulta nao cresce conforme a tabela cresce.
 
 Regras de cancelamento:
 

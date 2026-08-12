@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/fredsaggio/bondrota-api/internal/db"
@@ -107,28 +108,87 @@ func (s *reservaStore) GetHorarioPartida(ctx context.Context, destinoID int64, t
 	return time.Duration(segundos) * time.Second, nil
 }
 
-func (s *reservaStore) List(ctx context.Context) ([]Reserva, error) {
+// defaultReservaListLimit e o tamanho de pagina quando o consumidor nao pede um
+// explicitamente. maxReservaListLimit evita que um limit absurdo (ou um bug no
+// consumidor) force a query a devolver a tabela inteira de uma vez.
+const (
+	defaultReservaListLimit = 50
+	maxReservaListLimit     = 200
+)
+
+func (s *reservaStore) List(ctx context.Context, params ReservaListParams) (ReservaListResult, error) {
 	const op = "db/reservaStore.List"
 
+	limit := params.Limit
+	if limit <= 0 {
+		limit = defaultReservaListLimit
+	}
+	if limit > maxReservaListLimit {
+		limit = maxReservaListLimit
+	}
+
+	var (
+		hasCursor  bool
+		cursorData time.Time
+		cursorID   int64
+	)
+	if params.Cursor != nil {
+		hasCursor = true
+		cursorData = params.Cursor.DataViagem
+		cursorID = params.Cursor.ID
+	}
+
+	// Busca um a mais que o limite para saber se ha proxima pagina sem uma
+	// segunda query. A data fica fora do "busca": o filtro de intervalo abaixo
+	// (data_inicio/data_fim) e o unico jeito de restringir por data.
 	const q = `
 		SELECT
-			id, cliente_id, vinculo_id, data_viagem, turno, destino_id, rota_interna_id,
-			sentido, status, created_at, updated_at
-		FROM reservas
-		ORDER BY data_viagem DESC, id DESC
+			r.id, r.cliente_id, r.vinculo_id, r.data_viagem, r.turno, r.destino_id,
+			r.rota_interna_id, r.sentido, r.status, r.created_at, r.updated_at,
+			c.nome, d.nome
+		FROM reservas r
+		JOIN clientes c ON c.id = r.cliente_id
+		JOIN destinos d ON d.id = r.destino_id
+		WHERE (@data_inicio::DATE IS NULL OR r.data_viagem >= @data_inicio)
+		  AND (@data_fim::DATE IS NULL OR r.data_viagem <= @data_fim)
+		  AND (@busca = '' OR
+		       c.nome ILIKE '%' || @busca || '%' OR
+		       d.nome ILIKE '%' || @busca || '%' OR
+		       r.status::TEXT ILIKE '%' || @busca || '%' OR
+		       r.turno::TEXT ILIKE '%' || @busca || '%' OR
+		       r.sentido::TEXT ILIKE '%' || @busca || '%' OR
+		       r.id::TEXT = @busca)
+		  AND (@has_cursor = FALSE OR (r.data_viagem, r.id) < (@cursor_data, @cursor_id))
+		ORDER BY r.data_viagem DESC, r.id DESC
+		LIMIT @limit
 	`
 
-	rows, err := s.db.Query(ctx, q)
+	rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{
+		"data_inicio": params.DataInicio,
+		"data_fim":    params.DataFim,
+		"busca":       strings.TrimSpace(params.Busca),
+		"has_cursor":  hasCursor,
+		"cursor_data": cursorData,
+		"cursor_id":   cursorID,
+		"limit":       limit + 1,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return ReservaListResult{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	reservas, err := pgx.CollectRows(rows, scanReserva)
+	items, err := pgx.CollectRows(rows, scanReservaComNomes)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return ReservaListResult{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return reservas, nil
+	result := ReservaListResult{Items: items}
+	if len(items) > limit {
+		result.Items = items[:limit]
+		last := result.Items[len(result.Items)-1]
+		result.NextCursor = &ReservaCursor{DataViagem: last.DataViagem, ID: last.ID}
+		result.HasMore = true
+	}
+	return result, nil
 }
 
 func (s *reservaStore) ListByCliente(ctx context.Context, clienteID int64) ([]Reserva, error) {
@@ -426,4 +486,24 @@ func scanReserva(row pgx.CollectableRow) (Reserva, error) {
 		&r.UpdatedAt,
 	)
 	return r, err
+}
+
+func scanReservaComNomes(row pgx.CollectableRow) (ReservaComNomes, error) {
+	var item ReservaComNomes
+	err := row.Scan(
+		&item.ID,
+		&item.ClienteID,
+		&item.VinculoID,
+		&item.DataViagem,
+		&item.Turno,
+		&item.DestinoID,
+		&item.RotaInternaID,
+		&item.Sentido,
+		&item.Status,
+		&item.CreatedAt,
+		&item.UpdatedAt,
+		&item.ClienteNome,
+		&item.DestinoNome,
+	)
+	return item, err
 }

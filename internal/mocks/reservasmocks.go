@@ -377,27 +377,25 @@ func (_c *MockReservaStore_GetVinculoSnapshot_Call) RunAndReturn(run func(ctx co
 }
 
 // List provides a mock function for the type MockReservaStore
-func (_mock *MockReservaStore) List(ctx context.Context) ([]reservas.Reserva, error) {
-	ret := _mock.Called(ctx)
+func (_mock *MockReservaStore) List(ctx context.Context, params reservas.ReservaListParams) (reservas.ReservaListResult, error) {
+	ret := _mock.Called(ctx, params)
 
 	if len(ret) == 0 {
 		panic("no return value specified for List")
 	}
 
-	var r0 []reservas.Reserva
+	var r0 reservas.ReservaListResult
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]reservas.Reserva, error)); ok {
-		return returnFunc(ctx)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, reservas.ReservaListParams) (reservas.ReservaListResult, error)); ok {
+		return returnFunc(ctx, params)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context) []reservas.Reserva); ok {
-		r0 = returnFunc(ctx)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, reservas.ReservaListParams) reservas.ReservaListResult); ok {
+		r0 = returnFunc(ctx, params)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]reservas.Reserva)
-		}
+		r0 = ret.Get(0).(reservas.ReservaListResult)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = returnFunc(ctx)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, reservas.ReservaListParams) error); ok {
+		r1 = returnFunc(ctx, params)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -411,29 +409,35 @@ type MockReservaStore_List_Call struct {
 
 // List is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockReservaStore_Expecter) List(ctx interface{}) *MockReservaStore_List_Call {
-	return &MockReservaStore_List_Call{Call: _e.mock.On("List", ctx)}
+//   - params reservas.ReservaListParams
+func (_e *MockReservaStore_Expecter) List(ctx interface{}, params interface{}) *MockReservaStore_List_Call {
+	return &MockReservaStore_List_Call{Call: _e.mock.On("List", ctx, params)}
 }
 
-func (_c *MockReservaStore_List_Call) Run(run func(ctx context.Context)) *MockReservaStore_List_Call {
+func (_c *MockReservaStore_List_Call) Run(run func(ctx context.Context, params reservas.ReservaListParams)) *MockReservaStore_List_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
+		var arg1 reservas.ReservaListParams
+		if args[1] != nil {
+			arg1 = args[1].(reservas.ReservaListParams)
+		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
 }
 
-func (_c *MockReservaStore_List_Call) Return(reservas1 []reservas.Reserva, err error) *MockReservaStore_List_Call {
-	_c.Call.Return(reservas1, err)
+func (_c *MockReservaStore_List_Call) Return(reservaListResult reservas.ReservaListResult, err error) *MockReservaStore_List_Call {
+	_c.Call.Return(reservaListResult, err)
 	return _c
 }
 
-func (_c *MockReservaStore_List_Call) RunAndReturn(run func(ctx context.Context) ([]reservas.Reserva, error)) *MockReservaStore_List_Call {
+func (_c *MockReservaStore_List_Call) RunAndReturn(run func(ctx context.Context, params reservas.ReservaListParams) (reservas.ReservaListResult, error)) *MockReservaStore_List_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1011,27 +1015,25 @@ func (_c *MockReservaService_GetByID_Call) RunAndReturn(run func(ctx context.Con
 }
 
 // List provides a mock function for the type MockReservaService
-func (_mock *MockReservaService) List(ctx context.Context) ([]reservas.Reserva, error) {
-	ret := _mock.Called(ctx)
+func (_mock *MockReservaService) List(ctx context.Context, params reservas.ReservaListParams) (reservas.ReservaListResult, error) {
+	ret := _mock.Called(ctx, params)
 
 	if len(ret) == 0 {
 		panic("no return value specified for List")
 	}
 
-	var r0 []reservas.Reserva
+	var r0 reservas.ReservaListResult
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]reservas.Reserva, error)); ok {
-		return returnFunc(ctx)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, reservas.ReservaListParams) (reservas.ReservaListResult, error)); ok {
+		return returnFunc(ctx, params)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context) []reservas.Reserva); ok {
-		r0 = returnFunc(ctx)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, reservas.ReservaListParams) reservas.ReservaListResult); ok {
+		r0 = returnFunc(ctx, params)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]reservas.Reserva)
-		}
+		r0 = ret.Get(0).(reservas.ReservaListResult)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = returnFunc(ctx)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, reservas.ReservaListParams) error); ok {
+		r1 = returnFunc(ctx, params)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1045,29 +1047,35 @@ type MockReservaService_List_Call struct {
 
 // List is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockReservaService_Expecter) List(ctx interface{}) *MockReservaService_List_Call {
-	return &MockReservaService_List_Call{Call: _e.mock.On("List", ctx)}
+//   - params reservas.ReservaListParams
+func (_e *MockReservaService_Expecter) List(ctx interface{}, params interface{}) *MockReservaService_List_Call {
+	return &MockReservaService_List_Call{Call: _e.mock.On("List", ctx, params)}
 }
 
-func (_c *MockReservaService_List_Call) Run(run func(ctx context.Context)) *MockReservaService_List_Call {
+func (_c *MockReservaService_List_Call) Run(run func(ctx context.Context, params reservas.ReservaListParams)) *MockReservaService_List_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
+		var arg1 reservas.ReservaListParams
+		if args[1] != nil {
+			arg1 = args[1].(reservas.ReservaListParams)
+		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
 }
 
-func (_c *MockReservaService_List_Call) Return(reservas1 []reservas.Reserva, err error) *MockReservaService_List_Call {
-	_c.Call.Return(reservas1, err)
+func (_c *MockReservaService_List_Call) Return(reservaListResult reservas.ReservaListResult, err error) *MockReservaService_List_Call {
+	_c.Call.Return(reservaListResult, err)
 	return _c
 }
 
-func (_c *MockReservaService_List_Call) RunAndReturn(run func(ctx context.Context) ([]reservas.Reserva, error)) *MockReservaService_List_Call {
+func (_c *MockReservaService_List_Call) RunAndReturn(run func(ctx context.Context, params reservas.ReservaListParams) (reservas.ReservaListResult, error)) *MockReservaService_List_Call {
 	_c.Call.Return(run)
 	return _c
 }

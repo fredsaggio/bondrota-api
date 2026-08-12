@@ -2,10 +2,14 @@ package reservas
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/fredsaggio/bondrota-api/internal/auth"
@@ -82,6 +86,18 @@ type ReservaResponse struct {
 	Status        StatusReserva  `json:"status"`
 	CreatedAt     string         `json:"created_at"`
 	UpdatedAt     string         `json:"updated_at"`
+}
+
+type ReservaComNomesResponse struct {
+	ReservaResponse
+	ClienteNome string `json:"cliente_nome"`
+	DestinoNome string `json:"destino_nome"`
+}
+
+type ReservaListResponse struct {
+	Items      []ReservaComNomesResponse `json:"items"`
+	NextCursor string                    `json:"next_cursor,omitempty"`
+	HasMore    bool                      `json:"has_more"`
 }
 
 type DisponibilidadeReservaResponse struct {
@@ -173,14 +189,87 @@ func (h *ReservaHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 func (h *ReservaHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	reservas, err := h.svc.List(ctx)
+	params, err := parseReservaListParams(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	result, err := h.svc.List(ctx, params)
 	if err != nil {
 		slog.Error("failed to list reservas", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	httputils.Respond(w, http.StatusOK, toReservaResponses(reservas))
+	httputils.Respond(w, http.StatusOK, toReservaListResponse(result))
+}
+
+func parseReservaListParams(r *http.Request) (ReservaListParams, error) {
+	query := r.URL.Query()
+	params := ReservaListParams{Busca: query.Get("q")}
+
+	if raw := query.Get("limit"); raw != "" {
+		limit, err := strconv.Atoi(raw)
+		if err != nil || limit <= 0 {
+			return ReservaListParams{}, errors.New("invalid limit")
+		}
+		params.Limit = limit
+	}
+
+	if raw := query.Get("cursor"); raw != "" {
+		cursor, err := decodeReservaCursor(raw)
+		if err != nil {
+			return ReservaListParams{}, errors.New("invalid cursor")
+		}
+		params.Cursor = cursor
+	}
+
+	if raw := query.Get("data_inicio"); raw != "" {
+		data, err := parseReservaDate(raw)
+		if err != nil {
+			return ReservaListParams{}, errors.New("invalid data_inicio")
+		}
+		params.DataInicio = &data
+	}
+
+	if raw := query.Get("data_fim"); raw != "" {
+		data, err := parseReservaDate(raw)
+		if err != nil {
+			return ReservaListParams{}, errors.New("invalid data_fim")
+		}
+		params.DataFim = &data
+	}
+
+	return params, nil
+}
+
+// encodeReservaCursor/decodeReservaCursor tornam o cursor opaco para o consumidor:
+// ele so precisa devolver o valor recebido, nunca monta um na mao. O formato
+// interno (data|id) pode mudar sem quebrar contrato.
+func encodeReservaCursor(cursor ReservaCursor) string {
+	raw := cursor.DataViagem.Format("2006-01-02") + "|" + strconv.FormatInt(cursor.ID, 10)
+	return base64.RawURLEncoding.EncodeToString([]byte(raw))
+}
+
+func decodeReservaCursor(value string) (*ReservaCursor, error) {
+	raw, err := base64.RawURLEncoding.DecodeString(value)
+	if err != nil {
+		return nil, fmt.Errorf("decode cursor: %w", err)
+	}
+	parts := strings.SplitN(string(raw), "|", 2)
+	if len(parts) != 2 {
+		return nil, errors.New("malformed cursor")
+	}
+	data, err := time.Parse("2006-01-02", parts[0])
+	if err != nil {
+		return nil, fmt.Errorf("cursor date: %w", err)
+	}
+	id, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("cursor id: %w", err)
+	}
+	return &ReservaCursor{DataViagem: data, ID: id}, nil
 }
 
 func (h *ReservaHandler) ListByCliente(w http.ResponseWriter, r *http.Request) {
@@ -426,6 +515,24 @@ func parseReservaDate(value string) (time.Time, error) {
 		return time.Time{}, ErrDataInvalida
 	}
 	return data, nil
+}
+
+func toReservaListResponse(result ReservaListResult) ReservaListResponse {
+	items := make([]ReservaComNomesResponse, 0, len(result.Items))
+	for _, item := range result.Items {
+		reserva := item.Reserva
+		items = append(items, ReservaComNomesResponse{
+			ReservaResponse: toReservaResponse(&reserva),
+			ClienteNome:     item.ClienteNome,
+			DestinoNome:     item.DestinoNome,
+		})
+	}
+
+	resp := ReservaListResponse{Items: items, HasMore: result.HasMore}
+	if result.NextCursor != nil {
+		resp.NextCursor = encodeReservaCursor(*result.NextCursor)
+	}
+	return resp
 }
 
 func toReservaResponses(reservas []Reserva) []ReservaResponse {

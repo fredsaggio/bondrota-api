@@ -774,6 +774,30 @@ components:
           type: string
           format: date-time
           example: '2026-06-06T20:00:00Z'
+    ReservaComNomesResponse:
+      allOf:
+      - $ref: '#/components/schemas/ReservaResponse'
+      - type: object
+        properties:
+          cliente_nome:
+            type: string
+            example: Maria Souza
+          destino_nome:
+            type: string
+            example: Campus A
+    ReservaListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReservaComNomesResponse'
+        next_cursor:
+          type: string
+          description: Opaco. So presente quando has_more e true.
+          example: MjAyNi0wNi0xMHwx
+        has_more:
+          type: boolean
     DisponibilidadeReservaResponse:
       type: object
       required:
@@ -2469,18 +2493,50 @@ paths:
                 $ref: '#/components/schemas/DisponibilidadeReservaResponse'
   /reservas/:
     get:
-      summary: Lista reservas
+      summary: Lista reservas, paginada por cursor
+      description: >-
+        q busca por nome do cliente, nome do destino, status, turno ou sentido —
+        nao busca por data. Use data_inicio/data_fim para filtrar por intervalo.
       tags:
       - Reservas
+      parameters:
+      - name: cursor
+        in: query
+        required: false
+        description: Opaco, devolvido em next_cursor. Ausente pede a primeira pagina.
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+          maximum: 200
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: data_inicio
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+      - name: data_fim
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
       responses:
         '200':
           description: Sucesso
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ReservaResponse'
+                $ref: '#/components/schemas/ReservaListResponse'
   /reservas/{reservaID}:
     get:
       summary: Busca reserva

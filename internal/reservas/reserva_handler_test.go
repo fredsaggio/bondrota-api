@@ -294,26 +294,101 @@ func TestHandler_GetByID(t *testing.T) {
 func TestHandler_List(t *testing.T) {
 	tests := []struct {
 		name       string
+		query      string
 		setup      func(*mocks.MockReservaService)
 		wantStatus int
+		wantBody   func(t *testing.T, body []byte)
 	}{
 		{
-			name: "sucesso com itens",
+			name:  "sucesso com itens, nomes resolvidos e next_cursor",
+			query: "",
 			setup: func(svc *mocks.MockReservaService) {
-				svc.EXPECT().List(mock.Anything).Return([]reservas.Reserva{*sampleReserva()}, nil)
+				svc.EXPECT().List(mock.Anything, reservas.ReservaListParams{}).Return(reservas.ReservaListResult{
+					Items: []reservas.ReservaComNomes{{
+						Reserva:     *sampleReserva(),
+						ClienteNome: "Maria Souza",
+						DestinoNome: "Campus A",
+					}},
+					NextCursor: &reservas.ReservaCursor{DataViagem: time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC), ID: 1},
+					HasMore:    true,
+				}, nil)
+			},
+			wantStatus: http.StatusOK,
+			wantBody: func(t *testing.T, body []byte) {
+				var resp struct {
+					Items []struct {
+						ClienteNome string `json:"cliente_nome"`
+						DestinoNome string `json:"destino_nome"`
+					} `json:"items"`
+					NextCursor string `json:"next_cursor"`
+					HasMore    bool   `json:"has_more"`
+				}
+				if err := json.Unmarshal(body, &resp); err != nil {
+					t.Fatalf("unmarshal: %v", err)
+				}
+				if len(resp.Items) != 1 || resp.Items[0].ClienteNome != "Maria Souza" || resp.Items[0].DestinoNome != "Campus A" {
+					t.Fatalf("nomes nao vieram na resposta: %+v", resp.Items)
+				}
+				if resp.NextCursor == "" || !resp.HasMore {
+					t.Fatalf("esperava next_cursor e has_more=true: %+v", resp)
+				}
+			},
+		},
+		{
+			name:  "lista vazia, sem next_cursor",
+			query: "",
+			setup: func(svc *mocks.MockReservaService) {
+				svc.EXPECT().List(mock.Anything, reservas.ReservaListParams{}).Return(reservas.ReservaListResult{}, nil)
+			},
+			wantStatus: http.StatusOK,
+			wantBody: func(t *testing.T, body []byte) {
+				var resp struct {
+					NextCursor string `json:"next_cursor"`
+				}
+				if err := json.Unmarshal(body, &resp); err != nil {
+					t.Fatalf("unmarshal: %v", err)
+				}
+				if resp.NextCursor != "" {
+					t.Fatalf("nao esperava next_cursor: %q", resp.NextCursor)
+				}
+			},
+		},
+		{
+			name:  "repassa q, limit e intervalo de data para o service",
+			query: "?q=maceio&limit=10&data_inicio=2026-07-01&data_fim=2026-07-31",
+			setup: func(svc *mocks.MockReservaService) {
+				inicio := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+				fim := time.Date(2026, 7, 31, 0, 0, 0, 0, time.UTC)
+				svc.EXPECT().List(mock.Anything, reservas.ReservaListParams{
+					Busca: "maceio", Limit: 10, DataInicio: &inicio, DataFim: &fim,
+				}).Return(reservas.ReservaListResult{}, nil)
 			},
 			wantStatus: http.StatusOK,
 		},
 		{
-			name: "lista vazia",
-			setup: func(svc *mocks.MockReservaService) {
-				svc.EXPECT().List(mock.Anything).Return([]reservas.Reserva{}, nil)
-			},
-			wantStatus: http.StatusOK,
+			name:       "limit invalido → 400, service nao e chamado",
+			query:      "?limit=abc",
+			setup:      func(*mocks.MockReservaService) {},
+			wantStatus: http.StatusBadRequest,
 		},
 		{
-			name:       "erro interno → 500",
-			setup:      func(svc *mocks.MockReservaService) { svc.EXPECT().List(mock.Anything).Return(nil, errors.New("db")) },
+			name:       "cursor invalido → 400, service nao e chamado",
+			query:      "?cursor=***nao-e-base64***",
+			setup:      func(*mocks.MockReservaService) {},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "data_inicio invalida → 400, service nao e chamado",
+			query:      "?data_inicio=01-07-2026",
+			setup:      func(*mocks.MockReservaService) {},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:  "erro interno → 500",
+			query: "",
+			setup: func(svc *mocks.MockReservaService) {
+				svc.EXPECT().List(mock.Anything, reservas.ReservaListParams{}).Return(reservas.ReservaListResult{}, errors.New("db"))
+			},
 			wantStatus: http.StatusInternalServerError,
 		},
 	}
@@ -323,13 +398,46 @@ func TestHandler_List(t *testing.T) {
 			svc := mocks.NewMockReservaService(t)
 			tc.setup(svc)
 			h := reservas.NewReservaHandler(svc)
-			req := httptest.NewRequest(http.MethodGet, "/reservas", nil)
+			req := httptest.NewRequest(http.MethodGet, "/reservas"+tc.query, nil)
 			rr := httptest.NewRecorder()
 			newRouter(h).ServeHTTP(rr, req)
 			if rr.Code != tc.wantStatus {
-				t.Errorf("want %d, got %d", tc.wantStatus, rr.Code)
+				t.Errorf("want %d, got %d: %s", tc.wantStatus, rr.Code, rr.Body.String())
+			}
+			if tc.wantBody != nil {
+				tc.wantBody(t, rr.Body.Bytes())
 			}
 		})
+	}
+}
+
+// O cursor devolvido por uma pagina precisa ser aceito de volta pela mesma rota
+// sem decodificacao manual — ele e opaco para quem consome a API.
+func TestHandler_List_CursorRoundtrip(t *testing.T) {
+	svc := mocks.NewMockReservaService(t)
+	cursor := reservas.ReservaCursor{DataViagem: time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC), ID: 42}
+
+	svc.EXPECT().List(mock.Anything, reservas.ReservaListParams{}).
+		Return(reservas.ReservaListResult{NextCursor: &cursor, HasMore: true}, nil)
+
+	h := reservas.NewReservaHandler(svc)
+	first := httptest.NewRecorder()
+	newRouter(h).ServeHTTP(first, httptest.NewRequest(http.MethodGet, "/reservas", nil))
+
+	var resp struct {
+		NextCursor string `json:"next_cursor"`
+	}
+	if err := json.Unmarshal(first.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	svc.EXPECT().List(mock.Anything, reservas.ReservaListParams{Cursor: &cursor}).
+		Return(reservas.ReservaListResult{}, nil)
+
+	second := httptest.NewRecorder()
+	newRouter(h).ServeHTTP(second, httptest.NewRequest(http.MethodGet, "/reservas?cursor="+resp.NextCursor, nil))
+	if second.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d: %s", second.Code, second.Body.String())
 	}
 }
 

@@ -92,8 +92,8 @@ func (s *reservaService) GetByID(ctx context.Context, reservaID int64) (*Reserva
 	return s.store.GetByID(ctx, reservaID)
 }
 
-func (s *reservaService) List(ctx context.Context) ([]Reserva, error) {
-	return s.store.List(ctx)
+func (s *reservaService) List(ctx context.Context, params ReservaListParams) (ReservaListResult, error) {
+	return s.store.List(ctx, params)
 }
 
 func (s *reservaService) ListByCliente(ctx context.Context, clienteID int64) ([]Reserva, error) {

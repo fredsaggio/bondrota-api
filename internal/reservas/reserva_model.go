@@ -80,6 +80,36 @@ type DisponibilidadeReserva struct {
 	Disponivel   bool
 }
 
+// ReservaComNomes carrega os nomes do cliente e do destino resolvidos via JOIN,
+// para a listagem administrativa nao obrigar o consumidor a buscar cada cliente e
+// destino separadamente (mesmo padrao de VinculoComCliente).
+type ReservaComNomes struct {
+	Reserva
+	ClienteNome string
+	DestinoNome string
+}
+
+// ReservaCursor identifica a ultima linha vista pela pagina anterior, no mesmo
+// criterio do ORDER BY (data_viagem DESC, id DESC), para retomar dali sem OFFSET.
+type ReservaCursor struct {
+	DataViagem time.Time
+	ID         int64
+}
+
+type ReservaListParams struct {
+	Cursor     *ReservaCursor
+	Limit      int
+	Busca      string
+	DataInicio *time.Time
+	DataFim    *time.Time
+}
+
+type ReservaListResult struct {
+	Items      []ReservaComNomes
+	NextCursor *ReservaCursor
+	HasMore    bool
+}
+
 type ReservaServiceConfig struct {
 	Location               *time.Location
 	Now                    func() time.Time
@@ -98,7 +128,7 @@ type ReservaStore interface {
 	GetByID(ctx context.Context, reservaID int64) (*Reserva, error)
 	GetVinculoSnapshot(ctx context.Context, vinculoID int64) (VinculoSnapshot, error)
 	GetHorarioPartida(ctx context.Context, destinoID int64, turno TurnoReserva, sentido SentidoReserva) (time.Duration, error)
-	List(ctx context.Context) ([]Reserva, error)
+	List(ctx context.Context, params ReservaListParams) (ReservaListResult, error)
 	ListByCliente(ctx context.Context, clienteID int64) ([]Reserva, error)
 	ListByVinculo(ctx context.Context, clienteID, vinculoID int64) ([]Reserva, error)
 	Update(ctx context.Context, reservaID int64, updateFunc func(*Reserva) (bool, error)) (*Reserva, error)
@@ -113,7 +143,7 @@ type ReservaService interface {
 	Create(ctx context.Context, input ReservaInput) (*Reserva, error)
 	ConsultarDisponibilidade(ctx context.Context, input DisponibilidadeReservaInput) (*DisponibilidadeReserva, error)
 	GetByID(ctx context.Context, reservaID int64) (*Reserva, error)
-	List(ctx context.Context) ([]Reserva, error)
+	List(ctx context.Context, params ReservaListParams) (ReservaListResult, error)
 	ListByCliente(ctx context.Context, clienteID int64) ([]Reserva, error)
 	ListByVinculo(ctx context.Context, clienteID, vinculoID int64) ([]Reserva, error)
 	Update(ctx context.Context, reservaID int64, updateFunc func(*Reserva) (bool, error)) (*Reserva, error)
