@@ -7,6 +7,7 @@ package validation
 import (
 	"errors"
 	"regexp"
+	"strings"
 	"unicode"
 )
 
@@ -14,9 +15,17 @@ var (
 	ErrNomeInvalido     = errors.New("nome must contain only letters and spaces")
 	ErrCPFInvalido      = errors.New("cpf must have 11 digits")
 	ErrTelefoneInvalido = errors.New("telefone must be a valid cellphone number: ddd + 9 digits starting with 9")
+	ErrPlacaInvalida    = errors.New("placa must have 7 characters: LLLNNNN (old) or LLLNLNN (mercosul)")
 )
 
 var naoDigito = regexp.MustCompile(`\D`)
+
+var naoAlfanumerico = regexp.MustCompile(`[^A-Z0-9]`)
+
+// Os dois padroes em circulacao no Brasil cabem num so formato: as tres letras
+// e o quarto digito sao comuns, e o que os separa e a quinta posicao — letra no
+// Mercosul (ABC1D23), digito no modelo antigo (ABC1234).
+var formatoPlaca = regexp.MustCompile(`^[A-Z]{3}[0-9][0-9A-Z][0-9]{2}$`)
 
 // Nome confere que o valor (ja sem espacos nas pontas) tem letras, espacos e
 // os sinais comuns em nomes proprios (hifen, apostrofo) — sem digitos ou
@@ -64,6 +73,18 @@ func Telefone(telefone string) (string, error) {
 		return "", ErrTelefoneInvalido
 	}
 	return digits, nil
+}
+
+// Placa remove hifen e espacos, normaliza para maiuscula e confere os dois
+// padroes brasileiros. Retorna a placa limpa, que e a unica forma que vai para
+// o banco: a coluna tem UNIQUE, e guardar "ABC-1234" e "ABC1234" lado a lado
+// criaria dois veiculos para a mesma placa sem o indice reclamar.
+func Placa(placa string) (string, error) {
+	limpa := naoAlfanumerico.ReplaceAllString(strings.ToUpper(strings.TrimSpace(placa)), "")
+	if !formatoPlaca.MatchString(limpa) {
+		return "", ErrPlacaInvalida
+	}
+	return limpa, nil
 }
 
 func todosIguais(digits string) bool {

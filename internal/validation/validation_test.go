@@ -86,3 +86,40 @@ func TestTelefone(t *testing.T) {
 		})
 	}
 }
+
+func TestPlaca(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		want    string
+		wantErr error
+	}{
+		{"antiga com hifen", "ABC-1234", "ABC1234", nil},
+		{"antiga limpa", "ABC1234", "ABC1234", nil},
+		{"antiga minuscula", "abc-1234", "ABC1234", nil},
+		{"mercosul", "ABC1D23", "ABC1D23", nil},
+		{"mercosul minuscula com espacos", " abc1d23 ", "ABC1D23", nil},
+		// O hifen nao faz parte do padrao Mercosul, mas se alguem digitar ele
+		// sai na limpeza como qualquer outra pontuacao.
+		{"mercosul com hifen sobra", "ABC-1D23", "ABC1D23", nil},
+		{"obrigatoria", "", "", validation.ErrPlacaInvalida},
+		{"curta demais", "ABC123", "", validation.ErrPlacaInvalida},
+		{"longa demais", "ABC12345", "", validation.ErrPlacaInvalida},
+		{"letra na posicao de digito", "ABCD234", "", validation.ErrPlacaInvalida},
+		// A quinta posicao aceita letra ou digito; a sexta e a setima, so digito.
+		{"letra na sexta posicao", "ABC1DA3", "", validation.ErrPlacaInvalida},
+		{"digito no lugar de letra", "AB11234", "", validation.ErrPlacaInvalida},
+		{"acento nao e letra de placa", "ABÇ1234", "", validation.ErrPlacaInvalida},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := validation.Placa(tc.value)
+			if !errors.Is(err, tc.wantErr) {
+				t.Fatalf("Placa(%q) err = %v, want %v", tc.value, err, tc.wantErr)
+			}
+			if got != tc.want {
+				t.Fatalf("Placa(%q) = %q, want %q", tc.value, got, tc.want)
+			}
+		})
+	}
+}

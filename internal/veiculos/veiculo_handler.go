@@ -10,6 +10,7 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/conv"
 	"github.com/fredsaggio/bondrota-api/internal/db"
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
+	"github.com/fredsaggio/bondrota-api/internal/validation"
 )
 
 type VeiculoHandler struct {
@@ -77,8 +78,14 @@ func (h *VeiculoHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	placa, err := validation.Placa(req.Placa)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	veiculo, err := h.store.Create(ctx, VeiculoInput{
-		Placa:          req.Placa,
+		Placa:          placa,
 		Modelo:         req.Modelo,
 		Categoria:      req.Categoria,
 		Capacidade:     req.Capacidade,
@@ -154,9 +161,15 @@ func (h *VeiculoHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	veiculo, err := h.store.Update(ctx, vehicleID, func(v *Veiculo) (bool, error) {
 		changed := false
-		if req.Placa != "" && req.Placa != v.Placa {
-			v.Placa = req.Placa
-			changed = true
+		if req.Placa != "" {
+			placa, err := validation.Placa(req.Placa)
+			if err != nil {
+				return false, err
+			}
+			if placa != v.Placa {
+				v.Placa = placa
+				changed = true
+			}
 		}
 		if req.Modelo != "" && req.Modelo != v.Modelo {
 			v.Modelo = req.Modelo
@@ -202,6 +215,10 @@ func (h *VeiculoHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			http.Error(w, "veiculo not found", http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, validation.ErrPlacaInvalida) {
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		if errors.Is(err, brerror.ErrInvalidInput) {
