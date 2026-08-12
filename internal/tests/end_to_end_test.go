@@ -407,9 +407,10 @@ func TestEndToEndPlanejamentoMultiplosVeiculosPorCapacidade(t *testing.T) {
 		AdminEmail:      h.AdminEmail,
 		MotoristaPrefix: "91" + suffix[len(suffix)-7:],
 		ClientePrefix:   "81" + suffix[len(suffix)-7:],
-		PlacaPrefix:     e2ePlacaPrefix("CAR", suffix),
-		CidadeDestino:   cidade,
-		DestinoPrefix:   "Destino Capacidade E2E " + suffix,
+		// "CAB" (executivo) e "CAR" (carro_7_lugares) só compartilham "CA".
+		PlacaPrefix:   e2ePlacaCleanupPattern("CA", suffix),
+		CidadeDestino: cidade,
+		DestinoPrefix: "Destino Capacidade E2E " + suffix,
 	})
 
 	destinoID := createDestino(t, h.Router, h.AdminToken, map[string]any{
@@ -516,9 +517,12 @@ func TestEndToEndPlanejamentoIgnoraRecursosIndisponiveis(t *testing.T) {
 		AdminEmail:      h.AdminEmail,
 		MotoristaPrefix: "90" + suffix[len(suffix)-7:],
 		ClientePrefix:   "80" + suffix[len(suffix)-7:],
-		PlacaPrefix:     e2ePlacaPrefix("BUS", suffix),
-		CidadeDestino:   cidade,
-		DestinoPrefix:   "Destino Recursos E2E " + suffix,
+		// "RUA" (inativo) e "RUR" (escolar ativo) só compartilham "RU". Era
+		// "BUS" antes — não batia com nenhum dos dois, e o veiculo escolar
+		// ativo ficava orfao, disponivel para o proximo teste da suite pegar.
+		PlacaPrefix:   e2ePlacaCleanupPattern("RU", suffix),
+		CidadeDestino: cidade,
+		DestinoPrefix: "Destino Recursos E2E " + suffix,
 	})
 
 	destinoID := createDestino(t, h.Router, h.AdminToken, map[string]any{
@@ -1920,6 +1924,23 @@ func e2ePlaca(prefix, suffix string) string {
 
 func e2ePlacaPrefix(prefix, suffix string) string {
 	return e2ePlaca(prefix, suffix)[:5]
+}
+
+// e2ePlacaCleanupPattern cobre a limpeza de um teste que cria mais de um
+// veiculo com codigos de letra parecidos mas nao identicos (ex.: "CAB" e
+// "CAR", que so compartilham as duas primeiras letras). e2ePlacaPrefix exige
+// as 3 letras completas do codigo, entao usá-lo aqui so bateria com um dos
+// veiculos e deixaria o outro orfao no banco — foi exatamente esse vazamento
+// que fez "sem veiculo disponivel" enxergar um carro de um teste anterior.
+// O '%' fica embutido no valor porque a query de limpeza so acrescenta um
+// '%' no final; o retorno vira "raiz%sufixo%", batendo com qualquer letra
+// entre a raiz e os digitos do sufixo.
+func e2ePlacaCleanupPattern(lettersRoot, suffix string) string {
+	tail := "1234"
+	if len(suffix) >= 4 {
+		tail = suffix[len(suffix)-4:]
+	}
+	return lettersRoot + "%" + tail
 }
 
 func cleanupE2EData(ctx context.Context, t *testing.T, pool *pgxpool.Pool, data e2eCleanupData) {

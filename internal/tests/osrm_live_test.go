@@ -20,9 +20,11 @@ func TestLiveOSRMRotaDinamica(t *testing.T) {
 		AdminEmail:      h.AdminEmail,
 		MotoristaPrefix: "99" + suffix[len(suffix)-7:],
 		ClientePrefix:   "89" + suffix[len(suffix)-7:],
-		PlacaPrefix:     "O" + suffix[len(suffix)-5:],
-		CidadeDestino:   cidade,
-		DestinoPrefix:   "Destino Base E2E " + suffix,
+		// "O" sozinho não é uma placa válida — e2ePlaca completava com "XX",
+		// gerando "OXX...", que este prefixo de 1 letra nunca batia na limpeza.
+		PlacaPrefix:   e2ePlacaPrefix("OSR", suffix),
+		CidadeDestino: cidade,
+		DestinoPrefix: "Destino Base E2E " + suffix,
 	})
 
 	rotaInternaID, dataViagem := setupPlanejamentoBase(t, h, planejamentoBaseOptions{
@@ -30,7 +32,7 @@ func TestLiveOSRMRotaDinamica(t *testing.T) {
 		Prefixo:         suffix,
 		MotoristaPrefix: "99" + suffix[len(suffix)-7:],
 		ClientePrefix:   "89" + suffix[len(suffix)-7:],
-		PlacaPrefix:     "O" + suffix[len(suffix)-5:],
+		PlacaPrefix:     e2ePlacaPrefix("OSR", suffix),
 		CriarVeiculo:    true,
 		CriarMotorista:  true,
 		CriarHorario:    true,
@@ -39,6 +41,7 @@ func TestLiveOSRMRotaDinamica(t *testing.T) {
 	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/test/planejamentos/viagens", h.AdminToken, map[string]any{
 		"data_viagem":          dataViagem,
 		"turno":                "NT",
+		"sentido":              "ida",
 		"municipio_destino_id": e2eMunicipioID,
 		"rota_interna_id":      rotaInternaID,
 	}, http.StatusCreated)
