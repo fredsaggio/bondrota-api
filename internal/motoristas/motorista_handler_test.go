@@ -246,6 +246,97 @@ func TestMotoristaHandler_Create(t *testing.T) {
 	}
 }
 
+// fakeArquivoMovedor grava a ultima chamada de MoveObject, para os testes
+// afirmarem de onde para onde o arquivo foi movido.
+type fakeArquivoMovedor struct {
+	bucket, from, to string
+	err              error
+}
+
+func (f *fakeArquivoMovedor) MoveObject(_ context.Context, bucket, from, to string) error {
+	f.bucket, f.from, f.to = bucket, from, to
+	return f.err
+}
+
+func TestMotoristaHandler_Create_OrganizaFoto(t *testing.T) {
+	body := jsonBuf(map[string]any{
+		"nome":                  "João Silva",
+		"cpf":                   "123.456.789-09",
+		"senha":                 "secret",
+		"turno":                 "MT",
+		"data_nasc":             "1990-01-01",
+		"municipio_trabalho_id": int64(2611606),
+		"foto":                  "motoristas/_novo/abc123/foto.jpg",
+	})
+
+	svc := mocks.NewMockMotoristaService(t)
+	svc.EXPECT().Create(mock.Anything, mock.MatchedBy(func(in motoristas.MotoristaInput) bool {
+		return in.Foto == "motoristas/_novo/abc123/foto.jpg"
+	})).Return(&motoristas.Motorista{ID: 1, Foto: "motoristas/_novo/abc123/foto.jpg"}, nil)
+	svc.EXPECT().Update(mock.Anything, int64(1), mock.MatchedBy(func(fn func(*motoristas.Motorista) (bool, error)) bool {
+		m := &motoristas.Motorista{ID: 1, Foto: "motoristas/_novo/abc123/foto.jpg"}
+		changed, err := fn(m)
+		return err == nil && changed && m.Foto == "motoristas/1/foto.jpg"
+	})).Return(&motoristas.Motorista{ID: 1, Foto: "motoristas/1/foto.jpg"}, nil)
+
+	mover := &fakeArquivoMovedor{}
+	h := motoristas.NewMotoristaHandler(svc, mover)
+	req := httptest.NewRequest(http.MethodPost, "/motoristas", body)
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	newMotoristaRouter(h).ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("want 201, got %d — %s", rr.Code, rr.Body.String())
+	}
+	if mover.bucket != "fotos" || mover.from != "motoristas/_novo/abc123/foto.jpg" || mover.to != "motoristas/1/foto.jpg" {
+		t.Fatalf("unexpected move: bucket=%q from=%q to=%q", mover.bucket, mover.from, mover.to)
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp["foto"] != "motoristas/1/foto.jpg" {
+		t.Fatalf("want foto organizada na resposta, got %v", resp["foto"])
+	}
+}
+
+func TestMotoristaHandler_Create_FalhaAoOrganizarFotoNaoDerrubaCriacao(t *testing.T) {
+	body := jsonBuf(map[string]any{
+		"nome":                  "João Silva",
+		"cpf":                   "123.456.789-09",
+		"senha":                 "secret",
+		"turno":                 "MT",
+		"data_nasc":             "1990-01-01",
+		"municipio_trabalho_id": int64(2611606),
+		"foto":                  "motoristas/_novo/abc123/foto.jpg",
+	})
+
+	svc := mocks.NewMockMotoristaService(t)
+	svc.EXPECT().Create(mock.Anything, mock.Anything).
+		Return(&motoristas.Motorista{ID: 1, Foto: "motoristas/_novo/abc123/foto.jpg"}, nil)
+	// Update nao e chamado: sem organizar a foto com sucesso, nao ha nada novo
+	// para persistir.
+
+	mover := &fakeArquivoMovedor{err: errors.New("supabase indisponivel")}
+	h := motoristas.NewMotoristaHandler(svc, mover)
+	req := httptest.NewRequest(http.MethodPost, "/motoristas", body)
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	newMotoristaRouter(h).ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("falha ao mover nao deveria derrubar a criacao: want 201, got %d — %s", rr.Code, rr.Body.String())
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp["foto"] != "motoristas/_novo/abc123/foto.jpg" {
+		t.Fatalf("foto deveria continuar no caminho de espera apos falha, got %v", resp["foto"])
+	}
+}
+
 // --- GetByID ---
 
 func TestMotoristaHandler_GetByID(t *testing.T) {

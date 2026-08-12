@@ -1,10 +1,14 @@
 package motoristas
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -58,12 +62,31 @@ type MotoristaResponse struct {
 	Foto                string `json:"foto"`
 }
 
-type MotoristaHandler struct {
-	svc MotoristaService
+// ArquivoMovedor move um objeto ja enviado ao Storage do caminho de espera
+// (onde a foto entra antes do motorista ter ID) para o caminho definitivo,
+// depois que o registro e criado. Definida aqui, e nao importada de
+// internal/storage, para este pacote nao depender de detalhes do provedor de
+// armazenamento — so precisa saber mover um arquivo de um lugar a outro.
+type ArquivoMovedor interface {
+	MoveObject(ctx context.Context, bucket, from, to string) error
 }
 
-func NewMotoristaHandler(svc MotoristaService) *MotoristaHandler {
-	return &MotoristaHandler{svc: svc}
+type MotoristaHandler struct {
+	svc      MotoristaService
+	arquivos ArquivoMovedor
+}
+
+// NewMotoristaHandler aceita o movedor de arquivos como variadico de proposito:
+// a maioria dos testes deste pacote nem chega a exercitar o campo foto, e
+// forcar todos eles a passar um mock so pra satisfazer a assinatura seria
+// ruido. Sem o argumento, a foto simplesmente fica no caminho que veio na
+// requisicao — igual ao comportamento de antes desta funcionalidade existir.
+func NewMotoristaHandler(svc MotoristaService, arquivos ...ArquivoMovedor) *MotoristaHandler {
+	h := &MotoristaHandler{svc: svc}
+	if len(arquivos) > 0 {
+		h.arquivos = arquivos[0]
+	}
+	return h
 }
 
 func (h *MotoristaHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -185,7 +208,37 @@ func (h *MotoristaHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if input.Foto != "" {
+		motorista = h.organizarFoto(ctx, motorista, input.Foto)
+	}
+
 	httputils.Respond(w, http.StatusCreated, toMotoristaResponse(motorista))
+}
+
+// organizarFoto leva a foto da pasta de espera (onde o admin envia antes do
+// motorista ter ID) para o caminho definitivo "motoristas/{id}/foto{ext}".
+// Best-effort: se o Storage falhar aqui, o motorista ja foi criado com
+// sucesso — falhar a resposta agora deixaria o admin sem saber se o cadastro
+// existe, e um retry esbarraria no CPF duplicado. A foto so fica no caminho
+// de espera nesse caso raro, em vez de ficar organizada.
+func (h *MotoristaHandler) organizarFoto(ctx context.Context, motorista *Motorista, caminhoEnviado string) *Motorista {
+	if h.arquivos == nil {
+		return motorista
+	}
+	destino := fmt.Sprintf("motoristas/%s/foto%s", strconv.FormatInt(motorista.ID, 10), path.Ext(caminhoEnviado))
+	if err := h.arquivos.MoveObject(ctx, "fotos", caminhoEnviado, destino); err != nil {
+		slog.Error("failed to organize motorista foto", "error", err, "motoristaID", motorista.ID)
+		return motorista
+	}
+	atualizado, err := h.svc.Update(ctx, motorista.ID, func(m *Motorista) (bool, error) {
+		m.Foto = destino
+		return true, nil
+	})
+	if err != nil {
+		slog.Error("failed to persist organized motorista foto", "error", err, "motoristaID", motorista.ID)
+		return motorista
+	}
+	return atualizado
 }
 
 func (h *MotoristaHandler) GetByID(w http.ResponseWriter, r *http.Request) {
