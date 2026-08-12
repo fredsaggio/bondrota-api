@@ -44,18 +44,24 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService, adminCookieConfig admi
 	rotaInternaSvc := rotasinternas.NewRotaInternaService(rotaInternaStore)
 	rotaInternaHandler := rotasinternas.NewRotaInternaHandler(rotaInternaSvc)
 
+	// Construido antes dos handlers de motorista/cliente/vinculo, que usam o
+	// service para reorganizar foto/comprovante da pasta de espera para o
+	// caminho definitivo assim que o registro ganha um ID.
+	storageClient := storage.NewSupabaseClient(storageConfig, nil)
+	storageSvc := storage.NewService(storageClient)
+
 	motoristaStore := motoristas.NewMotoristaStore(pool)
 	alocacaoMotoristaStore := motoristas.NewAlocacaoMotoristaStore(pool)
 	alocacaoMotoristaSvc := motoristas.NewAlocacaoService(alocacaoMotoristaStore)
 	motoristaSvc := motoristas.NewMotoristaService(motoristaStore, authSvc)
-	motoristaHandler := motoristas.NewMotoristaHandler(motoristaSvc)
+	motoristaHandler := motoristas.NewMotoristaHandler(motoristaSvc, storageSvc)
 
 	clienteStore := clientes.NewClienteStore(pool)
 	clienteSvc := clientes.NewClienteService(clienteStore, authSvc)
 	vinculoStore := clientes.NewVinculoStore(pool)
 	vinculoSvc := clientes.NewVinculoService(vinculoStore)
-	clienteHandler := clientes.NewClienteHandler(clienteSvc)
-	vinculoHandler := clientes.NewVinculoHandler(vinculoSvc)
+	clienteHandler := clientes.NewClienteHandler(clienteSvc, storageSvc)
+	vinculoHandler := clientes.NewVinculoHandler(vinculoSvc, storageSvc)
 
 	calculadorRotaDinamicaStore := rotasdinamicas.NewCalculadorRotaDinamicaStore(pool)
 	rotaDinamicaInvalidator := rotasdinamicas.NewInvalidadorRotaDinamicaService(
@@ -108,8 +114,6 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService, adminCookieConfig admi
 		rotasdinamicas.RotaDinamicaWorkerConfig{},
 	)
 
-	storageClient := storage.NewSupabaseClient(storageConfig, nil)
-	storageSvc := storage.NewService(storageClient)
 	storageHandler := storage.NewHandler(storageSvc)
 
 	retencaoStore := retencao.NewStore(pool)
