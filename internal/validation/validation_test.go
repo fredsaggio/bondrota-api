@@ -38,11 +38,17 @@ func TestCPF(t *testing.T) {
 		want    string
 		wantErr error
 	}{
-		{"cpf formatado", "123.456.789-01", "12345678901", nil},
-		{"cpf so digitos", "12345678901", "12345678901", nil},
+		{"cpf formatado", "123.456.789-09", "12345678909", nil},
+		{"cpf so digitos", "12345678909", "12345678909", nil},
+		// Exemplo canonico usado em tutoriais e ferramentas de teste — nao
+		// pertence a ninguem, mas passa no calculo do digito verificador.
+		{"outro cpf valido", "111.444.777-35", "11144477735", nil},
 		{"cpf curto", "123.456.789", "", validation.ErrCPFInvalido},
 		{"cpf longo demais", "123456789012", "", validation.ErrCPFInvalido},
 		{"cpf com todos os digitos iguais", "000.000.000-00", "", validation.ErrCPFInvalido},
+		// 11 digitos, sem repeticao, mas o digito verificador nao bate — o bug
+		// que esta validacao existe para pegar.
+		{"digito verificador errado", "123.456.789-01", "", validation.ErrCPFInvalido},
 		{"cpf vazio", "", "", validation.ErrCPFInvalido},
 	}
 	for _, tc := range tests {

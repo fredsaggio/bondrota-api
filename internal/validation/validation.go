@@ -13,7 +13,7 @@ import (
 
 var (
 	ErrNomeInvalido     = errors.New("nome must contain only letters and spaces")
-	ErrCPFInvalido      = errors.New("cpf must have 11 digits")
+	ErrCPFInvalido      = errors.New("cpf is not a valid CPF number")
 	ErrTelefoneInvalido = errors.New("telefone must be a valid cellphone number: ddd + 9 digits starting with 9")
 	ErrPlacaInvalida    = errors.New("placa must have 7 characters: LLLNNNN (old) or LLLNLNN (mercosul)")
 )
@@ -48,15 +48,42 @@ func LimparDigitos(value string) string {
 	return naoDigito.ReplaceAllString(value, "")
 }
 
-// CPF limpa a pontuacao e confere que sobraram exatamente 11 digitos,
-// rejeitando tambem sequencias obviamente invalidas (todos os digitos
-// iguais, como "000.000.000-00"). Retorna o CPF ja limpo para gravar.
+// CPF limpa a pontuacao, confere 11 digitos e valida os dois digitos
+// verificadores pelo calculo oficial (modulo 11) — sem isso qualquer
+// sequencia de 11 numeros passava, e um CPF digitado errado só seria
+// percebido quando alguem tentasse usá-lo de verdade. Sequencias com todos os
+// digitos iguais (000.000.000-00, 111.111.111-11, ...) satisfazem esse
+// calculo por coincidencia matematica mas nunca foram emitidas, entao seguem
+// rejeitadas à parte. Retorna o CPF ja limpo para gravar.
 func CPF(cpf string) (string, error) {
 	digits := LimparDigitos(cpf)
-	if len(digits) != 11 || todosIguais(digits) {
+	if len(digits) != 11 || todosIguais(digits) || !cpfDigitosVerificadoresValidos(digits) {
 		return "", ErrCPFInvalido
 	}
 	return digits, nil
+}
+
+func cpfDigitosVerificadoresValidos(digits string) bool {
+	return digits[9] == cpfDigitoVerificador(digits[:9]) && digits[10] == cpfDigitoVerificador(digits[:10])
+}
+
+// cpfDigitoVerificador aplica o modulo 11: o primeiro digito da base pesa
+// len(base)+1, decrescendo ate 2 no ultimo. Resto da divisao por 11 menor que
+// 2 vira '0'; caso contrario o digito verificador e 11 menos o resto. A mesma
+// funcao serve para os dois digitos verificadores — o segundo so entra com
+// uma base um digito maior (que já inclui o primeiro verificador).
+func cpfDigitoVerificador(base string) byte {
+	peso := len(base) + 1
+	soma := 0
+	for _, r := range base {
+		soma += int(r-'0') * peso
+		peso--
+	}
+	resto := soma % 11
+	if resto < 2 {
+		return '0'
+	}
+	return byte('0' + (11 - resto))
 }
 
 // Telefone limpa a pontuacao e confere 11 digitos de celular: DDD valido

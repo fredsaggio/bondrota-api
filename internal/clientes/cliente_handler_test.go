@@ -130,7 +130,7 @@ func TestClienteHandler_Login(t *testing.T) {
 func TestClienteHandler_Create(t *testing.T) {
 	validBody := map[string]any{
 		"nome":      " Maria Souza ",
-		"cpf":       "123.456.789-01",
+		"cpf":       "123.456.789-09",
 		"senha":     "secret",
 		"data_nasc": "2000-01-02",
 	}
@@ -146,7 +146,7 @@ func TestClienteHandler_Create(t *testing.T) {
 			body: body(validBody),
 			svc: fakeClienteService{
 				createFn: func(_ context.Context, input clientes.ClienteInput) (*clientes.Cliente, error) {
-					if input.Nome != "Maria Souza" || input.CPF != "12345678901" {
+					if input.Nome != "Maria Souza" || input.CPF != "12345678909" {
 						t.Fatalf("unexpected input: %+v", input)
 					}
 					return sampleCliente(), nil

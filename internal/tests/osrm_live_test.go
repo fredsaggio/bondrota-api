@@ -18,8 +18,8 @@ func TestLiveOSRMRotaDinamica(t *testing.T) {
 	cidade := "e2e-osrm-live-" + suffix
 	h.Cleanup(e2eCleanupData{
 		AdminEmail:      h.AdminEmail,
-		MotoristaPrefix: "99" + suffix[len(suffix)-7:],
-		ClientePrefix:   "89" + suffix[len(suffix)-7:],
+		MotoristaPrefix: "99" + suffix[len(suffix)-5:],
+		ClientePrefix:   "89" + suffix[len(suffix)-5:],
 		// "O" sozinho não é uma placa válida — e2ePlaca completava com "XX",
 		// gerando "OXX...", que este prefixo de 1 letra nunca batia na limpeza.
 		PlacaPrefix:   e2ePlacaPrefix("OSR", suffix),
@@ -30,8 +30,8 @@ func TestLiveOSRMRotaDinamica(t *testing.T) {
 	rotaInternaID, dataViagem := setupPlanejamentoBase(t, h, planejamentoBaseOptions{
 		CidadeDestino:   cidade,
 		Prefixo:         suffix,
-		MotoristaPrefix: "99" + suffix[len(suffix)-7:],
-		ClientePrefix:   "89" + suffix[len(suffix)-7:],
+		MotoristaPrefix: "99" + suffix[len(suffix)-5:],
+		ClientePrefix:   "89" + suffix[len(suffix)-5:],
 		PlacaPrefix:     e2ePlacaPrefix("OSR", suffix),
 		CriarVeiculo:    true,
 		CriarMotorista:  true,

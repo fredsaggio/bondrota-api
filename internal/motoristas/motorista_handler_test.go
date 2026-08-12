@@ -129,7 +129,7 @@ func TestMotoristaHandler_Login(t *testing.T) {
 func validCreateBody() *bytes.Buffer {
 	return jsonBuf(map[string]any{
 		"nome":                  "João Silva",
-		"cpf":                   "123.456.789-01",
+		"cpf":                   "123.456.789-09",
 		"senha":                 "secret",
 		"turno":                 "MT",
 		"data_nasc":             "1990-01-01",
@@ -149,7 +149,7 @@ func TestMotoristaHandler_Create(t *testing.T) {
 			body: validCreateBody(),
 			setup: func(svc *mocks.MockMotoristaService) {
 				svc.EXPECT().Create(mock.Anything, mock.MatchedBy(func(in motoristas.MotoristaInput) bool {
-					return in.Nome == "João Silva" && in.CPF == "12345678901" && in.Turno == motoristas.TurnoMatutino && in.MunicipioTrabalhoID == 2611606
+					return in.Nome == "João Silva" && in.CPF == "12345678909" && in.Turno == motoristas.TurnoMatutino && in.MunicipioTrabalhoID == 2611606
 				})).Return(sampleMotorista(), nil)
 			},
 			wantStatus: http.StatusCreated,

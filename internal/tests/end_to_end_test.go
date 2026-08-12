@@ -66,8 +66,8 @@ func TestEndToEndPlanejamentoViagem(t *testing.T) {
 	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
 	adminEmail := "admin-e2e-" + suffix + "@bondrota.test"
 	adminPassword := "admin123"
-	motoristaCPF := "900" + suffix[len(suffix)-8:]
-	clienteCPF := "800" + suffix[len(suffix)-8:]
+	motoristaCPF := e2eCPF("900" + suffix[len(suffix)-6:])
+	clienteCPF := e2eCPF("800" + suffix[len(suffix)-6:])
 	placa := e2ePlaca("BUS", suffix)
 	cidade := "e2e-cidade-" + suffix
 	destinoNome := "UFAL E2E " + suffix
@@ -405,8 +405,8 @@ func TestEndToEndPlanejamentoMultiplosVeiculosPorCapacidade(t *testing.T) {
 	cidade := "e2e-capacidade-" + suffix
 	h.Cleanup(e2eCleanupData{
 		AdminEmail:      h.AdminEmail,
-		MotoristaPrefix: "91" + suffix[len(suffix)-7:],
-		ClientePrefix:   "81" + suffix[len(suffix)-7:],
+		MotoristaPrefix: "91" + suffix[len(suffix)-5:],
+		ClientePrefix:   "81" + suffix[len(suffix)-5:],
 		// "CAB" (executivo) e "CAR" (carro_7_lugares) só compartilham "CA".
 		PlacaPrefix:   e2ePlacaCleanupPattern("CA", suffix),
 		CidadeDestino: cidade,
@@ -446,7 +446,7 @@ func TestEndToEndPlanejamentoMultiplosVeiculosPorCapacidade(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		createMotorista(t, h.Router, h.AdminToken, map[string]any{
 			"nome":                  "Motorista Capacidade Teste",
-			"cpf":                   fmt.Sprintf("91%s%02d", suffix[len(suffix)-7:], i),
+			"cpf":                   e2eCPF(fmt.Sprintf("91%s%02d", suffix[len(suffix)-5:], i)),
 			"senha":                 "senha123",
 			"telefone":              "82999990000",
 			"data_nasc":             "1980-05-20",
@@ -467,7 +467,7 @@ func TestEndToEndPlanejamentoMultiplosVeiculosPorCapacidade(t *testing.T) {
 	for i := 0; i < 48; i++ {
 		clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
 			"nome":      "Cliente Capacidade Teste",
-			"cpf":       fmt.Sprintf("81%s%02d", suffix[len(suffix)-7:], i),
+			"cpf":       e2eCPF(fmt.Sprintf("81%s%02d", suffix[len(suffix)-5:], i)),
 			"senha":     "senha123",
 			"telefone":  "82999991111",
 			"data_nasc": "2002-08-10",
@@ -515,8 +515,8 @@ func TestEndToEndPlanejamentoIgnoraRecursosIndisponiveis(t *testing.T) {
 	cidade := "e2e-recursos-" + suffix
 	h.Cleanup(e2eCleanupData{
 		AdminEmail:      h.AdminEmail,
-		MotoristaPrefix: "90" + suffix[len(suffix)-7:],
-		ClientePrefix:   "80" + suffix[len(suffix)-7:],
+		MotoristaPrefix: "90" + suffix[len(suffix)-5:],
+		ClientePrefix:   "80" + suffix[len(suffix)-5:],
 		// "RUA" (inativo) e "RUR" (escolar ativo) só compartilham "RU". Era
 		// "BUS" antes — não batia com nenhum dos dois, e o veiculo escolar
 		// ativo ficava orfao, disponivel para o proximo teste da suite pegar.
@@ -557,7 +557,7 @@ func TestEndToEndPlanejamentoIgnoraRecursosIndisponiveis(t *testing.T) {
 	})
 	wrongTurnoMotoristaID := createMotorista(t, h.Router, h.AdminToken, map[string]any{
 		"nome":                  "Motorista Turno Errado Teste",
-		"cpf":                   "90" + suffix[len(suffix)-7:] + "00",
+		"cpf":                   e2eCPF("90" + suffix[len(suffix)-5:] + "00"),
 		"senha":                 "senha123",
 		"telefone":              "82999990000",
 		"data_nasc":             "1980-05-20",
@@ -568,7 +568,7 @@ func TestEndToEndPlanejamentoIgnoraRecursosIndisponiveis(t *testing.T) {
 	})
 	correctMotoristaID := createMotorista(t, h.Router, h.AdminToken, map[string]any{
 		"nome":                  "Motorista Turno Certo Teste",
-		"cpf":                   "90" + suffix[len(suffix)-7:] + "01",
+		"cpf":                   e2eCPF("90" + suffix[len(suffix)-5:] + "01"),
 		"senha":                 "senha123",
 		"telefone":              "82999990001",
 		"data_nasc":             "1980-05-20",
@@ -580,7 +580,7 @@ func TestEndToEndPlanejamentoIgnoraRecursosIndisponiveis(t *testing.T) {
 
 	clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
 		"nome":      "Cliente Recursos Teste",
-		"cpf":       "80" + suffix[len(suffix)-7:] + "00",
+		"cpf":       e2eCPF("80" + suffix[len(suffix)-5:] + "00"),
 		"senha":     "senha123",
 		"telefone":  "82999991111",
 		"data_nasc": "2002-08-10",
@@ -630,8 +630,8 @@ func TestEndToEndPlanejamentoNaoReutilizaRecursosJaAlocados(t *testing.T) {
 	cidade := "e2e-recursos-alocados-" + suffix
 	h.Cleanup(e2eCleanupData{
 		AdminEmail:      h.AdminEmail,
-		MotoristaPrefix: "76" + suffix[len(suffix)-7:],
-		ClientePrefix:   "76" + suffix[len(suffix)-7:],
+		MotoristaPrefix: "76" + suffix[len(suffix)-5:],
+		ClientePrefix:   "76" + suffix[len(suffix)-5:],
 		PlacaPrefix:     e2ePlacaPrefix("VAN", suffix),
 		CidadeDestino:   cidade,
 		DestinoPrefix:   "Destino Reuso E2E " + suffix,
@@ -669,7 +669,7 @@ func TestEndToEndPlanejamentoNaoReutilizaRecursosJaAlocados(t *testing.T) {
 	})
 	motoristaID := createMotorista(t, h.Router, h.AdminToken, map[string]any{
 		"nome":                  "Motorista Reuso Teste",
-		"cpf":                   "76" + suffix[len(suffix)-7:] + "00",
+		"cpf":                   e2eCPF("76" + suffix[len(suffix)-5:] + "00"),
 		"senha":                 "senha123",
 		"telefone":              "82999990000",
 		"data_nasc":             "1980-05-20",
@@ -689,7 +689,7 @@ func TestEndToEndPlanejamentoNaoReutilizaRecursosJaAlocados(t *testing.T) {
 	for i, rotaInternaID := range []int64{rotaInternaAID, rotaInternaBID} {
 		clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
 			"nome":      "Cliente Reuso Teste",
-			"cpf":       fmt.Sprintf("76%s%02d", suffix[len(suffix)-7:], i+1),
+			"cpf":       e2eCPF(fmt.Sprintf("76%s%02d", suffix[len(suffix)-5:], i+1)),
 			"senha":     "senha123",
 			"telefone":  "82999991111",
 			"data_nasc": "2002-08-10",
@@ -747,8 +747,8 @@ func TestEndToEndRotaDinamicaMultiplosDestinos(t *testing.T) {
 	cidade := "e2e-multidestino-" + suffix
 	h.Cleanup(e2eCleanupData{
 		AdminEmail:      h.AdminEmail,
-		MotoristaPrefix: "92" + suffix[len(suffix)-7:],
-		ClientePrefix:   "82" + suffix[len(suffix)-7:],
+		MotoristaPrefix: "92" + suffix[len(suffix)-5:],
+		ClientePrefix:   "82" + suffix[len(suffix)-5:],
 		PlacaPrefix:     e2ePlacaPrefix("MUL", suffix),
 		CidadeDestino:   cidade,
 		DestinoPrefix:   "Destino Multi E2E " + suffix,
@@ -788,7 +788,7 @@ func TestEndToEndRotaDinamicaMultiplosDestinos(t *testing.T) {
 	})
 	createMotorista(t, h.Router, h.AdminToken, map[string]any{
 		"nome":                  "Motorista Multi Teste",
-		"cpf":                   "92" + suffix[len(suffix)-7:] + "00",
+		"cpf":                   e2eCPF("92" + suffix[len(suffix)-5:] + "00"),
 		"senha":                 "senha123",
 		"telefone":              "82999990000",
 		"data_nasc":             "1980-05-20",
@@ -808,7 +808,7 @@ func TestEndToEndRotaDinamicaMultiplosDestinos(t *testing.T) {
 	for i, destinoID := range destinosIDs {
 		clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
 			"nome":      "Cliente Multi Teste",
-			"cpf":       fmt.Sprintf("82%s%02d", suffix[len(suffix)-7:], i),
+			"cpf":       e2eCPF(fmt.Sprintf("82%s%02d", suffix[len(suffix)-5:], i)),
 			"senha":     "senha123",
 			"telefone":  "82999991111",
 			"data_nasc": "2002-08-10",
@@ -876,8 +876,8 @@ func TestEndToEndCancelarReservaInvalidaRotaDinamica(t *testing.T) {
 	cidade := "e2e-invalida-rota-" + suffix
 	h.Cleanup(e2eCleanupData{
 		AdminEmail:      h.AdminEmail,
-		MotoristaPrefix: "97" + suffix[len(suffix)-7:],
-		ClientePrefix:   "79" + suffix[len(suffix)-7:],
+		MotoristaPrefix: "97" + suffix[len(suffix)-5:],
+		ClientePrefix:   "79" + suffix[len(suffix)-5:],
 		PlacaPrefix:     e2ePlacaPrefix("INV", suffix),
 		CidadeDestino:   cidade,
 		DestinoPrefix:   "Destino Invalida E2E " + suffix,
@@ -907,7 +907,7 @@ func TestEndToEndCancelarReservaInvalidaRotaDinamica(t *testing.T) {
 	})
 	createMotorista(t, h.Router, h.AdminToken, map[string]any{
 		"nome":                  "Motorista Invalida Teste",
-		"cpf":                   "97" + suffix[len(suffix)-7:] + "00",
+		"cpf":                   e2eCPF("97" + suffix[len(suffix)-5:] + "00"),
 		"senha":                 "senha123",
 		"telefone":              "82999990000",
 		"data_nasc":             "1980-05-20",
@@ -918,7 +918,7 @@ func TestEndToEndCancelarReservaInvalidaRotaDinamica(t *testing.T) {
 	})
 	clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
 		"nome":      "Cliente Invalida Teste",
-		"cpf":       "79" + suffix[len(suffix)-7:] + "00",
+		"cpf":       e2eCPF("79" + suffix[len(suffix)-5:] + "00"),
 		"senha":     "senha123",
 		"telefone":  "82999991111",
 		"data_nasc": "2002-08-10",
@@ -971,8 +971,8 @@ func TestEndToEndReservaCanceladaAntesDoPlanejamentoNaoEntraNaViagem(t *testing.
 	cidade := "e2e-reserva-cancelada-planejamento-" + suffix
 	h.Cleanup(e2eCleanupData{
 		AdminEmail:      h.AdminEmail,
-		MotoristaPrefix: "78" + suffix[len(suffix)-7:],
-		ClientePrefix:   "78" + suffix[len(suffix)-7:],
+		MotoristaPrefix: "78" + suffix[len(suffix)-5:],
+		ClientePrefix:   "78" + suffix[len(suffix)-5:],
 		PlacaPrefix:     e2ePlacaPrefix("NAT", suffix),
 		CidadeDestino:   cidade,
 		DestinoPrefix:   "Destino Reserva Cancelada E2E " + suffix,
@@ -1002,7 +1002,7 @@ func TestEndToEndReservaCanceladaAntesDoPlanejamentoNaoEntraNaViagem(t *testing.
 	})
 	createMotorista(t, h.Router, h.AdminToken, map[string]any{
 		"nome":                  "Motorista Reserva Cancelada Teste",
-		"cpf":                   "78" + suffix[len(suffix)-7:] + "00",
+		"cpf":                   e2eCPF("78" + suffix[len(suffix)-5:] + "00"),
 		"senha":                 "senha123",
 		"telefone":              "82999990000",
 		"data_nasc":             "1980-05-20",
@@ -1023,7 +1023,7 @@ func TestEndToEndReservaCanceladaAntesDoPlanejamentoNaoEntraNaViagem(t *testing.
 	for i := 0; i < 2; i++ {
 		clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
 			"nome":      "Cliente Reserva Cancelada Teste",
-			"cpf":       fmt.Sprintf("78%s%02d", suffix[len(suffix)-7:], i+1),
+			"cpf":       e2eCPF(fmt.Sprintf("78%s%02d", suffix[len(suffix)-5:], i+1)),
 			"senha":     "senha123",
 			"telefone":  "82999991111",
 			"data_nasc": "2002-08-10",
@@ -1087,8 +1087,8 @@ func TestEndToEndFalhaOSRMNaoPersisteRotaDinamica(t *testing.T) {
 	cidade := "e2e-osrm-fail-" + suffix
 	h.Cleanup(e2eCleanupData{
 		AdminEmail:      h.AdminEmail,
-		MotoristaPrefix: "77" + suffix[len(suffix)-7:],
-		ClientePrefix:   "77" + suffix[len(suffix)-7:],
+		MotoristaPrefix: "77" + suffix[len(suffix)-5:],
+		ClientePrefix:   "77" + suffix[len(suffix)-5:],
 		PlacaPrefix:     e2ePlacaPrefix("FAL", suffix),
 		CidadeDestino:   cidade,
 		DestinoPrefix:   "Destino Base E2E " + suffix,
@@ -1097,8 +1097,8 @@ func TestEndToEndFalhaOSRMNaoPersisteRotaDinamica(t *testing.T) {
 	rotaInternaID, dataViagem := setupPlanejamentoBase(t, h, planejamentoBaseOptions{
 		CidadeDestino:   cidade,
 		Prefixo:         suffix,
-		MotoristaPrefix: "77" + suffix[len(suffix)-7:],
-		ClientePrefix:   "77" + suffix[len(suffix)-7:],
+		MotoristaPrefix: "77" + suffix[len(suffix)-5:],
+		ClientePrefix:   "77" + suffix[len(suffix)-5:],
 		PlacaPrefix:     e2ePlacaPrefix("FAL", suffix),
 		CriarVeiculo:    true,
 		CriarMotorista:  true,
@@ -1127,8 +1127,8 @@ func TestEndToEndAutorizacaoPorDono(t *testing.T) {
 	cidade := "e2e-dono-" + suffix
 	h.Cleanup(e2eCleanupData{
 		AdminEmail:      h.AdminEmail,
-		MotoristaPrefix: "93" + suffix[len(suffix)-7:],
-		ClientePrefix:   "83" + suffix[len(suffix)-7:],
+		MotoristaPrefix: "93" + suffix[len(suffix)-5:],
+		ClientePrefix:   "83" + suffix[len(suffix)-5:],
 		PlacaPrefix:     e2ePlacaPrefix("DON", suffix),
 		CidadeDestino:   cidade,
 		DestinoPrefix:   "Destino Dono E2E " + suffix,
@@ -1156,8 +1156,8 @@ func TestEndToEndAutorizacaoPorDono(t *testing.T) {
 		"capacidade": 7,
 		"status":     "ativo",
 	})
-	motoristaCPF := "93" + suffix[len(suffix)-7:] + "00"
-	outroMotoristaCPF := "93" + suffix[len(suffix)-7:] + "01"
+	motoristaCPF := e2eCPF("93" + suffix[len(suffix)-5:] + "00")
+	outroMotoristaCPF := e2eCPF("93" + suffix[len(suffix)-5:] + "01")
 	createMotorista(t, h.Router, h.AdminToken, map[string]any{
 		"nome":                  "Motorista Dono Teste",
 		"cpf":                   motoristaCPF,
@@ -1182,7 +1182,7 @@ func TestEndToEndAutorizacaoPorDono(t *testing.T) {
 	})
 	clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
 		"nome":      "Cliente Dono Teste",
-		"cpf":       "83" + suffix[len(suffix)-7:] + "00",
+		"cpf":       e2eCPF("83" + suffix[len(suffix)-5:] + "00"),
 		"senha":     "senha123",
 		"telefone":  "82999991111",
 		"data_nasc": "2002-08-10",
@@ -1190,7 +1190,7 @@ func TestEndToEndAutorizacaoPorDono(t *testing.T) {
 	})
 	outroClienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
 		"nome":      "Outro Cliente Dono Teste",
-		"cpf":       "83" + suffix[len(suffix)-7:] + "01",
+		"cpf":       e2eCPF("83" + suffix[len(suffix)-5:] + "01"),
 		"senha":     "senha123",
 		"telefone":  "82999991112",
 		"data_nasc": "2002-08-10",
@@ -1228,7 +1228,7 @@ func TestEndToEndAutorizacaoPorDono(t *testing.T) {
 	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
 	motoristaToken := loginMotorista(t, h.Router, motoristaCPF, "senha123")
 	outroMotoristaToken := loginMotorista(t, h.Router, outroMotoristaCPF, "senha123")
-	outroClienteToken := loginCliente(t, h.Router, "83"+suffix[len(suffix)-7:]+"01", "senha123")
+	outroClienteToken := loginCliente(t, h.Router, e2eCPF("83"+suffix[len(suffix)-5:]+"01"), "senha123")
 
 	doStatus(t, h.Router, http.MethodPut, fmt.Sprintf("/api/v1/viagens/%d/localizacao", viagemID), motoristaToken, map[string]any{
 		"latitude":        -9.7812,
@@ -1266,7 +1266,7 @@ func TestEndToEndReservaDuplicadaECancelada(t *testing.T) {
 	cidade := "e2e-reserva-" + suffix
 	h.Cleanup(e2eCleanupData{
 		AdminEmail:    h.AdminEmail,
-		ClientePrefix: "84" + suffix[len(suffix)-7:],
+		ClientePrefix: "84" + suffix[len(suffix)-5:],
 		CidadeDestino: cidade,
 		DestinoPrefix: "Destino Reserva E2E " + suffix,
 	})
@@ -1288,7 +1288,7 @@ func TestEndToEndReservaDuplicadaECancelada(t *testing.T) {
 	})
 	clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
 		"nome":      "Cliente Reserva Teste",
-		"cpf":       "84" + suffix[len(suffix)-7:] + "00",
+		"cpf":       e2eCPF("84" + suffix[len(suffix)-5:] + "00"),
 		"senha":     "senha123",
 		"telefone":  "82999991111",
 		"data_nasc": "2002-08-10",
@@ -1296,7 +1296,7 @@ func TestEndToEndReservaDuplicadaECancelada(t *testing.T) {
 	})
 	outroClienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
 		"nome":      "Outro Cliente Reserva Teste",
-		"cpf":       "84" + suffix[len(suffix)-7:] + "01",
+		"cpf":       e2eCPF("84" + suffix[len(suffix)-5:] + "01"),
 		"senha":     "senha123",
 		"telefone":  "82999991112",
 		"data_nasc": "2002-08-10",
@@ -1326,10 +1326,10 @@ func TestEndToEndReservaDuplicadaECancelada(t *testing.T) {
 
 	reservaID := createReserva(t, h.Router, h.AdminToken, clienteID, vinculoID, body)
 	doStatus(t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/clientes/%d/vinculos/%d/reservas/", clienteID, vinculoID), h.AdminToken, body, http.StatusConflict)
-	outroClienteToken := loginCliente(t, h.Router, "84"+suffix[len(suffix)-7:]+"01", "senha123")
+	outroClienteToken := loginCliente(t, h.Router, e2eCPF("84"+suffix[len(suffix)-5:]+"01"), "senha123")
 	doStatus(t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/reservas/%d/cancelar", reservaID), outroClienteToken, nil, http.StatusForbidden)
 
-	clienteToken := loginCliente(t, h.Router, "84"+suffix[len(suffix)-7:]+"00", "senha123")
+	clienteToken := loginCliente(t, h.Router, e2eCPF("84"+suffix[len(suffix)-5:]+"00"), "senha123")
 	cancelada := doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/reservas/%d/cancelar", reservaID), clienteToken, nil, http.StatusOK)
 	if cancelada["status"] != "cancelada" {
 		t.Fatalf("expected reserva cancelada, got %v", cancelada["status"])
@@ -1354,8 +1354,8 @@ func TestEndToEndPlanejamentoErrosSemRecursos(t *testing.T) {
 		cidade := "e2e-sem-horario-" + suffix
 		h.Cleanup(e2eCleanupData{
 			AdminEmail:      h.AdminEmail,
-			MotoristaPrefix: "95" + suffix[len(suffix)-7:],
-			ClientePrefix:   "85" + suffix[len(suffix)-7:],
+			MotoristaPrefix: "95" + suffix[len(suffix)-5:],
+			ClientePrefix:   "85" + suffix[len(suffix)-5:],
 			PlacaPrefix:     e2ePlacaPrefix("HOR", suffix),
 			CidadeDestino:   cidade,
 			DestinoPrefix:   "Destino Base E2E " + suffix,
@@ -1364,8 +1364,8 @@ func TestEndToEndPlanejamentoErrosSemRecursos(t *testing.T) {
 		rotaInternaID, dataViagem := setupPlanejamentoBase(t, h, planejamentoBaseOptions{
 			CidadeDestino:   cidade,
 			Prefixo:         suffix,
-			MotoristaPrefix: "95" + suffix[len(suffix)-7:],
-			ClientePrefix:   "85" + suffix[len(suffix)-7:],
+			MotoristaPrefix: "95" + suffix[len(suffix)-5:],
+			ClientePrefix:   "85" + suffix[len(suffix)-5:],
 			PlacaPrefix:     e2ePlacaPrefix("HOR", suffix),
 			CriarVeiculo:    true,
 			CriarMotorista:  true,
@@ -1386,8 +1386,8 @@ func TestEndToEndPlanejamentoErrosSemRecursos(t *testing.T) {
 		cidade := "e2e-sem-veiculo-" + suffix
 		h.Cleanup(e2eCleanupData{
 			AdminEmail:      h.AdminEmail,
-			MotoristaPrefix: "96" + suffix[len(suffix)-7:],
-			ClientePrefix:   "86" + suffix[len(suffix)-7:],
+			MotoristaPrefix: "96" + suffix[len(suffix)-5:],
+			ClientePrefix:   "86" + suffix[len(suffix)-5:],
 			PlacaPrefix:     e2ePlacaPrefix("SEM", suffix),
 			CidadeDestino:   cidade,
 			DestinoPrefix:   "Destino Base E2E " + suffix,
@@ -1396,8 +1396,8 @@ func TestEndToEndPlanejamentoErrosSemRecursos(t *testing.T) {
 		rotaInternaID, dataViagem := setupPlanejamentoBase(t, h, planejamentoBaseOptions{
 			CidadeDestino:   cidade,
 			Prefixo:         suffix,
-			MotoristaPrefix: "96" + suffix[len(suffix)-7:],
-			ClientePrefix:   "86" + suffix[len(suffix)-7:],
+			MotoristaPrefix: "96" + suffix[len(suffix)-5:],
+			ClientePrefix:   "86" + suffix[len(suffix)-5:],
 			PlacaPrefix:     e2ePlacaPrefix("SEM", suffix),
 			CriarMotorista:  true,
 			CriarHorario:    true,
@@ -1418,7 +1418,7 @@ func TestEndToEndPlanejamentoErrosSemRecursos(t *testing.T) {
 		cidade := "e2e-sem-motorista-" + suffix
 		h.Cleanup(e2eCleanupData{
 			AdminEmail:    h.AdminEmail,
-			ClientePrefix: "87" + suffix[len(suffix)-7:],
+			ClientePrefix: "87" + suffix[len(suffix)-5:],
 			PlacaPrefix:   e2ePlacaPrefix("SEM", suffix),
 			CidadeDestino: cidade,
 			DestinoPrefix: "Destino Base E2E " + suffix,
@@ -1427,7 +1427,7 @@ func TestEndToEndPlanejamentoErrosSemRecursos(t *testing.T) {
 		rotaInternaID, dataViagem := setupPlanejamentoBase(t, h, planejamentoBaseOptions{
 			CidadeDestino: cidade,
 			Prefixo:       suffix,
-			ClientePrefix: "87" + suffix[len(suffix)-7:],
+			ClientePrefix: "87" + suffix[len(suffix)-5:],
 			PlacaPrefix:   e2ePlacaPrefix("SEM", suffix),
 			CriarVeiculo:  true,
 			CriarHorario:  true,
@@ -1449,8 +1449,8 @@ func TestEndToEndViagemCanceladaNaoInicia(t *testing.T) {
 	cidade := "e2e-cancelar-viagem-" + suffix
 	h.Cleanup(e2eCleanupData{
 		AdminEmail:      h.AdminEmail,
-		MotoristaPrefix: "98" + suffix[len(suffix)-7:],
-		ClientePrefix:   "88" + suffix[len(suffix)-7:],
+		MotoristaPrefix: "98" + suffix[len(suffix)-5:],
+		ClientePrefix:   "88" + suffix[len(suffix)-5:],
 		PlacaPrefix:     e2ePlacaPrefix("VIA", suffix),
 		CidadeDestino:   cidade,
 		DestinoPrefix:   "Destino Base E2E " + suffix,
@@ -1459,8 +1459,8 @@ func TestEndToEndViagemCanceladaNaoInicia(t *testing.T) {
 	rotaInternaID, dataViagem := setupPlanejamentoBase(t, h, planejamentoBaseOptions{
 		CidadeDestino:   cidade,
 		Prefixo:         suffix,
-		MotoristaPrefix: "98" + suffix[len(suffix)-7:],
-		ClientePrefix:   "88" + suffix[len(suffix)-7:],
+		MotoristaPrefix: "98" + suffix[len(suffix)-5:],
+		ClientePrefix:   "88" + suffix[len(suffix)-5:],
 		PlacaPrefix:     e2ePlacaPrefix("VIA", suffix),
 		CriarVeiculo:    true,
 		CriarMotorista:  true,
@@ -1498,8 +1498,8 @@ func TestEndToEndProcessamentoAutomaticoPlanejamentoIdempotente(t *testing.T) {
 	})
 	suffix := h.Suffix
 	cidade := "e2e-processador-" + suffix
-	motoristaPrefix := "91" + suffix[len(suffix)-7:]
-	clientePrefix := "81" + suffix[len(suffix)-7:]
+	motoristaPrefix := "91" + suffix[len(suffix)-5:]
+	clientePrefix := "81" + suffix[len(suffix)-5:]
 	placaPrefix := e2ePlacaPrefix("PRO", suffix)
 	h.Cleanup(e2eCleanupData{
 		AdminEmail:      h.AdminEmail,
@@ -1643,7 +1643,7 @@ func setupPlanejamentoBase(t *testing.T, h *e2eHarness, options planejamentoBase
 	if options.CriarMotorista {
 		createMotorista(t, h.Router, h.AdminToken, map[string]any{
 			"nome":                  "Motorista Base Teste",
-			"cpf":                   options.MotoristaPrefix + "00",
+			"cpf":                   e2eCPF(options.MotoristaPrefix + "00"),
 			"senha":                 "senha123",
 			"telefone":              "82999990000",
 			"data_nasc":             "1980-05-20",
@@ -1656,7 +1656,7 @@ func setupPlanejamentoBase(t *testing.T, h *e2eHarness, options planejamentoBase
 
 	clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
 		"nome":      "Cliente Base Teste",
-		"cpf":       options.ClientePrefix + "00",
+		"cpf":       e2eCPF(options.ClientePrefix + "00"),
 		"senha":     "senha123",
 		"telefone":  "82999991111",
 		"data_nasc": "2002-08-10",
@@ -1941,6 +1941,41 @@ func e2ePlacaCleanupPattern(lettersRoot, suffix string) string {
 		tail = suffix[len(suffix)-4:]
 	}
 	return lettersRoot + "%" + tail
+}
+
+// e2eCPF recebe uma base de 9 digitos (role-prefix de 2 + 5 digitos do
+// timestamp + 2 digitos diferenciadores entre entidades irmas no mesmo
+// teste) e completa com os dois digitos verificadores reais do CPF. As
+// fixtures antes montavam os 11 digitos direto do timestamp sem calcular
+// nada — validation.CPF passou a exigir o digito verificador de verdade, e
+// a chance de um numero arbitrario bater com o calculo e de 1 em 100.
+func e2eCPF(base string) string {
+	if len(base) > 9 {
+		base = base[:9]
+	}
+	for len(base) < 9 {
+		base = "0" + base
+	}
+	d1 := e2eCPFDigito(base)
+	d2 := e2eCPFDigito(base + string(d1))
+	return base + string(d1) + string(d2)
+}
+
+// e2eCPFDigito replica o modulo 11 de internal/validation.CPF. Duplicado de
+// proposito: as fixtures deste pacote nao devem depender de internals de
+// outro pacote so para gerar dados de teste.
+func e2eCPFDigito(base string) byte {
+	peso := len(base) + 1
+	soma := 0
+	for _, r := range base {
+		soma += int(r-'0') * peso
+		peso--
+	}
+	resto := soma % 11
+	if resto < 2 {
+		return '0'
+	}
+	return byte('0' + (11 - resto))
 }
 
 func cleanupE2EData(ctx context.Context, t *testing.T, pool *pgxpool.Pool, data e2eCleanupData) {
