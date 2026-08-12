@@ -13,6 +13,8 @@ import (
 type fakeSupabaseClient struct {
 	uploadInput   storage.SignedUploadURLInput
 	downloadInput storage.SignedDownloadURLInput
+	movedFrom     string
+	movedTo       string
 }
 
 func (c *fakeSupabaseClient) CreateSignedUploadURL(_ context.Context, input storage.SignedUploadURLInput) (*storage.SignedUploadURL, error) {
@@ -33,6 +35,12 @@ func (c *fakeSupabaseClient) CreateSignedDownloadURL(_ context.Context, input st
 		SignedURL:        "https://example.com/download",
 		ExpiresInSeconds: input.ExpiresInSeconds,
 	}, nil
+}
+
+func (c *fakeSupabaseClient) MoveObject(_ context.Context, _, from, to string) error {
+	c.movedFrom = from
+	c.movedTo = to
+	return nil
 }
 
 func TestService_CreateSignedUploadURLClienteOwnPath(t *testing.T) {
@@ -111,6 +119,25 @@ func TestService_CreateSignedUploadURLInvalidContentType(t *testing.T) {
 		Path:        "clientes/10/foto.exe",
 		ContentType: "application/octet-stream",
 	})
+
+	require.ErrorIs(t, err, brerror.ErrInvalidInput)
+}
+
+func TestService_MoveObjectDelegatesToClient(t *testing.T) {
+	client := &fakeSupabaseClient{}
+	svc := storage.NewService(client)
+
+	err := svc.MoveObject(context.Background(), "fotos", "motoristas/_novo/abc/foto.jpg", "motoristas/42/foto.jpg")
+
+	require.NoError(t, err)
+	require.Equal(t, "motoristas/_novo/abc/foto.jpg", client.movedFrom)
+	require.Equal(t, "motoristas/42/foto.jpg", client.movedTo)
+}
+
+func TestService_MoveObjectRequiresConfiguredClient(t *testing.T) {
+	svc := storage.NewService(nil)
+
+	err := svc.MoveObject(context.Background(), "fotos", "de", "para")
 
 	require.ErrorIs(t, err, brerror.ErrInvalidInput)
 }

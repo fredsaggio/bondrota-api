@@ -67,6 +67,13 @@ func (s *service) CreateSignedUploadURL(ctx context.Context, actor Actor, input 
 	return s.client.CreateSignedUploadURL(ctx, input)
 }
 
+func (s *service) MoveObject(ctx context.Context, bucket, from, to string) error {
+	if s.client == nil {
+		return fmt.Errorf("%w: storage client is not configured", brerror.ErrInvalidInput)
+	}
+	return s.client.MoveObject(ctx, bucket, from, to)
+}
+
 func (s *service) CreateSignedDownloadURL(ctx context.Context, actor Actor, input SignedDownloadURLInput) (*SignedDownloadURL, error) {
 	if s.client == nil {
 		return nil, fmt.Errorf("%w: storage client is not configured", brerror.ErrInvalidInput)

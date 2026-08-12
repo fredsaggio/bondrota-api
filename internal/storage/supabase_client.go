@@ -90,6 +90,21 @@ func (c *supabaseClient) CreateSignedDownloadURL(ctx context.Context, input Sign
 	}, nil
 }
 
+func (c *supabaseClient) MoveObject(ctx context.Context, bucket, from, to string) error {
+	if err := c.validateConfig(); err != nil {
+		return err
+	}
+
+	endpoint := c.storageURL("/object/move")
+	body := map[string]any{
+		"bucketId":       bucket,
+		"sourceKey":      from,
+		"destinationKey": to,
+	}
+
+	return c.doJSON(ctx, http.MethodPost, endpoint, body, &map[string]any{})
+}
+
 func (c *supabaseClient) validateConfig() error {
 	if c == nil || c.baseURL == "" || c.serviceKey == "" {
 		return fmt.Errorf("%w: supabase storage is not configured", errSupabaseStorage)

@@ -42,9 +42,15 @@ type SignedDownloadURL struct {
 type SupabaseClient interface {
 	CreateSignedUploadURL(ctx context.Context, input SignedUploadURLInput) (*SignedUploadURL, error)
 	CreateSignedDownloadURL(ctx context.Context, input SignedDownloadURLInput) (*SignedDownloadURL, error)
+	MoveObject(ctx context.Context, bucket, from, to string) error
 }
 
 type Service interface {
 	CreateSignedUploadURL(ctx context.Context, actor Actor, input SignedUploadURLInput) (*SignedUploadURL, error)
 	CreateSignedDownloadURL(ctx context.Context, actor Actor, input SignedDownloadURLInput) (*SignedDownloadURL, error)
+	// MoveObject nao passa por actor de proposito: quem chama e sempre o proprio
+	// backend, logo depois de criar um motorista/cliente/vinculo, para levar o
+	// arquivo da pasta de espera (onde foi enviado antes do registro ter ID)
+	// para o caminho definitivo. Nunca e exposto por HTTP.
+	MoveObject(ctx context.Context, bucket, from, to string) error
 }
