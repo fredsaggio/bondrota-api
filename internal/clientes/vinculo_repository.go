@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/fredsaggio/bondrota-api/internal/db"
@@ -99,32 +100,90 @@ func (s *vinculoStore) GetByID(ctx context.Context, vinculoID int64) (*Vinculo, 
 	return &vinculos[0], nil
 }
 
-func (s *vinculoStore) List(ctx context.Context) ([]VinculoComCliente, error) {
+const (
+	defaultVinculoListLimit = 50
+	maxVinculoListLimit     = 200
+)
+
+func (s *vinculoStore) List(ctx context.Context, params VinculoListParams) (VinculoListResult, error) {
 	const op = "db/vinculoStore.List"
 
+	limit := params.Limit
+	if limit <= 0 {
+		limit = defaultVinculoListLimit
+	}
+	if limit > maxVinculoListLimit {
+		limit = maxVinculoListLimit
+	}
+
+	var (
+		hasCursor  bool
+		cursorNome string
+		cursorID   int64
+	)
+	if params.Cursor != nil {
+		hasCursor = true
+		cursorNome = params.Cursor.ClienteNome
+		cursorID = params.Cursor.ID
+	}
+
+	// O LEFT JOIN de horarios_fixos multiplica as linhas (uma por dia da semana),
+	// entao o LIMIT precisa ser aplicado antes: a CTE escolhe os vinculos da
+	// pagina e so depois os horarios entram. Sem isso, o corte cairia no meio de
+	// um vinculo e ele viria com parte dos dias.
 	const q = `
+        WITH pagina AS (
+            SELECT v.id, c.nome AS cliente_nome
+            FROM cliente_vinculos v
+            JOIN clientes c ON c.id = v.cliente_id
+            JOIN destinos d ON d.id = v.destino_id
+            WHERE (@busca = '' OR
+                   c.nome ILIKE '%' || @busca || '%' OR
+                   d.nome ILIKE '%' || @busca || '%' OR
+                   v.curso ILIKE '%' || @busca || '%' OR
+                   v.tipo::TEXT ILIKE '%' || @busca || '%' OR
+                   v.turno::TEXT ILIKE '%' || @busca || '%')
+              AND (@has_cursor = FALSE OR (c.nome, v.id) > (@cursor_nome, @cursor_id))
+            ORDER BY c.nome ASC, v.id ASC
+            LIMIT @limit
+        )
         SELECT
             v.id, v.cliente_id, v.tipo, v.turno, v.destino_id, v.rota_interna_id,
             v.curso, v.comprovante, v.validade,
             h.id, h.vinculo_id, h.dia_semana,
-            c.nome
-        FROM cliente_vinculos v
+            c.nome, d.nome
+        FROM pagina p
+        JOIN cliente_vinculos v ON v.id = p.id
         JOIN clientes c ON c.id = v.cliente_id
+        JOIN destinos d ON d.id = v.destino_id
         LEFT JOIN horarios_fixos h ON h.vinculo_id = v.id
         ORDER BY c.nome ASC, v.id ASC, h.dia_semana ASC
     `
 
-	rows, err := s.db.Query(ctx, q)
+	rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{
+		"busca":       strings.TrimSpace(params.Busca),
+		"has_cursor":  hasCursor,
+		"cursor_nome": cursorNome,
+		"cursor_id":   cursorID,
+		"limit":       limit + 1,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return VinculoListResult{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	vinculos, err := collectVinculosComCliente(rows)
+	items, err := collectVinculosComCliente(rows)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return VinculoListResult{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return vinculos, nil
+	result := VinculoListResult{Items: items}
+	if len(items) > limit {
+		result.Items = items[:limit]
+		last := result.Items[len(result.Items)-1]
+		result.NextCursor = &VinculoCursor{ClienteNome: last.ClienteNome, ID: last.ID}
+		result.HasMore = true
+	}
+	return result, nil
 }
 
 func (s *vinculoStore) ListByCliente(ctx context.Context, clienteID int64) ([]Vinculo, error) {
@@ -332,14 +391,15 @@ func collectVinculosComCliente(rows pgx.Rows) ([]VinculoComCliente, error) {
 		var (
 			row         vinculoRow
 			clienteNome string
+			destinoNome string
 		)
-		if err := rows.Scan(append(row.scanTargets(), &clienteNome)...); err != nil {
+		if err := rows.Scan(append(row.scanTargets(), &clienteNome, &destinoNome)...); err != nil {
 			return nil, err
 		}
 
 		i, ok := index[row.vID]
 		if !ok {
-			vinculos = append(vinculos, VinculoComCliente{Vinculo: row.vinculo(), ClienteNome: clienteNome})
+			vinculos = append(vinculos, VinculoComCliente{Vinculo: row.vinculo(), ClienteNome: clienteNome, DestinoNome: destinoNome})
 			i = len(vinculos) - 1
 			index[row.vID] = i
 		}

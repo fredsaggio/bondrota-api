@@ -666,7 +666,7 @@ Dias da semana em `horarios_fixos`: `1` a `5`, onde a API apenas valida o interv
 
 | Metodo | Path completo | Descricao | Body | Sucesso | Erros |
 | --- | --- | --- | --- | --- | --- |
-| `GET` | `BASE_URL/vinculos/` | Lista vinculos de todos os clientes. Somente `admin`. | nenhum | `200 VinculoComClienteResponse[]` | `401`, `403`, `500` |
+| `GET` | `BASE_URL/vinculos/?cursor=&limit=50&q=` | Lista vinculos de todos os clientes, paginada por cursor. Somente `admin`. | nenhum | `200 VinculoListResponse` | `400`, `401`, `403`, `500` |
 | `POST` | `BASE_URL/clientes/{clienteID}/vinculos/` | Cria vinculo para cliente. | `VinculoRequest` | `201 VinculoResponse` | `400`, `401`, `403`, `404`, `422`, `500` |
 | `GET` | `BASE_URL/clientes/{clienteID}/vinculos/` | Lista vinculos do cliente. | nenhum | `200 VinculoResponse[]` | `400`, `401`, `403`, `500` |
 | `GET` | `BASE_URL/clientes/{clienteID}/vinculos/{vinculoID}` | Busca vinculo do cliente. | nenhum | `200 VinculoResponse` | `400`, `401`, `403`, `404`, `500` |
@@ -713,33 +713,51 @@ Response:
 }
 ```
 
-`GET BASE_URL/vinculos/` devolve os mesmos campos acrescidos de `cliente_nome`, no
-mesmo nivel do objeto, e ordenados por nome do cliente. Ela existe para o painel
-administrativo montar a lista de vinculos em uma unica chamada, em vez de consultar
-os vinculos cliente a cliente:
+`GET BASE_URL/vinculos/` devolve os mesmos campos acrescidos de `cliente_nome` e
+`destino_nome`, no mesmo nivel do objeto, ordenados por nome do cliente. Ela existe
+para o painel montar a lista sem consultar os vinculos cliente a cliente.
+
+| Query param | Obrigatorio | Descricao |
+| --- | --- | --- |
+| `limit` | nao (padrao 50, teto 200) | tamanho da pagina |
+| `cursor` | nao (ausente = primeira pagina) | opaco, devolvido em `next_cursor` |
+| `q` | nao | busca por nome do cliente, nome do destino, curso, tipo ou turno |
+
+O cursor carrega o par que ordena a listagem (nome do cliente, id) — o nome sozinho
+nao serve por nao ser unico.
+
+Um detalhe da consulta: `horarios_fixos` vem de um LEFT JOIN que multiplica as
+linhas (uma por dia da semana). O recorte da pagina acontece **antes** desse join,
+numa CTE; aplicado depois, o LIMIT cortaria no meio de um vinculo e ele viria com
+parte dos dias.
 
 ```json
-[
-  {
-    "id": 10,
-    "cliente_id": 1,
-    "cliente_nome": "Maria Souza",
-    "tipo": "estudante",
-    "turno": "NT",
-    "destino_id": 1,
-    "rota_interna_id": 1,
-    "curso": "Sistemas de Informacao",
-    "comprovante": "https://...",
-    "validade": "2026-12-31",
-    "horarios_fixos": [
-      {
-        "id": 1,
-        "vinculo_id": 10,
-        "dia_semana": 1
-      }
-    ]
-  }
-]
+{
+  "items": [
+    {
+      "id": 10,
+      "cliente_id": 1,
+      "cliente_nome": "Maria Souza",
+      "tipo": "estudante",
+      "turno": "NT",
+      "destino_id": 1,
+      "destino_nome": "Campus Central",
+      "rota_interna_id": 1,
+      "curso": "Sistemas de Informacao",
+      "comprovante": "https://...",
+      "validade": "2026-12-31",
+      "horarios_fixos": [
+        {
+          "id": 1,
+          "vinculo_id": 10,
+          "dia_semana": 1
+        }
+      ]
+    }
+  ],
+  "next_cursor": "TWFyaWEgU291emF8MTA",
+  "has_more": true
+}
 ```
 
 ### Reservas

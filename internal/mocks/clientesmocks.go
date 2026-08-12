@@ -720,27 +720,25 @@ func (_c *MockVinculoStore_GetByID_Call) RunAndReturn(run func(ctx context.Conte
 }
 
 // List provides a mock function for the type MockVinculoStore
-func (_mock *MockVinculoStore) List(ctx context.Context) ([]clientes.VinculoComCliente, error) {
-	ret := _mock.Called(ctx)
+func (_mock *MockVinculoStore) List(ctx context.Context, params clientes.VinculoListParams) (clientes.VinculoListResult, error) {
+	ret := _mock.Called(ctx, params)
 
 	if len(ret) == 0 {
 		panic("no return value specified for List")
 	}
 
-	var r0 []clientes.VinculoComCliente
+	var r0 clientes.VinculoListResult
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]clientes.VinculoComCliente, error)); ok {
-		return returnFunc(ctx)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, clientes.VinculoListParams) (clientes.VinculoListResult, error)); ok {
+		return returnFunc(ctx, params)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context) []clientes.VinculoComCliente); ok {
-		r0 = returnFunc(ctx)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, clientes.VinculoListParams) clientes.VinculoListResult); ok {
+		r0 = returnFunc(ctx, params)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]clientes.VinculoComCliente)
-		}
+		r0 = ret.Get(0).(clientes.VinculoListResult)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = returnFunc(ctx)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, clientes.VinculoListParams) error); ok {
+		r1 = returnFunc(ctx, params)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -754,29 +752,35 @@ type MockVinculoStore_List_Call struct {
 
 // List is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockVinculoStore_Expecter) List(ctx interface{}) *MockVinculoStore_List_Call {
-	return &MockVinculoStore_List_Call{Call: _e.mock.On("List", ctx)}
+//   - params clientes.VinculoListParams
+func (_e *MockVinculoStore_Expecter) List(ctx interface{}, params interface{}) *MockVinculoStore_List_Call {
+	return &MockVinculoStore_List_Call{Call: _e.mock.On("List", ctx, params)}
 }
 
-func (_c *MockVinculoStore_List_Call) Run(run func(ctx context.Context)) *MockVinculoStore_List_Call {
+func (_c *MockVinculoStore_List_Call) Run(run func(ctx context.Context, params clientes.VinculoListParams)) *MockVinculoStore_List_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
+		var arg1 clientes.VinculoListParams
+		if args[1] != nil {
+			arg1 = args[1].(clientes.VinculoListParams)
+		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
 }
 
-func (_c *MockVinculoStore_List_Call) Return(vinculoComClientes []clientes.VinculoComCliente, err error) *MockVinculoStore_List_Call {
-	_c.Call.Return(vinculoComClientes, err)
+func (_c *MockVinculoStore_List_Call) Return(vinculoListResult clientes.VinculoListResult, err error) *MockVinculoStore_List_Call {
+	_c.Call.Return(vinculoListResult, err)
 	return _c
 }
 
-func (_c *MockVinculoStore_List_Call) RunAndReturn(run func(ctx context.Context) ([]clientes.VinculoComCliente, error)) *MockVinculoStore_List_Call {
+func (_c *MockVinculoStore_List_Call) RunAndReturn(run func(ctx context.Context, params clientes.VinculoListParams) (clientes.VinculoListResult, error)) *MockVinculoStore_List_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -88,10 +88,14 @@ func TestVinculoService_List(t *testing.T) {
 	store := mocks.NewMockVinculoStore(t)
 	svc := clientes.NewVinculoService(store)
 
-	want := []clientes.VinculoComCliente{{Vinculo: *sampleVinculo(), ClienteNome: "Maria Souza"}}
-	store.EXPECT().List(mock.Anything).Return(want, nil)
+	params := clientes.VinculoListParams{Limit: 10, Busca: "maria"}
+	want := clientes.VinculoListResult{
+		Items:   []clientes.VinculoComCliente{{Vinculo: *sampleVinculo(), ClienteNome: "Maria Souza"}},
+		HasMore: false,
+	}
+	store.EXPECT().List(mock.Anything, params).Return(want, nil)
 
-	got, err := svc.List(context.Background())
+	got, err := svc.List(context.Background(), params)
 
 	assert.NoError(t, err)
 	assert.Equal(t, want, got)

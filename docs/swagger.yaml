@@ -686,6 +686,22 @@ components:
           cliente_nome:
             type: string
             example: Maria Souza
+          destino_nome:
+            type: string
+            example: Campus Central
+    VinculoListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/VinculoComClienteResponse'
+        next_cursor:
+          type: string
+          description: Opaco (nome do cliente + id). So presente quando has_more e true.
+          example: TWFyaWEgU291emF8MTA
+        has_more:
+          type: boolean
     ClienteComVinculosResponse:
       allOf:
       - $ref: '#/components/schemas/ClienteResponse'
@@ -2387,18 +2403,39 @@ paths:
           type: integer
   /vinculos/:
     get:
-      summary: Lista vinculos de todos os clientes (somente admin)
+      summary: Lista vinculos de todos os clientes, paginada por cursor (somente admin)
+      description: >-
+        q busca por nome do cliente, nome do destino, curso, tipo ou turno. O
+        recorte da pagina acontece antes do join de horarios_fixos, para o LIMIT
+        nao cortar um vinculo no meio dos dias da semana.
       tags:
       - Vínculos
+      parameters:
+      - name: cursor
+        in: query
+        required: false
+        description: Opaco, devolvido em next_cursor.
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+          maximum: 200
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
       responses:
         '200':
           description: Sucesso
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/VinculoComClienteResponse'
+                $ref: '#/components/schemas/VinculoListResponse'
         '403':
           description: Role sem permissao
   /clientes/{clienteID}/vinculos/:

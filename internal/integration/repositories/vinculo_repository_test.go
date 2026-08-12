@@ -3,101 +3,128 @@
 package repositories
 
 import (
+	"context"
 	"testing"
-	"time"
 
 	"github.com/fredsaggio/bondrota-api/internal/clientes"
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
 )
 
-func TestVinculoRepository_ListAcrossClientes(t *testing.T) {
-	ctx, tx := beginTestTx(t)
-	fixture := seedBaseFixture(t, ctx, tx)
-	store := clientes.NewVinculoStore(tx)
-
-	empty, err := store.List(ctx)
-	require.NoError(t, err)
-	require.Empty(t, empty)
-
-	// Bruno e inserido antes de Ana para provar que a ordenacao vem do SQL.
-	brunoID := seedClienteComNome(t, ctx, tx, "20000000002", "Bruno Lima")
-	anaID := seedClienteComNome(t, ctx, tx, "20000000003", "Ana Costa")
-
-	_, err = store.Create(ctx, clientes.VinculoInput{
-		ClienteID: brunoID, Tipo: clientes.TipoEstudante, Turno: clientes.TurnoNoturno,
-		DestinoID: fixture.DestinoID, RotaInternaID: fixture.RotaInternaID,
-		Curso: "Direito", Comprovante: "bruno.pdf",
-		Validade:      time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC),
-		HorariosFixos: []clientes.DiaSemana{clientes.Segunda, clientes.Quarta, clientes.Sexta},
-	})
-	require.NoError(t, err)
-
-	_, err = store.Create(ctx, clientes.VinculoInput{
-		ClienteID: anaID, Tipo: clientes.TipoEstagio, Turno: clientes.TurnoMatutino,
-		DestinoID: fixture.DestinoID, RotaInternaID: fixture.RotaInternaID,
-		Comprovante: "ana.pdf",
-		Validade:    time.Date(2031, 2, 2, 0, 0, 0, 0, time.UTC),
-	})
-	require.NoError(t, err)
-
-	listed, err := store.List(ctx)
-	require.NoError(t, err)
-	require.Len(t, listed, 2)
-
-	require.Equal(t, "Ana Costa", listed[0].ClienteNome)
-	require.Equal(t, anaID, listed[0].ClienteID)
-	require.Empty(t, listed[0].HorariosFixos)
-
-	// O LEFT JOIN repete o vinculo uma vez por horario fixo; o coletor precisa
-	// agrupar as linhas em vez de devolver o mesmo vinculo tres vezes.
-	require.Equal(t, "Bruno Lima", listed[1].ClienteNome)
-	require.Equal(t, brunoID, listed[1].ClienteID)
-	require.Equal(t, "Direito", listed[1].Curso)
-	require.Len(t, listed[1].HorariosFixos, 3)
-	require.Equal(t, []clientes.DiaSemana{clientes.Segunda, clientes.Quarta, clientes.Sexta}, []clientes.DiaSemana{
-		listed[1].HorariosFixos[0].DiaSemana,
-		listed[1].HorariosFixos[1].DiaSemana,
-		listed[1].HorariosFixos[2].DiaSemana,
-	})
+// seedHorariosFixos adiciona dias da semana ao vinculo. Eles multiplicam as linhas
+// da consulta de listagem, que e exatamente o que a paginacao precisa tratar.
+func seedHorariosFixos(t *testing.T, ctx context.Context, tx pgx.Tx, vinculoID int64, dias ...int) {
+	t.Helper()
+	for _, dia := range dias {
+		_, err := tx.Exec(ctx,
+			`INSERT INTO horarios_fixos (vinculo_id, dia_semana) VALUES ($1, $2)`,
+			vinculoID, dia,
+		)
+		require.NoError(t, err)
+	}
 }
 
-func TestVinculoRepository_CRUDWithHorarios(t *testing.T) {
+func TestVinculoRepository_ListPagina(t *testing.T) {
 	ctx, tx := beginTestTx(t)
 	fixture := seedBaseFixture(t, ctx, tx)
 	store := clientes.NewVinculoStore(tx)
 
-	created, err := store.Create(ctx, clientes.VinculoInput{
-		ClienteID: fixture.ClienteID, Tipo: clientes.TipoEstudante, Turno: clientes.TurnoNoturno,
-		DestinoID: fixture.DestinoID, RotaInternaID: fixture.RotaInternaID,
-		Curso: "Computacao", Comprovante: "comprovante.pdf",
-		Validade:      time.Date(2030, 12, 31, 0, 0, 0, 0, time.UTC),
-		HorariosFixos: []clientes.DiaSemana{clientes.Segunda, clientes.Quarta},
+	// Nomes fora de ordem alfabetica de proposito: a listagem ordena por nome.
+	carla := seedClienteComNome(t, ctx, tx, "40000000003", "Carla Dias")
+	ana := seedClienteComNome(t, ctx, tx, "40000000001", "Ana Beatriz")
+	bruno := seedClienteComNome(t, ctx, tx, "40000000002", "Bruno Costa")
+
+	vinculoCarla := seedVinculo(t, ctx, tx, carla, fixture.DestinoID, fixture.RotaInternaID)
+	vinculoAna := seedVinculo(t, ctx, tx, ana, fixture.DestinoID, fixture.RotaInternaID)
+	vinculoBruno := seedVinculo(t, ctx, tx, bruno, fixture.DestinoID, fixture.RotaInternaID)
+
+	first, err := store.List(ctx, clientes.VinculoListParams{Limit: 2})
+	require.NoError(t, err)
+	require.Len(t, first.Items, 2)
+	require.Equal(t, vinculoAna, first.Items[0].ID, "ordena por nome do cliente")
+	require.Equal(t, vinculoBruno, first.Items[1].ID)
+	require.True(t, first.HasMore)
+	require.NotNil(t, first.NextCursor)
+
+	second, err := store.List(ctx, clientes.VinculoListParams{Limit: 2, Cursor: first.NextCursor})
+	require.NoError(t, err)
+	require.Len(t, second.Items, 1)
+	require.Equal(t, vinculoCarla, second.Items[0].ID)
+	require.False(t, second.HasMore)
+}
+
+/**
+ * O LEFT JOIN de horarios_fixos multiplica as linhas: um vinculo com 5 dias vira
+ * 5 linhas. Sem a CTE que pagina os vinculos antes, um LIMIT baixo cortaria no
+ * meio e o vinculo viria com parte dos dias.
+ */
+func TestVinculoRepository_ListNaoCortaHorariosFixos(t *testing.T) {
+	ctx, tx := beginTestTx(t)
+	fixture := seedBaseFixture(t, ctx, tx)
+	store := clientes.NewVinculoStore(tx)
+
+	ana := seedClienteComNome(t, ctx, tx, "40000000001", "Ana Beatriz")
+	bruno := seedClienteComNome(t, ctx, tx, "40000000002", "Bruno Costa")
+
+	vinculoAna := seedVinculo(t, ctx, tx, ana, fixture.DestinoID, fixture.RotaInternaID)
+	vinculoBruno := seedVinculo(t, ctx, tx, bruno, fixture.DestinoID, fixture.RotaInternaID)
+
+	seedHorariosFixos(t, ctx, tx, vinculoAna, 1, 2, 3, 4, 5)
+	seedHorariosFixos(t, ctx, tx, vinculoBruno, 1, 2)
+
+	// limit=1 e menor que os 5 dias da Ana: se o recorte fosse por linha, ela
+	// voltaria com um dia so — e o Bruno nem apareceria na proxima pagina.
+	first, err := store.List(ctx, clientes.VinculoListParams{Limit: 1})
+	require.NoError(t, err)
+	require.Len(t, first.Items, 1)
+	require.Equal(t, vinculoAna, first.Items[0].ID)
+	require.Len(t, first.Items[0].HorariosFixos, 5, "o vinculo precisa vir com todos os dias")
+	require.True(t, first.HasMore)
+
+	second, err := store.List(ctx, clientes.VinculoListParams{Limit: 1, Cursor: first.NextCursor})
+	require.NoError(t, err)
+	require.Len(t, second.Items, 1)
+	require.Equal(t, vinculoBruno, second.Items[0].ID)
+	require.Len(t, second.Items[0].HorariosFixos, 2)
+}
+
+func TestVinculoRepository_ListBusca(t *testing.T) {
+	ctx, tx := beginTestTx(t)
+	fixture := seedBaseFixture(t, ctx, tx)
+	store := clientes.NewVinculoStore(tx)
+
+	outroDestino := seedDestino(t, ctx, tx, "Campus Norte", testMunicipioID)
+
+	ana := seedClienteComNome(t, ctx, tx, "40000000001", "Ana Beatriz")
+	bruno := seedClienteComNome(t, ctx, tx, "40000000002", "Bruno Costa")
+
+	vinculoAna := seedVinculo(t, ctx, tx, ana, fixture.DestinoID, fixture.RotaInternaID)
+	vinculoBruno := seedVinculo(t, ctx, tx, bruno, outroDestino, fixture.RotaInternaID)
+
+	t.Run("por nome do cliente", func(t *testing.T) {
+		result, err := store.List(ctx, clientes.VinculoListParams{Busca: "ana beat"})
+		require.NoError(t, err)
+		require.Len(t, result.Items, 1)
+		require.Equal(t, vinculoAna, result.Items[0].ID)
 	})
-	require.NoError(t, err)
-	require.Len(t, created.HorariosFixos, 2)
 
-	got, err := store.GetByID(ctx, created.ID)
-	require.NoError(t, err)
-	require.Equal(t, []clientes.DiaSemana{clientes.Segunda, clientes.Quarta}, []clientes.DiaSemana{
-		got.HorariosFixos[0].DiaSemana, got.HorariosFixos[1].DiaSemana,
+	t.Run("por nome do destino", func(t *testing.T) {
+		result, err := store.List(ctx, clientes.VinculoListParams{Busca: "campus norte"})
+		require.NoError(t, err)
+		require.Len(t, result.Items, 1)
+		require.Equal(t, vinculoBruno, result.Items[0].ID)
+		require.Equal(t, "Campus Norte", result.Items[0].DestinoNome)
 	})
 
-	updated, err := store.Update(ctx, created.ID, clientes.VinculoUpdateInput{
-		Tipo: clientes.TipoEstagio, Turno: clientes.TurnoVespertino,
-		DestinoID: fixture.DestinoID, RotaInternaID: fixture.RotaInternaID,
-		Curso: "", Comprovante: "novo.pdf", Validade: time.Date(2031, 1, 1, 0, 0, 0, 0, time.UTC),
-		HorariosFixos: []clientes.DiaSemana{clientes.Sexta},
+	t.Run("por curso", func(t *testing.T) {
+		result, err := store.List(ctx, clientes.VinculoListParams{Busca: "computacao"})
+		require.NoError(t, err)
+		require.Len(t, result.Items, 2)
 	})
-	require.NoError(t, err)
-	require.Equal(t, clientes.TipoEstagio, updated.Tipo)
-	require.Len(t, updated.HorariosFixos, 1)
 
-	listed, err := store.ListByCliente(ctx, fixture.ClienteID)
-	require.NoError(t, err)
-	require.Len(t, listed, 1)
-	require.Equal(t, clientes.Sexta, listed[0].HorariosFixos[0].DiaSemana)
-
-	require.NoError(t, store.Delete(ctx, created.ID))
-	_, err = store.GetByID(ctx, created.ID)
-	require.ErrorIs(t, err, clientes.ErrVinculoNotFound)
+	t.Run("sem termo, lista tudo", func(t *testing.T) {
+		result, err := store.List(ctx, clientes.VinculoListParams{})
+		require.NoError(t, err)
+		require.Len(t, result.Items, 2)
+	})
 }

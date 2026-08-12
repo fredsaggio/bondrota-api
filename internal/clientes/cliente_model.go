@@ -104,6 +104,27 @@ type Vinculo struct {
 type VinculoComCliente struct {
 	Vinculo
 	ClienteNome string
+	DestinoNome string
+}
+
+// VinculoCursor guarda o par que ordena a listagem (nome do cliente, id). O nome
+// sozinho nao serve de cursor por nao ser unico; o id desempata.
+type VinculoCursor struct {
+	ClienteNome string
+	ID          int64
+}
+
+type VinculoListParams struct {
+	Cursor *VinculoCursor
+	Limit  int
+	// Busca casa por nome do cliente, nome do destino, curso, tipo e turno.
+	Busca string
+}
+
+type VinculoListResult struct {
+	Items      []VinculoComCliente
+	NextCursor *VinculoCursor
+	HasMore    bool
 }
 
 type VinculoInput struct {
@@ -148,7 +169,7 @@ type ClienteStore interface {
 type VinculoStore interface {
 	Create(ctx context.Context, input VinculoInput) (*Vinculo, error)
 	GetByID(ctx context.Context, vinculoID int64) (*Vinculo, error)
-	List(ctx context.Context) ([]VinculoComCliente, error)
+	List(ctx context.Context, params VinculoListParams) (VinculoListResult, error)
 	ListByCliente(ctx context.Context, clienteID int64) ([]Vinculo, error)
 	Update(ctx context.Context, vinculoID int64, input VinculoUpdateInput) (*Vinculo, error)
 	Delete(ctx context.Context, vinculoID int64) error
@@ -167,7 +188,7 @@ type ClienteService interface {
 type VinculoService interface {
 	Create(ctx context.Context, input VinculoInput) (*Vinculo, error)
 	GetByID(ctx context.Context, vinculoID int64) (*Vinculo, error)
-	List(ctx context.Context) ([]VinculoComCliente, error)
+	List(ctx context.Context, params VinculoListParams) (VinculoListResult, error)
 	ListByCliente(ctx context.Context, clienteID int64) ([]Vinculo, error)
 	Update(ctx context.Context, vinculoID int64, input VinculoUpdateInput) (*Vinculo, error)
 	Delete(ctx context.Context, vinculoID int64) error

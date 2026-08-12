@@ -19,14 +19,14 @@ import (
 type fakeVinculoService struct {
 	createFn        func(ctx context.Context, input clientes.VinculoInput) (*clientes.Vinculo, error)
 	getFn           func(ctx context.Context, vinculoID int64) (*clientes.Vinculo, error)
-	listFn          func(ctx context.Context) ([]clientes.VinculoComCliente, error)
+	listFn          func(ctx context.Context, params clientes.VinculoListParams) (clientes.VinculoListResult, error)
 	listByClienteFn func(ctx context.Context, clienteID int64) ([]clientes.Vinculo, error)
 	updateFn        func(ctx context.Context, vinculoID int64, input clientes.VinculoUpdateInput) (*clientes.Vinculo, error)
 	deleteFn        func(ctx context.Context, vinculoID int64) error
 }
 
-func (s fakeVinculoService) List(ctx context.Context) ([]clientes.VinculoComCliente, error) {
-	return s.listFn(ctx)
+func (s fakeVinculoService) List(ctx context.Context, params clientes.VinculoListParams) (clientes.VinculoListResult, error) {
+	return s.listFn(ctx, params)
 }
 
 func (s fakeVinculoService) Create(ctx context.Context, input clientes.VinculoInput) (*clientes.Vinculo, error) {
@@ -150,9 +150,13 @@ func TestVinculoHandler_Create(t *testing.T) {
 func TestVinculoHandler_List(t *testing.T) {
 	t.Run("returns vinculos with cliente_nome flattened", func(t *testing.T) {
 		svc := fakeVinculoService{
-			listFn: func(_ context.Context) ([]clientes.VinculoComCliente, error) {
-				return []clientes.VinculoComCliente{
-					{Vinculo: *sampleVinculo(), ClienteNome: "Maria Souza"},
+			listFn: func(_ context.Context, _ clientes.VinculoListParams) (clientes.VinculoListResult, error) {
+				return clientes.VinculoListResult{
+					Items: []clientes.VinculoComCliente{
+						{Vinculo: *sampleVinculo(), ClienteNome: "Maria Souza", DestinoNome: "Campus A"},
+					},
+					NextCursor: &clientes.VinculoCursor{ClienteNome: "Maria Souza", ID: 10},
+					HasMore:    true,
 				}, nil
 			},
 		}
@@ -164,15 +168,20 @@ func TestVinculoHandler_List(t *testing.T) {
 			t.Fatalf("want 200, got %d: %s", rr.Code, rr.Body.String())
 		}
 
-		var got []map[string]any
-		if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
+		var resp struct {
+			Items      []map[string]any `json:"items"`
+			NextCursor string           `json:"next_cursor"`
+			HasMore    bool             `json:"has_more"`
+		}
+		if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
 			t.Fatalf("invalid json: %v", err)
 		}
-		if len(got) != 1 {
-			t.Fatalf("want 1 vinculo, got %d", len(got))
+		if len(resp.Items) != 1 {
+			t.Fatalf("want 1 vinculo, got %d", len(resp.Items))
 		}
-		if got[0]["cliente_nome"] != "Maria Souza" {
-			t.Fatalf("want cliente_nome Maria Souza, got %v", got[0]["cliente_nome"])
+		got := resp.Items
+		if got[0]["cliente_nome"] != "Maria Souza" || got[0]["destino_nome"] != "Campus A" {
+			t.Fatalf("nomes resolvidos nao vieram: %v", got[0])
 		}
 		// O painel espera os campos do vinculo no mesmo nivel de cliente_nome.
 		if got[0]["id"] != float64(10) || got[0]["cliente_id"] != float64(1) {
@@ -181,12 +190,15 @@ func TestVinculoHandler_List(t *testing.T) {
 		if got[0]["validade"] != "2026-07-01" {
 			t.Fatalf("want validade 2026-07-01, got %v", got[0]["validade"])
 		}
+		if resp.NextCursor == "" || !resp.HasMore {
+			t.Fatalf("esperava next_cursor e has_more: %+v", resp)
+		}
 	})
 
 	t.Run("returns empty array when there is no vinculo", func(t *testing.T) {
 		svc := fakeVinculoService{
-			listFn: func(_ context.Context) ([]clientes.VinculoComCliente, error) {
-				return nil, nil
+			listFn: func(_ context.Context, _ clientes.VinculoListParams) (clientes.VinculoListResult, error) {
+				return clientes.VinculoListResult{}, nil
 			},
 		}
 
@@ -196,15 +208,71 @@ func TestVinculoHandler_List(t *testing.T) {
 		if rr.Code != http.StatusOK {
 			t.Fatalf("want 200, got %d", rr.Code)
 		}
-		if body := strings.TrimSpace(rr.Body.String()); body != "[]" {
-			t.Fatalf("want [], got %s", body)
+		if body := strings.TrimSpace(rr.Body.String()); !strings.Contains(body, `"items":[]`) {
+			t.Fatalf("want items vazio, got %s", body)
+		}
+	})
+
+	// O nome do cliente entra no cursor e pode conter o separador; a decodificacao
+	// corta no ultimo "|" porque o id nunca tem um.
+	t.Run("cursor sobrevive a nome com o separador", func(t *testing.T) {
+		var received clientes.VinculoListParams
+		nome := "Ana | Maria"
+		primeiro := fakeVinculoService{
+			listFn: func(_ context.Context, _ clientes.VinculoListParams) (clientes.VinculoListResult, error) {
+				return clientes.VinculoListResult{
+					NextCursor: &clientes.VinculoCursor{ClienteNome: nome, ID: 42},
+					HasMore:    true,
+				}, nil
+			},
+		}
+		rr := httptest.NewRecorder()
+		newVinculoRouter(clientes.NewVinculoHandler(primeiro)).ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/vinculos/", nil))
+
+		var resp struct {
+			NextCursor string `json:"next_cursor"`
+		}
+		if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("invalid json: %v", err)
+		}
+
+		segundo := fakeVinculoService{
+			listFn: func(_ context.Context, params clientes.VinculoListParams) (clientes.VinculoListResult, error) {
+				received = params
+				return clientes.VinculoListResult{}, nil
+			},
+		}
+		rr2 := httptest.NewRecorder()
+		newVinculoRouter(clientes.NewVinculoHandler(segundo)).ServeHTTP(rr2, httptest.NewRequest(http.MethodGet, "/vinculos/?cursor="+resp.NextCursor, nil))
+
+		if rr2.Code != http.StatusOK {
+			t.Fatalf("want 200, got %d: %s", rr2.Code, rr2.Body.String())
+		}
+		if received.Cursor == nil || received.Cursor.ClienteNome != nome || received.Cursor.ID != 42 {
+			t.Fatalf("cursor nao sobreviveu ao roundtrip: %+v", received.Cursor)
+		}
+	})
+
+	t.Run("parametro invalido vira 400 sem chamar o service", func(t *testing.T) {
+		for _, query := range []string{"?limit=abc", "?cursor=***"} {
+			svc := fakeVinculoService{
+				listFn: func(_ context.Context, _ clientes.VinculoListParams) (clientes.VinculoListResult, error) {
+					t.Fatalf("service nao pode ser chamado para %q", query)
+					return clientes.VinculoListResult{}, nil
+				},
+			}
+			rr := httptest.NewRecorder()
+			newVinculoRouter(clientes.NewVinculoHandler(svc)).ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/vinculos/"+query, nil))
+			if rr.Code != http.StatusBadRequest {
+				t.Fatalf("%s: want 400, got %d", query, rr.Code)
+			}
 		}
 	})
 
 	t.Run("translates store failure to 500", func(t *testing.T) {
 		svc := fakeVinculoService{
-			listFn: func(_ context.Context) ([]clientes.VinculoComCliente, error) {
-				return nil, errors.New("db")
+			listFn: func(_ context.Context, _ clientes.VinculoListParams) (clientes.VinculoListResult, error) {
+				return clientes.VinculoListResult{}, errors.New("db")
 			},
 		}
 

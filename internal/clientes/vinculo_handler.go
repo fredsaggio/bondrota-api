@@ -1,10 +1,13 @@
 package clientes
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -57,6 +60,13 @@ type VinculoResponse struct {
 type VinculoComClienteResponse struct {
 	VinculoResponse
 	ClienteNome string `json:"cliente_nome"`
+	DestinoNome string `json:"destino_nome"`
+}
+
+type VinculoListResponse struct {
+	Items      []VinculoComClienteResponse `json:"items"`
+	NextCursor string                      `json:"next_cursor,omitempty"`
+	HasMore    bool                        `json:"has_more"`
 }
 
 func (h *VinculoHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -92,22 +102,81 @@ func (h *VinculoHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *VinculoHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	vinculos, err := h.svc.List(ctx)
+	params, err := parseVinculoListParams(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	result, err := h.svc.List(ctx, params)
 	if err != nil {
 		slog.Error("failed to list vinculos", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	resp := make([]VinculoComClienteResponse, 0, len(vinculos))
-	for _, v := range vinculos {
-		resp = append(resp, VinculoComClienteResponse{
+	items := make([]VinculoComClienteResponse, 0, len(result.Items))
+	for _, v := range result.Items {
+		items = append(items, VinculoComClienteResponse{
 			VinculoResponse: toVinculoResponse(&v.Vinculo),
 			ClienteNome:     v.ClienteNome,
+			DestinoNome:     v.DestinoNome,
 		})
 	}
 
+	resp := VinculoListResponse{Items: items, HasMore: result.HasMore}
+	if result.NextCursor != nil {
+		resp.NextCursor = encodeVinculoCursor(*result.NextCursor)
+	}
+
 	httputils.Respond(w, http.StatusOK, resp)
+}
+
+func parseVinculoListParams(r *http.Request) (VinculoListParams, error) {
+	query := r.URL.Query()
+	params := VinculoListParams{Busca: query.Get("q")}
+
+	if raw := query.Get("limit"); raw != "" {
+		limit, err := strconv.Atoi(raw)
+		if err != nil || limit <= 0 {
+			return VinculoListParams{}, errors.New("invalid limit")
+		}
+		params.Limit = limit
+	}
+
+	if raw := query.Get("cursor"); raw != "" {
+		cursor, err := decodeVinculoCursor(raw)
+		if err != nil {
+			return VinculoListParams{}, errors.New("invalid cursor")
+		}
+		params.Cursor = cursor
+	}
+
+	return params, nil
+}
+
+// O cursor carrega nome e id. O nome pode conter qualquer caractere, inclusive o
+// separador, entao a decodificacao corta no ultimo "|" — o id nunca tem um.
+func encodeVinculoCursor(cursor VinculoCursor) string {
+	raw := cursor.ClienteNome + "|" + strconv.FormatInt(cursor.ID, 10)
+	return base64.RawURLEncoding.EncodeToString([]byte(raw))
+}
+
+func decodeVinculoCursor(value string) (*VinculoCursor, error) {
+	raw, err := base64.RawURLEncoding.DecodeString(value)
+	if err != nil {
+		return nil, fmt.Errorf("decode cursor: %w", err)
+	}
+	decoded := string(raw)
+	sep := strings.LastIndex(decoded, "|")
+	if sep < 0 {
+		return nil, errors.New("malformed cursor")
+	}
+	id, err := strconv.ParseInt(decoded[sep+1:], 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("cursor id: %w", err)
+	}
+	return &VinculoCursor{ClienteNome: decoded[:sep], ID: id}, nil
 }
 
 func (h *VinculoHandler) ListByCliente(w http.ResponseWriter, r *http.Request) {
