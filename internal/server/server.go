@@ -191,6 +191,9 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 		r.Route("/reservas", func(r chi.Router) {
 			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin, auth.RoleCliente))
 			r.With(srv.authSvc.RequireRole(auth.RoleAdmin)).Get("/", srv.handlers.ReservaHandler.List)
+			// Contagens agregadas para o painel. Rota estatica: o chi resolve ela
+			// antes de /{reservaID}, entao "resumo" nunca cai no parse de id.
+			r.With(srv.authSvc.RequireRole(auth.RoleAdmin)).Get("/resumo", srv.handlers.ReservaHandler.Resumo)
 			r.With(srv.handlers.ReservaHandler.RequireOwnerOrAdmin).Get("/{reservaID}", srv.handlers.ReservaHandler.GetByID)
 			r.With(srv.handlers.ReservaHandler.RequireOwnerOrAdmin).Put("/{reservaID}", srv.handlers.ReservaHandler.Update)
 			r.With(srv.handlers.ReservaHandler.RequireOwnerOrAdmin).Post("/{reservaID}/cancelar", srv.handlers.ReservaHandler.Cancel)

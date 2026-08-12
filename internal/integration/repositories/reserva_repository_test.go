@@ -167,6 +167,41 @@ func TestReservaRepository_ListFiltraPorIntervaloDeData(t *testing.T) {
 	require.Equal(t, ids[1], result.Items[0].ID)
 }
 
+func TestReservaRepository_ResumoContaSomenteConfirmadas(t *testing.T) {
+	ctx, tx := beginTestTx(t)
+	fixture := seedFixtureWithVinculo(t, ctx, tx)
+	store := reservas.NewReservaStore(tx)
+
+	base := futureTripDate()
+	criar := func(data time.Time, turno reservas.TurnoReserva) *reservas.Reserva {
+		created, err := store.Create(ctx, reservas.ReservaInput{
+			ClienteID: fixture.ClienteID, VinculoID: fixture.VinculoID, DataViagem: data,
+			Turno: turno, DestinoID: fixture.DestinoID,
+			RotaInternaID: fixture.RotaInternaID, Sentido: reservas.SentidoIda,
+		})
+		require.NoError(t, err)
+		return created
+	}
+
+	criar(base, reservas.TurnoNoturno)
+	criar(base.AddDate(0, 0, 1), reservas.TurnoNoturno)
+	criar(base.AddDate(0, 0, 2), reservas.TurnoMatutino)
+	cancelada := criar(base.AddDate(0, 0, 3), reservas.TurnoMatutino)
+
+	_, err := store.Update(ctx, cancelada.ID, func(current *reservas.Reserva) (bool, error) {
+		current.Status = reservas.StatusCancelada
+		return true, nil
+	})
+	require.NoError(t, err)
+
+	resumo, err := store.Resumo(ctx)
+	require.NoError(t, err)
+	// A cancelada fica de fora: o painel conta reservas ativas, nao historico.
+	require.Equal(t, int64(3), resumo.ConfirmadasTotal)
+	require.Equal(t, int64(2), resumo.ConfirmadasPorTurno[reservas.TurnoNoturno])
+	require.Equal(t, int64(1), resumo.ConfirmadasPorTurno[reservas.TurnoMatutino])
+}
+
 func TestReservaRepository_GetHorarioPartidaPorSentido(t *testing.T) {
 	ctx, tx := beginTestTx(t)
 	fixture := seedFixtureWithVinculo(t, ctx, tx)

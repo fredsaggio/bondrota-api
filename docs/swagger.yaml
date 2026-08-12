@@ -798,6 +798,19 @@ components:
           example: MjAyNi0wNi0xMHwx
         has_more:
           type: boolean
+    ReservaResumoResponse:
+      type: object
+      properties:
+        confirmadas_total:
+          type: integer
+          example: 7
+        confirmadas_por_turno:
+          type: object
+          additionalProperties:
+            type: integer
+          example:
+            MT: 4
+            NT: 3
     DisponibilidadeReservaResponse:
       type: object
       required:
@@ -2537,6 +2550,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReservaListResponse'
+  /reservas/resumo:
+    get:
+      summary: Contagens agregadas de reservas confirmadas
+      description: >-
+        Agrega no banco para o painel exibir totais sem baixar a tabela. O custo
+        nao cresce com o numero de reservas.
+      tags:
+      - Reservas
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservaResumoResponse'
   /reservas/{reservaID}:
     get:
       summary: Busca reserva

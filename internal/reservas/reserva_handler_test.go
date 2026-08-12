@@ -23,6 +23,7 @@ func newRouter(h *reservas.ReservaHandler) http.Handler {
 	r.Post("/clientes/{clienteID}/vinculos/{vinculoID}/reservas", h.CreateByVinculo)
 	r.Get("/clientes/{clienteID}/vinculos/{vinculoID}/reservas/disponibilidade", h.ConsultarDisponibilidade)
 	r.Get("/reservas", h.List)
+	r.Get("/reservas/resumo", h.Resumo)
 	r.Get("/reservas/{reservaID}", h.GetByID)
 	r.Get("/clientes/{clienteID}/reservas", h.ListByCliente)
 	r.Get("/clientes/{clienteID}/vinculos/{vinculoID}/reservas", h.ListByVinculo)
@@ -439,6 +440,50 @@ func TestHandler_List_CursorRoundtrip(t *testing.T) {
 	if second.Code != http.StatusOK {
 		t.Fatalf("want 200, got %d: %s", second.Code, second.Body.String())
 	}
+}
+
+// --- Resumo ---
+
+func TestHandler_Resumo(t *testing.T) {
+	t.Run("agrega total e por turno", func(t *testing.T) {
+		svc := mocks.NewMockReservaService(t)
+		svc.EXPECT().Resumo(mock.Anything).Return(reservas.ReservaResumo{
+			ConfirmadasTotal: 7,
+			ConfirmadasPorTurno: map[reservas.TurnoReserva]int64{
+				reservas.TurnoMatutino: 4,
+				reservas.TurnoNoturno:  3,
+			},
+		}, nil)
+
+		rr := httptest.NewRecorder()
+		newRouter(reservas.NewReservaHandler(svc)).ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/reservas/resumo", nil))
+
+		if rr.Code != http.StatusOK {
+			t.Fatalf("want 200, got %d: %s", rr.Code, rr.Body.String())
+		}
+		var resp struct {
+			ConfirmadasTotal    int64            `json:"confirmadas_total"`
+			ConfirmadasPorTurno map[string]int64 `json:"confirmadas_por_turno"`
+		}
+		if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("unmarshal: %v", err)
+		}
+		if resp.ConfirmadasTotal != 7 || resp.ConfirmadasPorTurno["MT"] != 4 || resp.ConfirmadasPorTurno["NT"] != 3 {
+			t.Fatalf("resumo inesperado: %+v", resp)
+		}
+	})
+
+	t.Run("erro interno → 500", func(t *testing.T) {
+		svc := mocks.NewMockReservaService(t)
+		svc.EXPECT().Resumo(mock.Anything).Return(reservas.ReservaResumo{}, errors.New("db"))
+
+		rr := httptest.NewRecorder()
+		newRouter(reservas.NewReservaHandler(svc)).ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/reservas/resumo", nil))
+
+		if rr.Code != http.StatusInternalServerError {
+			t.Fatalf("want 500, got %d", rr.Code)
+		}
+	})
 }
 
 // --- ListByCliente ---

@@ -737,6 +737,7 @@ Turnos operacionais validos: `MT`, `VT`, `NT`. Se o vinculo for `IN`, o frontend
 | --- | --- | --- | --- | --- | --- |
 | `GET` | `BASE_URL/clientes/{clienteID}/vinculos/{vinculoID}/reservas/disponibilidade?data_viagem=2026-06-10&turno=NT&sentido=ida` | Consulta partida, fechamento e disponibilidade para o vinculo. | nenhum | `200 DisponibilidadeReservaResponse` | `400`, `401`, `403`, `404`, `422`, `500` |
 | `GET` | `BASE_URL/reservas/?cursor=&limit=50&q=&data_inicio=&data_fim=` | Lista reservas, paginada por cursor. | nenhum | `200 ReservaListResponse` | `400`, `401`, `403`, `500` |
+| `GET` | `BASE_URL/reservas/resumo` | Contagens agregadas de reservas confirmadas. | nenhum | `200 ReservaResumoResponse` | `401`, `403`, `500` |
 | `GET` | `BASE_URL/reservas/{reservaID}` | Busca reserva. | nenhum | `200 ReservaResponse` | `400`, `401`, `403`, `404`, `500` |
 | `PUT` | `BASE_URL/reservas/{reservaID}` | Atualiza dados editaveis da reserva. | `UpdateReservaRequest` parcial | `200 ReservaResponse` | `400`, `401`, `403`, `404`, `409`, `422`, `500` |
 | `POST` | `BASE_URL/reservas/{reservaID}/cancelar` | Cancela reserva. | nenhum | `200 ReservaResponse` | `400`, `401`, `403`, `404`, `422`, `500` |
@@ -778,6 +779,17 @@ Listagem paginada (`GET /reservas/`):
 `next_cursor` so aparece quando `has_more` e `true`. Repassar esse valor no `cursor`
 da proxima chamada continua exatamente de onde a pagina anterior parou — sem
 `OFFSET`, entao o custo da consulta nao cresce conforme a tabela cresce.
+
+Resumo (`GET /reservas/resumo`) existe para o painel exibir totais sem baixar a
+tabela: ele agrega no banco (`GROUP BY turno`), entao o custo nao cresce junto com
+o numero de reservas. Conta apenas reservas `confirmada`.
+
+```json
+{
+  "confirmadas_total": 7,
+  "confirmadas_por_turno": { "MT": 4, "NT": 3 }
+}
+```
 
 Regras de cancelamento:
 

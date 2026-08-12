@@ -96,6 +96,10 @@ func (s *reservaService) List(ctx context.Context, params ReservaListParams) (Re
 	return s.store.List(ctx, params)
 }
 
+func (s *reservaService) Resumo(ctx context.Context) (ReservaResumo, error) {
+	return s.store.Resumo(ctx)
+}
+
 func (s *reservaService) ListByCliente(ctx context.Context, clienteID int64) ([]Reserva, error) {
 	return s.store.ListByCliente(ctx, clienteID)
 }

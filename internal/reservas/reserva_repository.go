@@ -191,6 +191,43 @@ func (s *reservaStore) List(ctx context.Context, params ReservaListParams) (Rese
 	return result, nil
 }
 
+// Resumo agrega no banco em vez de contar linhas na aplicacao: o custo nao cresce
+// com o tamanho da tabela e a resposta tem sempre no maximo um punhado de linhas.
+func (s *reservaStore) Resumo(ctx context.Context) (ReservaResumo, error) {
+	const op = "db/reservaStore.Resumo"
+
+	const q = `
+		SELECT turno, COUNT(*)
+		FROM reservas
+		WHERE status = 'confirmada'
+		GROUP BY turno
+	`
+
+	rows, err := s.db.Query(ctx, q)
+	if err != nil {
+		return ReservaResumo{}, fmt.Errorf("%s: %w", op, err)
+	}
+	defer rows.Close()
+
+	resumo := ReservaResumo{ConfirmadasPorTurno: map[TurnoReserva]int64{}}
+	for rows.Next() {
+		var (
+			turno TurnoReserva
+			total int64
+		)
+		if err := rows.Scan(&turno, &total); err != nil {
+			return ReservaResumo{}, fmt.Errorf("%s: %w", op, err)
+		}
+		resumo.ConfirmadasPorTurno[turno] = total
+		resumo.ConfirmadasTotal += total
+	}
+	if err := rows.Err(); err != nil {
+		return ReservaResumo{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return resumo, nil
+}
+
 func (s *reservaStore) ListByCliente(ctx context.Context, clienteID int64) ([]Reserva, error) {
 	const op = "db/reservaStore.ListByCliente"
 

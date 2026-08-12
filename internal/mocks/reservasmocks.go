@@ -584,6 +584,66 @@ func (_c *MockReservaStore_ListByVinculo_Call) RunAndReturn(run func(ctx context
 	return _c
 }
 
+// Resumo provides a mock function for the type MockReservaStore
+func (_mock *MockReservaStore) Resumo(ctx context.Context) (reservas.ReservaResumo, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Resumo")
+	}
+
+	var r0 reservas.ReservaResumo
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (reservas.ReservaResumo, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) reservas.ReservaResumo); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		r0 = ret.Get(0).(reservas.ReservaResumo)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockReservaStore_Resumo_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Resumo'
+type MockReservaStore_Resumo_Call struct {
+	*mock.Call
+}
+
+// Resumo is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockReservaStore_Expecter) Resumo(ctx interface{}) *MockReservaStore_Resumo_Call {
+	return &MockReservaStore_Resumo_Call{Call: _e.mock.On("Resumo", ctx)}
+}
+
+func (_c *MockReservaStore_Resumo_Call) Run(run func(ctx context.Context)) *MockReservaStore_Resumo_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockReservaStore_Resumo_Call) Return(reservaResumo reservas.ReservaResumo, err error) *MockReservaStore_Resumo_Call {
+	_c.Call.Return(reservaResumo, err)
+	return _c
+}
+
+func (_c *MockReservaStore_Resumo_Call) RunAndReturn(run func(ctx context.Context) (reservas.ReservaResumo, error)) *MockReservaStore_Resumo_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Update provides a mock function for the type MockReservaStore
 func (_mock *MockReservaStore) Update(ctx context.Context, reservaID int64, updateFunc func(*reservas.Reserva) (bool, error)) (*reservas.Reserva, error) {
 	ret := _mock.Called(ctx, reservaID, updateFunc)
@@ -1218,6 +1278,66 @@ func (_c *MockReservaService_ListByVinculo_Call) Return(reservas1 []reservas.Res
 }
 
 func (_c *MockReservaService_ListByVinculo_Call) RunAndReturn(run func(ctx context.Context, clienteID int64, vinculoID int64) ([]reservas.Reserva, error)) *MockReservaService_ListByVinculo_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Resumo provides a mock function for the type MockReservaService
+func (_mock *MockReservaService) Resumo(ctx context.Context) (reservas.ReservaResumo, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Resumo")
+	}
+
+	var r0 reservas.ReservaResumo
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (reservas.ReservaResumo, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) reservas.ReservaResumo); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		r0 = ret.Get(0).(reservas.ReservaResumo)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockReservaService_Resumo_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Resumo'
+type MockReservaService_Resumo_Call struct {
+	*mock.Call
+}
+
+// Resumo is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockReservaService_Expecter) Resumo(ctx interface{}) *MockReservaService_Resumo_Call {
+	return &MockReservaService_Resumo_Call{Call: _e.mock.On("Resumo", ctx)}
+}
+
+func (_c *MockReservaService_Resumo_Call) Run(run func(ctx context.Context)) *MockReservaService_Resumo_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockReservaService_Resumo_Call) Return(reservaResumo reservas.ReservaResumo, err error) *MockReservaService_Resumo_Call {
+	_c.Call.Return(reservaResumo, err)
+	return _c
+}
+
+func (_c *MockReservaService_Resumo_Call) RunAndReturn(run func(ctx context.Context) (reservas.ReservaResumo, error)) *MockReservaService_Resumo_Call {
 	_c.Call.Return(run)
 	return _c
 }

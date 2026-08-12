@@ -110,6 +110,14 @@ type ReservaListResult struct {
 	HasMore    bool
 }
 
+// ReservaResumo traz contagens agregadas para o painel. Ele existe porque o
+// dashboard precisa de totais, nao de linhas: calcular isso baixando a tabela
+// inteira nao escala e passou a ficar errado quando a listagem virou paginada.
+type ReservaResumo struct {
+	ConfirmadasTotal    int64
+	ConfirmadasPorTurno map[TurnoReserva]int64
+}
+
 type ReservaServiceConfig struct {
 	Location               *time.Location
 	Now                    func() time.Time
@@ -129,6 +137,7 @@ type ReservaStore interface {
 	GetVinculoSnapshot(ctx context.Context, vinculoID int64) (VinculoSnapshot, error)
 	GetHorarioPartida(ctx context.Context, destinoID int64, turno TurnoReserva, sentido SentidoReserva) (time.Duration, error)
 	List(ctx context.Context, params ReservaListParams) (ReservaListResult, error)
+	Resumo(ctx context.Context) (ReservaResumo, error)
 	ListByCliente(ctx context.Context, clienteID int64) ([]Reserva, error)
 	ListByVinculo(ctx context.Context, clienteID, vinculoID int64) ([]Reserva, error)
 	Update(ctx context.Context, reservaID int64, updateFunc func(*Reserva) (bool, error)) (*Reserva, error)
@@ -144,6 +153,7 @@ type ReservaService interface {
 	ConsultarDisponibilidade(ctx context.Context, input DisponibilidadeReservaInput) (*DisponibilidadeReserva, error)
 	GetByID(ctx context.Context, reservaID int64) (*Reserva, error)
 	List(ctx context.Context, params ReservaListParams) (ReservaListResult, error)
+	Resumo(ctx context.Context) (ReservaResumo, error)
 	ListByCliente(ctx context.Context, clienteID int64) ([]Reserva, error)
 	ListByVinculo(ctx context.Context, clienteID, vinculoID int64) ([]Reserva, error)
 	Update(ctx context.Context, reservaID int64, updateFunc func(*Reserva) (bool, error)) (*Reserva, error)

@@ -100,6 +100,11 @@ type ReservaListResponse struct {
 	HasMore    bool                      `json:"has_more"`
 }
 
+type ReservaResumoResponse struct {
+	ConfirmadasTotal    int64            `json:"confirmadas_total"`
+	ConfirmadasPorTurno map[string]int64 `json:"confirmadas_por_turno"`
+}
+
 type DisponibilidadeReservaResponse struct {
 	DataViagem   string         `json:"data_viagem"`
 	Turno        TurnoReserva   `json:"turno"`
@@ -203,6 +208,25 @@ func (h *ReservaHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httputils.Respond(w, http.StatusOK, toReservaListResponse(result))
+}
+
+func (h *ReservaHandler) Resumo(w http.ResponseWriter, r *http.Request) {
+	resumo, err := h.svc.Resumo(r.Context())
+	if err != nil {
+		slog.Error("failed to summarize reservas", "error", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	porTurno := make(map[string]int64, len(resumo.ConfirmadasPorTurno))
+	for turno, total := range resumo.ConfirmadasPorTurno {
+		porTurno[string(turno)] = total
+	}
+
+	httputils.Respond(w, http.StatusOK, ReservaResumoResponse{
+		ConfirmadasTotal:    resumo.ConfirmadasTotal,
+		ConfirmadasPorTurno: porTurno,
+	})
 }
 
 func parseReservaListParams(r *http.Request) (ReservaListParams, error) {
