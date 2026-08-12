@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/fredsaggio/bondrota-api/internal/auth"
 	"github.com/fredsaggio/bondrota-api/internal/brerror"
@@ -17,7 +18,8 @@ import (
 
 type fakeViagemService struct {
 	getFn      func(ctx context.Context, viagemID int64) (*viagens.ViagemComCiclo, error)
-	listFn     func(ctx context.Context) ([]viagens.ViagemComCiclo, error)
+	listFn     func(ctx context.Context, params viagens.ViagemListParams) (viagens.ViagemListResult, error)
+	resumoFn   func(ctx context.Context) (viagens.ViagemResumo, error)
 	horariosFn func(ctx context.Context, viagemID int64) ([]viagens.ViagemHorario, error)
 	iniciarFn  func(ctx context.Context, viagemID int64) (*viagens.Viagem, error)
 	concluirFn func(ctx context.Context, viagemID int64) (*viagens.Viagem, error)
@@ -28,8 +30,12 @@ func (s fakeViagemService) GetByID(ctx context.Context, viagemID int64) (*viagen
 	return s.getFn(ctx, viagemID)
 }
 
-func (s fakeViagemService) List(ctx context.Context) ([]viagens.ViagemComCiclo, error) {
-	return s.listFn(ctx)
+func (s fakeViagemService) List(ctx context.Context, params viagens.ViagemListParams) (viagens.ViagemListResult, error) {
+	return s.listFn(ctx, params)
+}
+
+func (s fakeViagemService) Resumo(ctx context.Context) (viagens.ViagemResumo, error) {
+	return s.resumoFn(ctx)
 }
 
 func (s fakeViagemService) ListHorariosByViagem(ctx context.Context, viagemID int64) ([]viagens.ViagemHorario, error) {
@@ -64,6 +70,7 @@ func (s fakePresencaService) AtualizarPresenca(ctx context.Context, viagemID, re
 func newViagemRouter(h *viagens.ViagemHandler) http.Handler {
 	r := chi.NewRouter()
 	r.Get("/viagens", h.List)
+	r.Get("/viagens/resumo", h.Resumo)
 	r.Get("/viagens/{viagemID}", h.GetByID)
 	r.Post("/viagens/{viagemID}/iniciar", h.Iniciar)
 	r.Post("/viagens/{viagemID}/concluir", h.Concluir)
@@ -74,33 +81,59 @@ func newViagemRouter(h *viagens.ViagemHandler) http.Handler {
 	return r
 }
 
+func sampleViagemComNomes() viagens.ViagemComCicloENomes {
+	return viagens.ViagemComCicloENomes{
+		ViagemComCiclo: sampleViagemComCiclo(),
+		MunicipioNome:  "Maceio",
+		VeiculoPlaca:   "ABC1D23",
+	}
+}
+
 func TestViagemHandler_List(t *testing.T) {
 	h := viagens.NewViagemHandler(fakeViagemService{
-		listFn: func(_ context.Context) ([]viagens.ViagemComCiclo, error) {
-			return []viagens.ViagemComCiclo{sampleViagemComCiclo()}, nil
+		listFn: func(_ context.Context, _ viagens.ViagemListParams) (viagens.ViagemListResult, error) {
+			return viagens.ViagemListResult{
+				Items:      []viagens.ViagemComCicloENomes{sampleViagemComNomes()},
+				NextCursor: &viagens.ViagemCursor{DataViagem: time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC), ID: 10},
+				HasMore:    true,
+			}, nil
 		},
 	}, fakePresencaService{})
 
-	req := httptest.NewRequest(http.MethodGet, "/viagens", nil)
 	rr := httptest.NewRecorder()
-
-	newViagemRouter(h).ServeHTTP(rr, req)
+	newViagemRouter(h).ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/viagens", nil))
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("want %d, got %d: %s", http.StatusOK, rr.Code, rr.Body.String())
 	}
+	var response struct {
+		Items []struct {
+			MunicipioNome string `json:"municipio_nome"`
+			VeiculoPlaca  string `json:"veiculo_placa"`
+		} `json:"items"`
+		NextCursor string `json:"next_cursor"`
+		HasMore    bool   `json:"has_more"`
+	}
+	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(response.Items) != 1 || response.Items[0].MunicipioNome != "Maceio" || response.Items[0].VeiculoPlaca != "ABC1D23" {
+		t.Fatalf("nomes resolvidos nao vieram: %#v", response.Items)
+	}
+	if response.NextCursor == "" || !response.HasMore {
+		t.Fatalf("esperava next_cursor e has_more: %#v", response)
+	}
 }
 
-func TestViagemHandler_ListFiltersByAuthenticatedMotorista(t *testing.T) {
-	assigned := sampleViagemComCiclo()
-	assigned.Ciclo.MotoristaID = 4
-	other := sampleViagemComCiclo()
-	other.Viagem.ID = 11
-	other.Ciclo.MotoristaID = 5
-
+// O recorte por motorista tem que virar filtro da consulta. Se ele voltasse a ser
+// aplicado sobre a pagina ja recortada, um motorista veria paginas incompletas
+// (ou vazias) mesmo havendo mais viagens dele adiante.
+func TestViagemHandler_ListPassaFiltroDeMotoristaParaAConsulta(t *testing.T) {
+	var received viagens.ViagemListParams
 	h := viagens.NewViagemHandler(fakeViagemService{
-		listFn: func(_ context.Context) ([]viagens.ViagemComCiclo, error) {
-			return []viagens.ViagemComCiclo{assigned, other}, nil
+		listFn: func(_ context.Context, params viagens.ViagemListParams) (viagens.ViagemListResult, error) {
+			received = params
+			return viagens.ViagemListResult{}, nil
 		},
 	}, fakePresencaService{})
 
@@ -110,17 +143,130 @@ func TestViagemHandler_ListFiltersByAuthenticatedMotorista(t *testing.T) {
 		Role:   auth.RoleMotorista,
 	}))
 	rr := httptest.NewRecorder()
-
 	newViagemRouter(h).ServeHTTP(rr, req)
+
 	if rr.Code != http.StatusOK {
 		t.Fatalf("want %d, got %d: %s", http.StatusOK, rr.Code, rr.Body.String())
 	}
-	var response []map[string]any
+	if received.MotoristaID != 4 {
+		t.Fatalf("esperava MotoristaID=4 nos params, got %d", received.MotoristaID)
+	}
+}
+
+func TestViagemHandler_ListAdminNaoRecebeFiltroDeMotorista(t *testing.T) {
+	var received viagens.ViagemListParams
+	h := viagens.NewViagemHandler(fakeViagemService{
+		listFn: func(_ context.Context, params viagens.ViagemListParams) (viagens.ViagemListResult, error) {
+			received = params
+			return viagens.ViagemListResult{}, nil
+		},
+	}, fakePresencaService{})
+
+	req := httptest.NewRequest(http.MethodGet, "/viagens", nil)
+	req = req.WithContext(context.WithValue(req.Context(), auth.ClaimsKey, &auth.Claims{
+		UserID: 9,
+		Role:   auth.RoleAdmin,
+	}))
+	rr := httptest.NewRecorder()
+	newViagemRouter(h).ServeHTTP(rr, req)
+
+	if received.MotoristaID != 0 {
+		t.Fatalf("admin nao pode ser restringido a um motorista, got %d", received.MotoristaID)
+	}
+}
+
+func TestViagemHandler_ListParams(t *testing.T) {
+	tests := []struct {
+		name       string
+		query      string
+		wantStatus int
+		check      func(t *testing.T, params viagens.ViagemListParams)
+	}{
+		{
+			name:       "repassa q, limit e intervalo de data",
+			query:      "?q=maceio&limit=10&data_inicio=2026-07-01&data_fim=2026-07-31",
+			wantStatus: http.StatusOK,
+			check: func(t *testing.T, params viagens.ViagemListParams) {
+				if params.Busca != "maceio" || params.Limit != 10 {
+					t.Fatalf("params inesperados: %#v", params)
+				}
+				if params.DataInicio == nil || params.DataFim == nil {
+					t.Fatal("intervalo de data nao foi repassado")
+				}
+			},
+		},
+		{name: "limit invalido", query: "?limit=abc", wantStatus: http.StatusBadRequest},
+		{name: "cursor invalido", query: "?cursor=***", wantStatus: http.StatusBadRequest},
+		{name: "data_inicio invalida", query: "?data_inicio=01-07-2026", wantStatus: http.StatusBadRequest},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var received viagens.ViagemListParams
+			called := false
+			h := viagens.NewViagemHandler(fakeViagemService{
+				listFn: func(_ context.Context, params viagens.ViagemListParams) (viagens.ViagemListResult, error) {
+					called = true
+					received = params
+					return viagens.ViagemListResult{}, nil
+				},
+			}, fakePresencaService{})
+
+			rr := httptest.NewRecorder()
+			newViagemRouter(h).ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/viagens"+tc.query, nil))
+
+			if rr.Code != tc.wantStatus {
+				t.Fatalf("want %d, got %d: %s", tc.wantStatus, rr.Code, rr.Body.String())
+			}
+			if tc.wantStatus == http.StatusBadRequest && called {
+				t.Fatal("parametro invalido nao pode chegar no service")
+			}
+			if tc.check != nil {
+				tc.check(t, received)
+			}
+		})
+	}
+}
+
+func TestViagemHandler_Resumo(t *testing.T) {
+	h := viagens.NewViagemHandler(fakeViagemService{
+		resumoFn: func(_ context.Context) (viagens.ViagemResumo, error) {
+			return viagens.ViagemResumo{
+				PorStatus:       map[viagens.StatusViagem]int64{viagens.StatusViagemProgramada: 3},
+				PorTurno:        map[viagens.TurnoViagem]int64{viagens.TurnoNoturno: 2},
+				HojeTotal:       5,
+				HojeEmAndamento: 1,
+				Proximas:        []viagens.ViagemComCicloENomes{sampleViagemComNomes()},
+			}, nil
+		},
+	}, fakePresencaService{})
+
+	rr := httptest.NewRecorder()
+	newViagemRouter(h).ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/viagens/resumo", nil))
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var response struct {
+		PorStatus       map[string]int64 `json:"por_status"`
+		PorTurno        map[string]int64 `json:"por_turno"`
+		HojeTotal       int64            `json:"hoje_total"`
+		HojeEmAndamento int64            `json:"hoje_em_andamento"`
+		Proximas        []struct {
+			MunicipioNome string `json:"municipio_nome"`
+		} `json:"proximas"`
+	}
 	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if len(response) != 1 || response[0]["viagem"].(map[string]any)["id"] != float64(10) {
-		t.Fatalf("expected only assigned viagem, got %#v", response)
+	if response.PorStatus["programada"] != 3 || response.PorTurno["NT"] != 2 {
+		t.Fatalf("agregados inesperados: %#v", response)
+	}
+	if response.HojeTotal != 5 || response.HojeEmAndamento != 1 {
+		t.Fatalf("contagem de hoje inesperada: %#v", response)
+	}
+	if len(response.Proximas) != 1 || response.Proximas[0].MunicipioNome != "Maceio" {
+		t.Fatalf("proximas viagens inesperadas: %#v", response.Proximas)
 	}
 }
 

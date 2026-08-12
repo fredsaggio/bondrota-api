@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/fredsaggio/bondrota-api/internal/brerror"
@@ -86,33 +87,196 @@ func (s *viagemStore) GetViagemByID(ctx context.Context, viagemID int64) (*Viage
 	return viagem, nil
 }
 
-func (s *viagemStore) ListViagens(ctx context.Context) ([]ViagemComCiclo, error) {
+const (
+	defaultViagemListLimit = 50
+	maxViagemListLimit     = 200
+)
+
+// listViagensColumns e a projecao compartilhada entre a listagem paginada e as
+// "proximas viagens" do resumo, para as duas devolverem exatamente a mesma forma.
+const listViagensColumns = `
+	v.id, v.ciclo_viagem_id, v.sentido, v.status, v.created_at, v.updated_at,
+	c.id, c.data_viagem, c.turno, c.municipio_destino_id, c.rota_interna_id,
+	c.veiculo_id, c.motorista_id, c.status, c.expires_at, c.created_at, c.updated_at,
+	m.nome, ve.placa
+`
+
+const listViagensFrom = `
+	FROM viagens v
+	JOIN ciclos_viagem c ON c.id = v.ciclo_viagem_id
+	JOIN municipios m ON m.codigo_ibge = c.municipio_destino_id
+	JOIN veiculos ve ON ve.id = c.veiculo_id
+`
+
+func (s *viagemStore) ListViagens(ctx context.Context, params ViagemListParams) (ViagemListResult, error) {
 	const op = "db/viagemStore.ListViagens"
 
-	const q = `
-		SELECT
-			v.id, v.ciclo_viagem_id, v.sentido, v.status, v.created_at, v.updated_at,
-			c.id, c.data_viagem, c.turno, c.rota_interna_id,
-			c.veiculo_id, c.motorista_id, c.status, c.expires_at, c.created_at, c.updated_at
+	limit := params.Limit
+	if limit <= 0 {
+		limit = defaultViagemListLimit
+	}
+	if limit > maxViagemListLimit {
+		limit = maxViagemListLimit
+	}
+
+	var (
+		hasCursor  bool
+		cursorData time.Time
+		cursorID   int64
+	)
+	if params.Cursor != nil {
+		hasCursor = true
+		cursorData = params.Cursor.DataViagem
+		cursorID = params.Cursor.ID
+	}
+
+	// A direcao vem de um booleano, nunca de texto do usuario: interpolar aqui
+	// mantem a comparacao do cursor alinhada ao ORDER BY e deixa o indice ser
+	// usado nos dois sentidos.
+	comparador, direcao := "<", "DESC"
+	if params.Ascendente {
+		comparador, direcao = ">", "ASC"
+	}
+
+	// A ordem virou (data_viagem, viagem.id): o cursor precisa de uma chave total
+	// e de direcao unica para a comparacao de tupla funcionar. Antes o desempate
+	// dentro da data era por turno e sentido.
+	q := fmt.Sprintf(`
+		SELECT `+listViagensColumns+listViagensFrom+`
+		WHERE (@data_inicio::DATE IS NULL OR c.data_viagem >= @data_inicio)
+		  AND (@data_fim::DATE IS NULL OR c.data_viagem <= @data_fim)
+		  AND (@motorista_id = 0 OR c.motorista_id = @motorista_id)
+		  AND (cardinality(@status::TEXT[]) = 0 OR v.status::TEXT = ANY(@status))
+		  AND (@busca = '' OR
+		       m.nome ILIKE '%%' || @busca || '%%' OR
+		       ve.placa ILIKE '%%' || @busca || '%%' OR
+		       v.status::TEXT ILIKE '%%' || @busca || '%%' OR
+		       c.turno::TEXT ILIKE '%%' || @busca || '%%' OR
+		       v.sentido::TEXT ILIKE '%%' || @busca || '%%' OR
+		       v.id::TEXT = @busca)
+		  AND (@has_cursor = FALSE OR (c.data_viagem, v.id) %s (@cursor_data, @cursor_id))
+		ORDER BY c.data_viagem %s, v.id %s
+		LIMIT @limit
+	`, comparador, direcao, direcao)
+
+	status := make([]string, 0, len(params.Status))
+	for _, item := range params.Status {
+		status = append(status, string(item))
+	}
+
+	rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{
+		"data_inicio":  params.DataInicio,
+		"data_fim":     params.DataFim,
+		"motorista_id": params.MotoristaID,
+		"status":       status,
+		"busca":        strings.TrimSpace(params.Busca),
+		"has_cursor":   hasCursor,
+		"cursor_data":  cursorData,
+		"cursor_id":    cursorID,
+		"limit":        limit + 1,
+	})
+	if err != nil {
+		return ViagemListResult{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	items, err := pgx.CollectRows(rows, scanViagemComCicloENomes)
+	if err != nil {
+		return ViagemListResult{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	result := ViagemListResult{Items: items}
+	if len(items) > limit {
+		result.Items = items[:limit]
+		last := result.Items[len(result.Items)-1]
+		result.NextCursor = &ViagemCursor{DataViagem: last.Ciclo.DataViagem, ID: last.Viagem.ID}
+		result.HasMore = true
+	}
+	return result, nil
+}
+
+func (s *viagemStore) ResumoViagens(ctx context.Context, hoje time.Time) (ViagemResumo, error) {
+	const op = "db/viagemStore.ResumoViagens"
+
+	resumo := ViagemResumo{
+		PorStatus: map[StatusViagem]int64{},
+		PorTurno:  map[TurnoViagem]int64{},
+	}
+
+	statusRows, err := s.db.Query(ctx, `SELECT status, COUNT(*) FROM viagens GROUP BY status`)
+	if err != nil {
+		return ViagemResumo{}, fmt.Errorf("%s: %w", op, err)
+	}
+	for statusRows.Next() {
+		var (
+			status StatusViagem
+			total  int64
+		)
+		if err := statusRows.Scan(&status, &total); err != nil {
+			statusRows.Close()
+			return ViagemResumo{}, fmt.Errorf("%s: %w", op, err)
+		}
+		resumo.PorStatus[status] = total
+	}
+	statusRows.Close()
+	if err := statusRows.Err(); err != nil {
+		return ViagemResumo{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	turnoRows, err := s.db.Query(ctx, `
+		SELECT c.turno, COUNT(*)
 		FROM viagens v
 		JOIN ciclos_viagem c ON c.id = v.ciclo_viagem_id
-		ORDER BY c.data_viagem DESC, c.turno ASC, v.sentido ASC, v.id DESC
-	`
-
-	rows, err := s.db.Query(ctx, q)
+		GROUP BY c.turno
+	`)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return ViagemResumo{}, fmt.Errorf("%s: %w", op, err)
+	}
+	for turnoRows.Next() {
+		var (
+			turno TurnoViagem
+			total int64
+		)
+		if err := turnoRows.Scan(&turno, &total); err != nil {
+			turnoRows.Close()
+			return ViagemResumo{}, fmt.Errorf("%s: %w", op, err)
+		}
+		resumo.PorTurno[turno] = total
+	}
+	turnoRows.Close()
+	if err := turnoRows.Err(); err != nil {
+		return ViagemResumo{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	viagens, err := pgx.CollectRows(rows, scanViagemComCiclo)
+	err = s.db.QueryRow(ctx, `
+		SELECT
+			COUNT(*),
+			COUNT(*) FILTER (WHERE v.status = 'em_andamento')
+		FROM viagens v
+		JOIN ciclos_viagem c ON c.id = v.ciclo_viagem_id
+		WHERE c.data_viagem = @hoje
+	`, pgx.StrictNamedArgs{"hoje": hoje}).Scan(&resumo.HojeTotal, &resumo.HojeEmAndamento)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
-	if viagens == nil {
-		return []ViagemComCiclo{}, nil
+		return ViagemResumo{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return viagens, nil
+	// Proximas: as mais perto de acontecer primeiro, entao ASC — o oposto da
+	// listagem, que mostra o mais recente no topo.
+	proximasRows, err := s.db.Query(ctx, `
+		SELECT `+listViagensColumns+listViagensFrom+`
+		WHERE v.status IN ('programada', 'em_andamento')
+		ORDER BY c.data_viagem ASC, v.id ASC
+		LIMIT 6
+	`)
+	if err != nil {
+		return ViagemResumo{}, fmt.Errorf("%s: %w", op, err)
+	}
+	proximas, err := pgx.CollectRows(proximasRows, scanViagemComCicloENomes)
+	if err != nil {
+		return ViagemResumo{}, fmt.Errorf("%s: %w", op, err)
+	}
+	resumo.Proximas = proximas
+
+	return resumo, nil
 }
 
 func (s *viagemStore) ListViagensByCiclo(ctx context.Context, cicloID int64) ([]Viagem, error) {
@@ -346,7 +510,7 @@ func getViagemComCicloByID(ctx context.Context, querier interface {
 	const q = `
 		SELECT
 			v.id, v.ciclo_viagem_id, v.sentido, v.status, v.created_at, v.updated_at,
-			c.id, c.data_viagem, c.turno, c.rota_interna_id,
+			c.id, c.data_viagem, c.turno, c.municipio_destino_id, c.rota_interna_id,
 			c.veiculo_id, c.motorista_id, c.status, c.expires_at, c.created_at, c.updated_at
 		FROM viagens v
 		JOIN ciclos_viagem c ON c.id = v.ciclo_viagem_id
@@ -404,6 +568,7 @@ func scanViagemComCiclo(row pgx.CollectableRow) (ViagemComCiclo, error) {
 		&data.Ciclo.ID,
 		&data.Ciclo.DataViagem,
 		&data.Ciclo.Turno,
+		&data.Ciclo.MunicipioDestinoID,
 		&data.Ciclo.RotaInternaID,
 		&data.Ciclo.VeiculoID,
 		&data.Ciclo.MotoristaID,
@@ -413,6 +578,32 @@ func scanViagemComCiclo(row pgx.CollectableRow) (ViagemComCiclo, error) {
 		&data.Ciclo.UpdatedAt,
 	)
 	return data, err
+}
+
+func scanViagemComCicloENomes(row pgx.CollectableRow) (ViagemComCicloENomes, error) {
+	var item ViagemComCicloENomes
+	err := row.Scan(
+		&item.Viagem.ID,
+		&item.Viagem.CicloViagemID,
+		&item.Viagem.Sentido,
+		&item.Viagem.Status,
+		&item.Viagem.CreatedAt,
+		&item.Viagem.UpdatedAt,
+		&item.Ciclo.ID,
+		&item.Ciclo.DataViagem,
+		&item.Ciclo.Turno,
+		&item.Ciclo.MunicipioDestinoID,
+		&item.Ciclo.RotaInternaID,
+		&item.Ciclo.VeiculoID,
+		&item.Ciclo.MotoristaID,
+		&item.Ciclo.Status,
+		&item.Ciclo.ExpiresAt,
+		&item.Ciclo.CreatedAt,
+		&item.Ciclo.UpdatedAt,
+		&item.MunicipioNome,
+		&item.VeiculoPlaca,
+	)
+	return item, err
 }
 
 func isViagemAlreadyCreated(err error) bool {

@@ -1,10 +1,14 @@
 package viagens
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/fredsaggio/bondrota-api/internal/auth"
@@ -108,6 +112,26 @@ type ViagemComCicloResponse struct {
 	Ciclo  CicloViagemResponse `json:"ciclo"`
 }
 
+type ViagemComNomesResponse struct {
+	ViagemComCicloResponse
+	MunicipioNome string `json:"municipio_nome"`
+	VeiculoPlaca  string `json:"veiculo_placa"`
+}
+
+type ViagemListResponse struct {
+	Items      []ViagemComNomesResponse `json:"items"`
+	NextCursor string                   `json:"next_cursor,omitempty"`
+	HasMore    bool                     `json:"has_more"`
+}
+
+type ViagemResumoResponse struct {
+	PorStatus       map[string]int64         `json:"por_status"`
+	PorTurno        map[string]int64         `json:"por_turno"`
+	HojeTotal       int64                    `json:"hoje_total"`
+	HojeEmAndamento int64                    `json:"hoje_em_andamento"`
+	Proximas        []ViagemComNomesResponse `json:"proximas"`
+}
+
 type ViagemHorarioResponse struct {
 	ID        int64             `json:"id"`
 	ViagemID  int64             `json:"viagem_id"`
@@ -151,24 +175,147 @@ type ViagemLocalizacaoResponse struct {
 }
 
 func (h *ViagemHandler) List(w http.ResponseWriter, r *http.Request) {
-	viagens, err := h.viagemSvc.List(r.Context())
+	params, err := parseViagemListParams(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// O recorte por motorista vai junto da query. Filtrar depois de paginar
+	// devolveria paginas menores que o limite, ou vazias, mesmo havendo mais
+	// viagens dele nas paginas seguintes.
+	if claims, ok := r.Context().Value(auth.ClaimsKey).(*auth.Claims); ok && claims.Role == auth.RoleMotorista {
+		params.MotoristaID = claims.UserID
+	}
+
+	result, err := h.viagemSvc.List(r.Context(), params)
 	if err != nil {
 		slog.Error("failed to list viagens", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	if claims, ok := r.Context().Value(auth.ClaimsKey).(*auth.Claims); ok && claims.Role == auth.RoleMotorista {
-		assigned := make([]ViagemComCiclo, 0, len(viagens))
-		for _, viagem := range viagens {
-			if viagem.Ciclo.MotoristaID == claims.UserID {
-				assigned = append(assigned, viagem)
-			}
-		}
-		viagens = assigned
+	httputils.Respond(w, http.StatusOK, toViagemListResponse(result))
+}
+
+func (h *ViagemHandler) Resumo(w http.ResponseWriter, r *http.Request) {
+	resumo, err := h.viagemSvc.Resumo(r.Context())
+	if err != nil {
+		slog.Error("failed to summarize viagens", "error", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
 	}
 
-	httputils.Respond(w, http.StatusOK, toViagemComCicloResponses(viagens))
+	porStatus := make(map[string]int64, len(resumo.PorStatus))
+	for status, total := range resumo.PorStatus {
+		porStatus[string(status)] = total
+	}
+	porTurno := make(map[string]int64, len(resumo.PorTurno))
+	for turno, total := range resumo.PorTurno {
+		porTurno[string(turno)] = total
+	}
+
+	httputils.Respond(w, http.StatusOK, ViagemResumoResponse{
+		PorStatus:       porStatus,
+		PorTurno:        porTurno,
+		HojeTotal:       resumo.HojeTotal,
+		HojeEmAndamento: resumo.HojeEmAndamento,
+		Proximas:        toViagemComNomesResponses(resumo.Proximas),
+	})
+}
+
+func parseViagemListParams(r *http.Request) (ViagemListParams, error) {
+	query := r.URL.Query()
+	params := ViagemListParams{Busca: query.Get("q")}
+
+	if raw := query.Get("limit"); raw != "" {
+		limit, err := strconv.Atoi(raw)
+		if err != nil || limit <= 0 {
+			return ViagemListParams{}, errors.New("invalid limit")
+		}
+		params.Limit = limit
+	}
+
+	if raw := query.Get("cursor"); raw != "" {
+		cursor, err := decodeViagemCursor(raw)
+		if err != nil {
+			return ViagemListParams{}, errors.New("invalid cursor")
+		}
+		params.Cursor = cursor
+	}
+
+	if raw := query.Get("data_inicio"); raw != "" {
+		data, err := time.Parse("2006-01-02", raw)
+		if err != nil {
+			return ViagemListParams{}, errors.New("invalid data_inicio")
+		}
+		params.DataInicio = &data
+	}
+
+	if raw := query.Get("data_fim"); raw != "" {
+		data, err := time.Parse("2006-01-02", raw)
+		if err != nil {
+			return ViagemListParams{}, errors.New("invalid data_fim")
+		}
+		params.DataFim = &data
+	}
+
+	for _, raw := range query["status"] {
+		status := StatusViagem(raw)
+		if !isStatusViagemValido(status) {
+			return ViagemListParams{}, errors.New("invalid status")
+		}
+		params.Status = append(params.Status, status)
+	}
+
+	if raw := query.Get("ordem"); raw != "" {
+		switch raw {
+		case "asc":
+			params.Ascendente = true
+		case "desc":
+			params.Ascendente = false
+		default:
+			return ViagemListParams{}, errors.New("invalid ordem: use asc or desc")
+		}
+	}
+
+	return params, nil
+}
+
+func isStatusViagemValido(status StatusViagem) bool {
+	switch status {
+	case StatusViagemProgramada, StatusViagemEmAndamento, StatusViagemConcluida, StatusViagemCancelada:
+		return true
+	default:
+		return false
+	}
+}
+
+// O cursor e opaco para quem consome a API: o formato interno (data|id) pode
+// mudar sem quebrar contrato.
+func encodeViagemCursor(cursor ViagemCursor) string {
+	raw := cursor.DataViagem.Format("2006-01-02") + "|" + strconv.FormatInt(cursor.ID, 10)
+	return base64.RawURLEncoding.EncodeToString([]byte(raw))
+}
+
+func decodeViagemCursor(value string) (*ViagemCursor, error) {
+	raw, err := base64.RawURLEncoding.DecodeString(value)
+	if err != nil {
+		return nil, fmt.Errorf("decode cursor: %w", err)
+	}
+	parts := strings.SplitN(string(raw), "|", 2)
+	if len(parts) != 2 {
+		return nil, errors.New("malformed cursor")
+	}
+	data, err := time.Parse("2006-01-02", parts[0])
+	if err != nil {
+		return nil, fmt.Errorf("cursor date: %w", err)
+	}
+	id, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("cursor id: %w", err)
+	}
+	return &ViagemCursor{DataViagem: data, ID: id}, nil
 }
 
 func (h *ViagemHandler) GetByID(w http.ResponseWriter, r *http.Request) {
@@ -407,6 +554,27 @@ func actorFromRequest(r *http.Request) (ViagemLocalizacaoActor, error) {
 		UserID: claims.UserID,
 		Role:   claims.Role,
 	}, nil
+}
+
+func toViagemListResponse(result ViagemListResult) ViagemListResponse {
+	resp := ViagemListResponse{Items: toViagemComNomesResponses(result.Items), HasMore: result.HasMore}
+	if result.NextCursor != nil {
+		resp.NextCursor = encodeViagemCursor(*result.NextCursor)
+	}
+	return resp
+}
+
+func toViagemComNomesResponses(items []ViagemComCicloENomes) []ViagemComNomesResponse {
+	resp := make([]ViagemComNomesResponse, 0, len(items))
+	for _, item := range items {
+		viagem := item.ViagemComCiclo
+		resp = append(resp, ViagemComNomesResponse{
+			ViagemComCicloResponse: toViagemComCicloResponse(&viagem),
+			MunicipioNome:          item.MunicipioNome,
+			VeiculoPlaca:           item.VeiculoPlaca,
+		})
+	}
+	return resp
 }
 
 func toViagemComCicloResponses(viagens []ViagemComCiclo) []ViagemComCicloResponse {

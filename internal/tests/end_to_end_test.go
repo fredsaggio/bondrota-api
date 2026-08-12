@@ -1805,7 +1805,7 @@ func buildE2ERouter(pool *pgxpool.Pool, authSvc *auth.AuthService, options e2eRo
 	)
 
 	viagemStore := viagens.NewViagemStore(pool)
-	viagemSvc := viagens.NewViagemService(viagemStore)
+	viagemSvc := viagens.NewViagemService(viagemStore, viagens.ViagemServiceConfig{})
 	viagemReservaStore := viagens.NewViagemReservaStore(pool)
 	presencaSvc := viagens.NewPresencaService(viagemReservaStore)
 	viagemLocalizacaoStore := viagens.NewViagemLocalizacaoStore(pool)

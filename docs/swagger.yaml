@@ -993,6 +993,58 @@ components:
           $ref: '#/components/schemas/ViagemResponse'
         ciclo:
           $ref: '#/components/schemas/CicloViagemResponse'
+    ViagemComNomesResponse:
+      allOf:
+      - $ref: '#/components/schemas/ViagemComCicloResponse'
+      - type: object
+        properties:
+          municipio_nome:
+            type: string
+            example: Maceio
+          veiculo_placa:
+            type: string
+            example: ABC1D23
+    ViagemListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ViagemComNomesResponse'
+        next_cursor:
+          type: string
+          description: Opaco. So presente quando has_more e true.
+          example: MjAyNi0wNi0xMHwx
+        has_more:
+          type: boolean
+    ViagemResumoResponse:
+      type: object
+      properties:
+        por_status:
+          type: object
+          additionalProperties:
+            type: integer
+          example:
+            programada: 12
+            concluida: 40
+        por_turno:
+          type: object
+          additionalProperties:
+            type: integer
+          example:
+            MT: 20
+            NT: 32
+        hoje_total:
+          type: integer
+          example: 4
+        hoje_em_andamento:
+          type: integer
+          example: 1
+        proximas:
+          type: array
+          description: Ordem crescente, limitada a 6.
+          items:
+            $ref: '#/components/schemas/ViagemComNomesResponse'
     ResumoProcessamentoPlanejamentoResponse:
       type: object
       required:
@@ -2790,7 +2842,74 @@ paths:
           description: Um ou mais planejamentos falharam
   /viagens/:
     get:
-      summary: Lista viagens com ciclo
+      summary: Lista viagens com ciclo, paginada por cursor
+      description: >-
+        q busca por municipio, placa, status, turno ou sentido — nao por data.
+        O motorista autenticado recebe apenas as proprias viagens, com o recorte
+        aplicado na consulta.
+      tags:
+      - Viagens
+      parameters:
+      - name: cursor
+        in: query
+        required: false
+        description: Opaco, devolvido em next_cursor.
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+          maximum: 200
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: data_inicio
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+      - name: data_fim
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+      - name: status
+        in: query
+        required: false
+        description: Repetivel. Sem ele, traz todos os status.
+        schema:
+          type: array
+          items:
+            type: string
+            enum: [programada, em_andamento, concluida, cancelada]
+      - name: ordem
+        in: query
+        required: false
+        description: asc traz a viagem mais proxima primeiro.
+        schema:
+          type: string
+          enum: [asc, desc]
+          default: desc
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ViagemListResponse'
+  /viagens/resumo:
+    get:
+      summary: Agregados de viagens para o painel
+      description: >-
+        Agrega no banco para o painel nao baixar a tabela so para contar. hoje e
+        resolvido no fuso da operacao. Somente admin.
       tags:
       - Viagens
       responses:
@@ -2799,9 +2918,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ViagemComCicloResponse'
+                $ref: '#/components/schemas/ViagemResumoResponse'
   /viagens/{viagemID}:
     get:
       summary: Busca viagem com ciclo

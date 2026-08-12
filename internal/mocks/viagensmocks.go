@@ -336,27 +336,25 @@ func (_c *MockViagemStore_ListHorariosByViagem_Call) RunAndReturn(run func(ctx c
 }
 
 // ListViagens provides a mock function for the type MockViagemStore
-func (_mock *MockViagemStore) ListViagens(ctx context.Context) ([]viagens.ViagemComCiclo, error) {
-	ret := _mock.Called(ctx)
+func (_mock *MockViagemStore) ListViagens(ctx context.Context, params viagens.ViagemListParams) (viagens.ViagemListResult, error) {
+	ret := _mock.Called(ctx, params)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListViagens")
 	}
 
-	var r0 []viagens.ViagemComCiclo
+	var r0 viagens.ViagemListResult
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]viagens.ViagemComCiclo, error)); ok {
-		return returnFunc(ctx)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, viagens.ViagemListParams) (viagens.ViagemListResult, error)); ok {
+		return returnFunc(ctx, params)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context) []viagens.ViagemComCiclo); ok {
-		r0 = returnFunc(ctx)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, viagens.ViagemListParams) viagens.ViagemListResult); ok {
+		r0 = returnFunc(ctx, params)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]viagens.ViagemComCiclo)
-		}
+		r0 = ret.Get(0).(viagens.ViagemListResult)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = returnFunc(ctx)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, viagens.ViagemListParams) error); ok {
+		r1 = returnFunc(ctx, params)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -370,29 +368,35 @@ type MockViagemStore_ListViagens_Call struct {
 
 // ListViagens is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockViagemStore_Expecter) ListViagens(ctx interface{}) *MockViagemStore_ListViagens_Call {
-	return &MockViagemStore_ListViagens_Call{Call: _e.mock.On("ListViagens", ctx)}
+//   - params viagens.ViagemListParams
+func (_e *MockViagemStore_Expecter) ListViagens(ctx interface{}, params interface{}) *MockViagemStore_ListViagens_Call {
+	return &MockViagemStore_ListViagens_Call{Call: _e.mock.On("ListViagens", ctx, params)}
 }
 
-func (_c *MockViagemStore_ListViagens_Call) Run(run func(ctx context.Context)) *MockViagemStore_ListViagens_Call {
+func (_c *MockViagemStore_ListViagens_Call) Run(run func(ctx context.Context, params viagens.ViagemListParams)) *MockViagemStore_ListViagens_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
+		var arg1 viagens.ViagemListParams
+		if args[1] != nil {
+			arg1 = args[1].(viagens.ViagemListParams)
+		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
 }
 
-func (_c *MockViagemStore_ListViagens_Call) Return(viagemComCiclos []viagens.ViagemComCiclo, err error) *MockViagemStore_ListViagens_Call {
-	_c.Call.Return(viagemComCiclos, err)
+func (_c *MockViagemStore_ListViagens_Call) Return(viagemListResult viagens.ViagemListResult, err error) *MockViagemStore_ListViagens_Call {
+	_c.Call.Return(viagemListResult, err)
 	return _c
 }
 
-func (_c *MockViagemStore_ListViagens_Call) RunAndReturn(run func(ctx context.Context) ([]viagens.ViagemComCiclo, error)) *MockViagemStore_ListViagens_Call {
+func (_c *MockViagemStore_ListViagens_Call) RunAndReturn(run func(ctx context.Context, params viagens.ViagemListParams) (viagens.ViagemListResult, error)) *MockViagemStore_ListViagens_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -541,6 +545,72 @@ func (_c *MockViagemStore_RegistrarHorarioViagem_Call) Return(viagemHorario *via
 }
 
 func (_c *MockViagemStore_RegistrarHorarioViagem_Call) RunAndReturn(run func(ctx context.Context, viagemID int64, tipo viagens.TipoHorarioViagem, horario time.Time) (*viagens.ViagemHorario, error)) *MockViagemStore_RegistrarHorarioViagem_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ResumoViagens provides a mock function for the type MockViagemStore
+func (_mock *MockViagemStore) ResumoViagens(ctx context.Context, hoje time.Time) (viagens.ViagemResumo, error) {
+	ret := _mock.Called(ctx, hoje)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ResumoViagens")
+	}
+
+	var r0 viagens.ViagemResumo
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time) (viagens.ViagemResumo, error)); ok {
+		return returnFunc(ctx, hoje)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time) viagens.ViagemResumo); ok {
+		r0 = returnFunc(ctx, hoje)
+	} else {
+		r0 = ret.Get(0).(viagens.ViagemResumo)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, time.Time) error); ok {
+		r1 = returnFunc(ctx, hoje)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockViagemStore_ResumoViagens_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ResumoViagens'
+type MockViagemStore_ResumoViagens_Call struct {
+	*mock.Call
+}
+
+// ResumoViagens is a helper method to define mock.On call
+//   - ctx context.Context
+//   - hoje time.Time
+func (_e *MockViagemStore_Expecter) ResumoViagens(ctx interface{}, hoje interface{}) *MockViagemStore_ResumoViagens_Call {
+	return &MockViagemStore_ResumoViagens_Call{Call: _e.mock.On("ResumoViagens", ctx, hoje)}
+}
+
+func (_c *MockViagemStore_ResumoViagens_Call) Run(run func(ctx context.Context, hoje time.Time)) *MockViagemStore_ResumoViagens_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 time.Time
+		if args[1] != nil {
+			arg1 = args[1].(time.Time)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockViagemStore_ResumoViagens_Call) Return(viagemResumo viagens.ViagemResumo, err error) *MockViagemStore_ResumoViagens_Call {
+	_c.Call.Return(viagemResumo, err)
+	return _c
+}
+
+func (_c *MockViagemStore_ResumoViagens_Call) RunAndReturn(run func(ctx context.Context, hoje time.Time) (viagens.ViagemResumo, error)) *MockViagemStore_ResumoViagens_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -919,27 +989,25 @@ func (_c *MockViagemService_Iniciar_Call) RunAndReturn(run func(ctx context.Cont
 }
 
 // List provides a mock function for the type MockViagemService
-func (_mock *MockViagemService) List(ctx context.Context) ([]viagens.ViagemComCiclo, error) {
-	ret := _mock.Called(ctx)
+func (_mock *MockViagemService) List(ctx context.Context, params viagens.ViagemListParams) (viagens.ViagemListResult, error) {
+	ret := _mock.Called(ctx, params)
 
 	if len(ret) == 0 {
 		panic("no return value specified for List")
 	}
 
-	var r0 []viagens.ViagemComCiclo
+	var r0 viagens.ViagemListResult
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]viagens.ViagemComCiclo, error)); ok {
-		return returnFunc(ctx)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, viagens.ViagemListParams) (viagens.ViagemListResult, error)); ok {
+		return returnFunc(ctx, params)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context) []viagens.ViagemComCiclo); ok {
-		r0 = returnFunc(ctx)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, viagens.ViagemListParams) viagens.ViagemListResult); ok {
+		r0 = returnFunc(ctx, params)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]viagens.ViagemComCiclo)
-		}
+		r0 = ret.Get(0).(viagens.ViagemListResult)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = returnFunc(ctx)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, viagens.ViagemListParams) error); ok {
+		r1 = returnFunc(ctx, params)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -953,29 +1021,35 @@ type MockViagemService_List_Call struct {
 
 // List is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockViagemService_Expecter) List(ctx interface{}) *MockViagemService_List_Call {
-	return &MockViagemService_List_Call{Call: _e.mock.On("List", ctx)}
+//   - params viagens.ViagemListParams
+func (_e *MockViagemService_Expecter) List(ctx interface{}, params interface{}) *MockViagemService_List_Call {
+	return &MockViagemService_List_Call{Call: _e.mock.On("List", ctx, params)}
 }
 
-func (_c *MockViagemService_List_Call) Run(run func(ctx context.Context)) *MockViagemService_List_Call {
+func (_c *MockViagemService_List_Call) Run(run func(ctx context.Context, params viagens.ViagemListParams)) *MockViagemService_List_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
+		var arg1 viagens.ViagemListParams
+		if args[1] != nil {
+			arg1 = args[1].(viagens.ViagemListParams)
+		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
 }
 
-func (_c *MockViagemService_List_Call) Return(viagemComCiclos []viagens.ViagemComCiclo, err error) *MockViagemService_List_Call {
-	_c.Call.Return(viagemComCiclos, err)
+func (_c *MockViagemService_List_Call) Return(viagemListResult viagens.ViagemListResult, err error) *MockViagemService_List_Call {
+	_c.Call.Return(viagemListResult, err)
 	return _c
 }
 
-func (_c *MockViagemService_List_Call) RunAndReturn(run func(ctx context.Context) ([]viagens.ViagemComCiclo, error)) *MockViagemService_List_Call {
+func (_c *MockViagemService_List_Call) RunAndReturn(run func(ctx context.Context, params viagens.ViagemListParams) (viagens.ViagemListResult, error)) *MockViagemService_List_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1044,6 +1118,66 @@ func (_c *MockViagemService_ListHorariosByViagem_Call) Return(viagemHorarios []v
 }
 
 func (_c *MockViagemService_ListHorariosByViagem_Call) RunAndReturn(run func(ctx context.Context, viagemID int64) ([]viagens.ViagemHorario, error)) *MockViagemService_ListHorariosByViagem_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Resumo provides a mock function for the type MockViagemService
+func (_mock *MockViagemService) Resumo(ctx context.Context) (viagens.ViagemResumo, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Resumo")
+	}
+
+	var r0 viagens.ViagemResumo
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (viagens.ViagemResumo, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) viagens.ViagemResumo); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		r0 = ret.Get(0).(viagens.ViagemResumo)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockViagemService_Resumo_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Resumo'
+type MockViagemService_Resumo_Call struct {
+	*mock.Call
+}
+
+// Resumo is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockViagemService_Expecter) Resumo(ctx interface{}) *MockViagemService_Resumo_Call {
+	return &MockViagemService_Resumo_Call{Call: _e.mock.On("Resumo", ctx)}
+}
+
+func (_c *MockViagemService_Resumo_Call) Run(run func(ctx context.Context)) *MockViagemService_Resumo_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockViagemService_Resumo_Call) Return(viagemResumo viagens.ViagemResumo, err error) *MockViagemService_Resumo_Call {
+	_c.Call.Return(viagemResumo, err)
+	return _c
+}
+
+func (_c *MockViagemService_Resumo_Call) RunAndReturn(run func(ctx context.Context) (viagens.ViagemResumo, error)) *MockViagemService_Resumo_Call {
 	_c.Call.Return(run)
 	return _c
 }

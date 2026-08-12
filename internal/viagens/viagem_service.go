@@ -7,14 +7,22 @@ import (
 )
 
 type viagemService struct {
-	store ViagemStore
-	now   func() time.Time
+	store    ViagemStore
+	now      func() time.Time
+	location *time.Location
 }
 
-func NewViagemService(store ViagemStore) ViagemService {
+func NewViagemService(store ViagemStore, config ViagemServiceConfig) ViagemService {
+	if config.Now == nil {
+		config.Now = time.Now
+	}
+	if config.Location == nil {
+		config.Location = time.UTC
+	}
 	return &viagemService{
-		store: store,
-		now:   time.Now,
+		store:    store,
+		now:      config.Now,
+		location: config.Location,
 	}
 }
 
@@ -22,8 +30,16 @@ func (s *viagemService) GetByID(ctx context.Context, viagemID int64) (*ViagemCom
 	return s.store.GetViagemByID(ctx, viagemID)
 }
 
-func (s *viagemService) List(ctx context.Context) ([]ViagemComCiclo, error) {
-	return s.store.ListViagens(ctx)
+func (s *viagemService) List(ctx context.Context, params ViagemListParams) (ViagemListResult, error) {
+	return s.store.ListViagens(ctx, params)
+}
+
+func (s *viagemService) Resumo(ctx context.Context) (ViagemResumo, error) {
+	// "Hoje" no fuso da operacao, nao no do servidor: perto da meia-noite os dois
+	// divergem e a contagem do dia sairia de um dia errado.
+	local := s.now().In(s.location)
+	hoje := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, s.location)
+	return s.store.ResumoViagens(ctx, hoje)
 }
 
 func (s *viagemService) ListHorariosByViagem(ctx context.Context, viagemID int64) ([]ViagemHorario, error) {

@@ -216,6 +216,61 @@ type ViagemComCiclo struct {
 	Ciclo  CicloViagem
 }
 
+// ViagemComCicloENomes resolve municipio e veiculo via JOIN, para a listagem
+// administrativa nao exibir id cru nem obrigar o consumidor a buscar cada um.
+type ViagemComCicloENomes struct {
+	ViagemComCiclo
+	MunicipioNome string
+	VeiculoPlaca  string
+}
+
+// ViagemCursor identifica a ultima linha vista pela pagina anterior, no mesmo
+// criterio do ORDER BY (ciclo.data_viagem DESC, viagem.id DESC).
+type ViagemCursor struct {
+	DataViagem time.Time
+	ID         int64
+}
+
+type ViagemListParams struct {
+	Cursor     *ViagemCursor
+	Limit      int
+	Busca      string
+	DataInicio *time.Time
+	DataFim    *time.Time
+	// MotoristaID > 0 restringe as viagens as do proprio motorista. O filtro
+	// precisa acontecer no SQL: aplicado depois do recorte, a pagina viria
+	// menor que o limite (ou vazia) mesmo havendo mais viagens dele adiante.
+	MotoristaID int64
+	// Status vazio nao filtra. O monitoramento usa isso para pedir so as viagens
+	// que ainda podem ser acompanhadas.
+	Status []StatusViagem
+	// Ascendente inverte a ordem para "a mais proxima primeiro". O monitoramento
+	// precisa disso: com a ordem padrao (mais recente no topo), as viagens de hoje
+	// ficariam depois de todas as futuras.
+	Ascendente bool
+}
+
+type ViagemListResult struct {
+	Items      []ViagemComCicloENomes
+	NextCursor *ViagemCursor
+	HasMore    bool
+}
+
+// ViagemResumo traz os agregados do painel. Sem ele, o dashboard precisaria
+// baixar todas as viagens so para contar por status e por turno.
+type ViagemResumo struct {
+	PorStatus       map[StatusViagem]int64
+	PorTurno        map[TurnoViagem]int64
+	HojeTotal       int64
+	HojeEmAndamento int64
+	Proximas        []ViagemComCicloENomes
+}
+
+type ViagemServiceConfig struct {
+	Location *time.Location
+	Now      func() time.Time
+}
+
 type ViagemReservaComReserva struct {
 	ViagemReserva
 	ClienteID     int64
@@ -251,7 +306,8 @@ type HorarioTurnoViagemStore interface {
 type ViagemStore interface {
 	CreateViagem(ctx context.Context, input ViagemInput) (*Viagem, error)
 	GetViagemByID(ctx context.Context, viagemID int64) (*ViagemComCiclo, error)
-	ListViagens(ctx context.Context) ([]ViagemComCiclo, error)
+	ListViagens(ctx context.Context, params ViagemListParams) (ViagemListResult, error)
+	ResumoViagens(ctx context.Context, hoje time.Time) (ViagemResumo, error)
 	ListViagensByCiclo(ctx context.Context, cicloID int64) ([]Viagem, error)
 	ListHorariosByViagem(ctx context.Context, viagemID int64) ([]ViagemHorario, error)
 	RegistrarHorarioViagem(ctx context.Context, viagemID int64, tipo TipoHorarioViagem, horario time.Time) (*ViagemHorario, error)
@@ -294,7 +350,8 @@ type MotoristaAlocador interface {
 
 type ViagemService interface {
 	GetByID(ctx context.Context, viagemID int64) (*ViagemComCiclo, error)
-	List(ctx context.Context) ([]ViagemComCiclo, error)
+	List(ctx context.Context, params ViagemListParams) (ViagemListResult, error)
+	Resumo(ctx context.Context) (ViagemResumo, error)
 	ListHorariosByViagem(ctx context.Context, viagemID int64) ([]ViagemHorario, error)
 	Iniciar(ctx context.Context, viagemID int64) (*Viagem, error)
 	Concluir(ctx context.Context, viagemID int64) (*Viagem, error)

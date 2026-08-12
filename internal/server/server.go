@@ -213,6 +213,9 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 		r.Route("/viagens", func(r chi.Router) {
 			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin, auth.RoleMotorista))
 			r.Get("/", srv.handlers.ViagemHandler.List)
+			// Agregados do painel, so para admin: o resumo conta a operacao inteira,
+			// nao apenas as viagens do motorista autenticado.
+			r.With(srv.authSvc.RequireRole(auth.RoleAdmin)).Get("/resumo", srv.handlers.ViagemHandler.Resumo)
 			r.With(srv.handlers.ViagemHandler.RequireAssignedMotoristaOrAdmin).Get("/{viagemID}", srv.handlers.ViagemHandler.GetByID)
 			r.With(srv.handlers.ViagemHandler.RequireAssignedMotoristaOrAdmin).Post("/{viagemID}/iniciar", srv.handlers.ViagemHandler.Iniciar)
 			r.With(srv.handlers.ViagemHandler.RequireAssignedMotoristaOrAdmin).Post("/{viagemID}/concluir", srv.handlers.ViagemHandler.Concluir)

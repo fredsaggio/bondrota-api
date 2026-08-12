@@ -84,7 +84,7 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService, adminCookieConfig admi
 	processadorPlanejamentoHandler := viagens.NewProcessadorPlanejamentoHandler(processadorPlanejamento)
 
 	viagemStore := viagens.NewViagemStore(pool)
-	viagemSvc := viagens.NewViagemService(viagemStore)
+	viagemSvc := viagens.NewViagemService(viagemStore, viagens.ViagemServiceConfig{Location: appLocation})
 	viagemReservaStore := viagens.NewViagemReservaStore(pool)
 	presencaSvc := viagens.NewPresencaService(viagemReservaStore)
 	viagemLocalizacaoStore := viagens.NewViagemLocalizacaoStore(pool)

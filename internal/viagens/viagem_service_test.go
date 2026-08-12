@@ -12,7 +12,8 @@ import (
 type fakeViagemStore struct {
 	createViagemFn                           func(ctx context.Context, input viagens.ViagemInput) (*viagens.Viagem, error)
 	getViagemByIDFn                          func(ctx context.Context, viagemID int64) (*viagens.ViagemComCiclo, error)
-	listViagensFn                            func(ctx context.Context) ([]viagens.ViagemComCiclo, error)
+	listViagensFn                            func(ctx context.Context, params viagens.ViagemListParams) (viagens.ViagemListResult, error)
+	resumoViagensFn                          func(ctx context.Context, hoje time.Time) (viagens.ViagemResumo, error)
 	listViagensByCicloFn                     func(ctx context.Context, cicloID int64) ([]viagens.Viagem, error)
 	listHorariosByViagemFn                   func(ctx context.Context, viagemID int64) ([]viagens.ViagemHorario, error)
 	registrarHorarioViagemFn                 func(ctx context.Context, viagemID int64, tipo viagens.TipoHorarioViagem, horario time.Time) (*viagens.ViagemHorario, error)
@@ -28,8 +29,12 @@ func (s fakeViagemStore) GetViagemByID(ctx context.Context, viagemID int64) (*vi
 	return s.getViagemByIDFn(ctx, viagemID)
 }
 
-func (s fakeViagemStore) ListViagens(ctx context.Context) ([]viagens.ViagemComCiclo, error) {
-	return s.listViagensFn(ctx)
+func (s fakeViagemStore) ListViagens(ctx context.Context, params viagens.ViagemListParams) (viagens.ViagemListResult, error) {
+	return s.listViagensFn(ctx, params)
+}
+
+func (s fakeViagemStore) ResumoViagens(ctx context.Context, hoje time.Time) (viagens.ViagemResumo, error) {
+	return s.resumoViagensFn(ctx, hoje)
 }
 
 func (s fakeViagemStore) ListViagensByCiclo(ctx context.Context, cicloID int64) ([]viagens.Viagem, error) {
@@ -62,7 +67,7 @@ func TestViagemService_GetAndList(t *testing.T) {
 				v := sampleViagemComCiclo()
 				return &v, nil
 			},
-		})
+		}, viagens.ViagemServiceConfig{})
 
 		viagem, err := svc.GetByID(context.Background(), 10)
 
@@ -75,26 +80,64 @@ func TestViagemService_GetAndList(t *testing.T) {
 	})
 
 	t.Run("list delegates to store", func(t *testing.T) {
+		var received viagens.ViagemListParams
 		svc := viagens.NewViagemService(fakeViagemStore{
-			listViagensFn: func(_ context.Context) ([]viagens.ViagemComCiclo, error) {
-				return []viagens.ViagemComCiclo{sampleViagemComCiclo()}, nil
+			listViagensFn: func(_ context.Context, params viagens.ViagemListParams) (viagens.ViagemListResult, error) {
+				received = params
+				return viagens.ViagemListResult{
+					Items: []viagens.ViagemComCicloENomes{{ViagemComCiclo: sampleViagemComCiclo()}},
+				}, nil
 			},
-		})
+		}, viagens.ViagemServiceConfig{})
 
-		viagensList, err := svc.List(context.Background())
+		result, err := svc.List(context.Background(), viagens.ViagemListParams{Limit: 10, Busca: "maceio"})
 
 		if err != nil {
 			t.Fatalf("unexpected err: %v", err)
 		}
-		if len(viagensList) != 1 {
-			t.Fatalf("expected 1 viagem, got %d", len(viagensList))
+		if len(result.Items) != 1 {
+			t.Fatalf("expected 1 viagem, got %d", len(result.Items))
+		}
+		if received.Limit != 10 || received.Busca != "maceio" {
+			t.Fatalf("params nao chegaram no store: %#v", received)
 		}
 	})
 }
 
+// O resumo conta "hoje" no fuso da operacao. Perto da meia-noite, usar o fuso do
+// servidor (UTC no Render) contaria o dia errado.
+func TestViagemService_ResumoUsaHojeNoFusoDaOperacao(t *testing.T) {
+	saoPaulo, err := time.LoadLocation("America/Sao_Paulo")
+	if err != nil {
+		t.Fatalf("load location: %v", err)
+	}
+
+	// 02:30 UTC de 11/08 ainda e 23:30 de 10/08 em Sao Paulo (UTC-3).
+	agora := time.Date(2026, 8, 11, 2, 30, 0, 0, time.UTC)
+
+	var received time.Time
+	svc := viagens.NewViagemService(fakeViagemStore{
+		resumoViagensFn: func(_ context.Context, hoje time.Time) (viagens.ViagemResumo, error) {
+			received = hoje
+			return viagens.ViagemResumo{}, nil
+		},
+	}, viagens.ViagemServiceConfig{
+		Location: saoPaulo,
+		Now:      func() time.Time { return agora },
+	})
+
+	if _, err := svc.Resumo(context.Background()); err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+
+	if got := received.Format("2006-01-02"); got != "2026-08-10" {
+		t.Fatalf("esperava 2026-08-10 (dia local), got %s", got)
+	}
+}
+
 func TestViagemService_ListHorariosByViagem(t *testing.T) {
 	t.Run("requires valid id", func(t *testing.T) {
-		svc := viagens.NewViagemService(fakeViagemStore{})
+		svc := viagens.NewViagemService(fakeViagemStore{}, viagens.ViagemServiceConfig{})
 
 		_, err := svc.ListHorariosByViagem(context.Background(), 0)
 
@@ -113,7 +156,7 @@ func TestViagemService_ListHorariosByViagem(t *testing.T) {
 					{ID: 1, ViagemID: 10, Tipo: viagens.TipoHorarioPartidaPrevista, Horario: testTime()},
 				}, nil
 			},
-		})
+		}, viagens.ViagemServiceConfig{})
 
 		horarios, err := svc.ListHorariosByViagem(context.Background(), 10)
 
@@ -128,7 +171,7 @@ func TestViagemService_ListHorariosByViagem(t *testing.T) {
 
 func TestViagemService_Iniciar(t *testing.T) {
 	t.Run("requires valid id", func(t *testing.T) {
-		svc := viagens.NewViagemService(fakeViagemStore{})
+		svc := viagens.NewViagemService(fakeViagemStore{}, viagens.ViagemServiceConfig{})
 
 		_, err := svc.Iniciar(context.Background(), 0)
 
@@ -150,7 +193,7 @@ func TestViagemService_Iniciar(t *testing.T) {
 				v.Status = to
 				return &v, nil
 			},
-		})
+		}, viagens.ViagemServiceConfig{})
 
 		viagem, err := svc.Iniciar(context.Background(), 10)
 
@@ -177,7 +220,7 @@ func TestViagemService_Concluir(t *testing.T) {
 				v.Status = to
 				return &v, nil
 			},
-		})
+		}, viagens.ViagemServiceConfig{})
 
 		viagem, err := svc.Concluir(context.Background(), 10)
 
@@ -207,7 +250,7 @@ func TestViagemService_Cancelar(t *testing.T) {
 				}
 				return &v, nil
 			},
-		})
+		}, viagens.ViagemServiceConfig{})
 
 		viagem, err := svc.Cancelar(context.Background(), 10)
 
@@ -233,7 +276,7 @@ func TestViagemService_Cancelar(t *testing.T) {
 				}
 				return &v, nil
 			},
-		})
+		}, viagens.ViagemServiceConfig{})
 
 		_, err := svc.Cancelar(context.Background(), 10)
 
@@ -253,7 +296,7 @@ func TestViagemService_Cancelar(t *testing.T) {
 				}
 				return nil, err
 			},
-		})
+		}, viagens.ViagemServiceConfig{})
 
 		_, err := svc.Cancelar(context.Background(), 10)
 
@@ -268,7 +311,7 @@ func TestViagemService_Cancelar(t *testing.T) {
 			updateViagemFn: func(_ context.Context, _ int64, _ func(*viagens.Viagem) (bool, error)) (*viagens.Viagem, error) {
 				return nil, storeErr
 			},
-		})
+		}, viagens.ViagemServiceConfig{})
 
 		_, err := svc.Cancelar(context.Background(), 10)
 

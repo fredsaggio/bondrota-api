@@ -1002,7 +1002,8 @@ Status de ciclo: `planejado`, `em_andamento`, `concluido`, `cancelado`.
 
 | Metodo | Path completo | Descricao | Body | Sucesso | Erros |
 | --- | --- | --- | --- | --- | --- |
-| `GET` | `BASE_URL/viagens/` | Lista viagens com ciclo. | nenhum | `200 ViagemComCicloResponse[]` | `401`, `403`, `500` |
+| `GET` | `BASE_URL/viagens/?cursor=&limit=50&q=&data_inicio=&data_fim=&status=&ordem=` | Lista viagens com ciclo, paginada por cursor. | nenhum | `200 ViagemListResponse` | `400`, `401`, `403`, `500` |
+| `GET` | `BASE_URL/viagens/resumo` | Agregados de viagens para o painel. Somente `admin`. | nenhum | `200 ViagemResumoResponse` | `401`, `403`, `500` |
 | `GET` | `BASE_URL/viagens/{viagemID}` | Busca viagem com ciclo. | nenhum | `200 ViagemComCicloResponse` | `400`, `401`, `403`, `404`, `500` |
 | `POST` | `BASE_URL/viagens/{viagemID}/iniciar` | Inicia viagem e registra `inicio_real`. | nenhum | `200 ViagemResponse` | `400`, `401`, `403`, `404`, `409`, `422`, `500` |
 | `POST` | `BASE_URL/viagens/{viagemID}/concluir` | Conclui viagem e registra `fim_real`. | nenhum | `200 ViagemResponse` | `400`, `401`, `403`, `404`, `409`, `422`, `500` |
@@ -1010,6 +1011,50 @@ Status de ciclo: `planejado`, `em_andamento`, `concluido`, `cancelado`.
 | `GET` | `BASE_URL/viagens/{viagemID}/horarios` | Lista horarios da viagem. | nenhum | `200 ViagemHorarioResponse[]` | `400`, `401`, `403`, `404`, `500` |
 | `GET` | `BASE_URL/viagens/{viagemID}/reservas/` | Lista reservas alocadas na viagem. | nenhum | `200 ViagemReservaComReservaResponse[]` | `400`, `401`, `403`, `404`, `500` |
 | `PUT` | `BASE_URL/viagens/{viagemID}/reservas/{reservaID}/presenca` | Atualiza presenca do aluno na viagem. | `AtualizarPresencaRequest` | `200 ViagemReservaResponse` | `400`, `401`, `403`, `404`, `409`, `422`, `500` |
+
+Listagem paginada (`GET /viagens/`):
+
+| Query param | Obrigatorio | Descricao |
+| --- | --- | --- |
+| `limit` | nao (padrao 50, teto 200) | tamanho da pagina |
+| `cursor` | nao (ausente = primeira pagina) | opaco, devolvido em `next_cursor` |
+| `q` | nao | busca por nome do municipio, placa do veiculo, status, turno ou sentido. **Nao busca por data** |
+| `data_inicio`, `data_fim` | nao | intervalo por `data_viagem`, formato `YYYY-MM-DD`, inclusivo |
+| `status` | nao (repetivel) | filtra por status de viagem; sem ele, traz todos |
+| `ordem` | nao (padrao `desc`) | `asc` traz a viagem mais proxima primeiro; usado pelo monitoramento |
+
+Cada item traz `municipio_nome` e `veiculo_placa` resolvidos, alem dos ids. O
+motorista autenticado recebe apenas as proprias viagens — o recorte acontece na
+consulta, entao a paginacao dele nao vem com paginas incompletas.
+
+```json
+{
+  "items": [
+    {
+      "viagem": { "id": 1, "sentido": "ida", "status": "programada" },
+      "ciclo": { "id": 1, "data_viagem": "2026-06-10", "turno": "NT", "municipio_destino_id": 2704302 },
+      "municipio_nome": "Maceio",
+      "veiculo_placa": "ABC1D23"
+    }
+  ],
+  "next_cursor": "MjAyNi0wNi0xMHwx",
+  "has_more": true
+}
+```
+
+Resumo (`GET /viagens/resumo`) agrega no banco o que o painel precisa, para nao
+baixar a tabela inteira so para contar. `hoje` e resolvido no fuso da operacao,
+nao no do servidor. `proximas` vem em ordem crescente, limitada a 6.
+
+```json
+{
+  "por_status": { "programada": 12, "concluida": 40 },
+  "por_turno": { "MT": 20, "NT": 32 },
+  "hoje_total": 4,
+  "hoje_em_andamento": 1,
+  "proximas": []
+}
+```
 
 Response de viagem com ciclo:
 
