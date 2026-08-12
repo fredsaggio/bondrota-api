@@ -117,7 +117,7 @@ func TestEndToEndPlanejamentoViagem(t *testing.T) {
 		"tomada":          false,
 	})
 	motoristaID := createMotorista(t, router, adminToken, map[string]any{
-		"nome":                  "Motorista E2E",
+		"nome":                  "Motorista Teste",
 		"cpf":                   motoristaCPF,
 		"senha":                 "senha123",
 		"telefone":              "82999990000",
@@ -128,7 +128,7 @@ func TestEndToEndPlanejamentoViagem(t *testing.T) {
 		"foto":                  "",
 	})
 	clienteID := createCliente(t, router, adminToken, map[string]any{
-		"nome":      "Cliente E2E",
+		"nome":      "Cliente Teste",
 		"cpf":       clienteCPF,
 		"senha":     "senha123",
 		"telefone":  "82999991111",
@@ -444,7 +444,7 @@ func TestEndToEndPlanejamentoMultiplosVeiculosPorCapacidade(t *testing.T) {
 	})
 	for i := 0; i < 2; i++ {
 		createMotorista(t, h.Router, h.AdminToken, map[string]any{
-			"nome":                  "Motorista Capacidade E2E",
+			"nome":                  "Motorista Capacidade Teste",
 			"cpf":                   fmt.Sprintf("91%s%02d", suffix[len(suffix)-7:], i),
 			"senha":                 "senha123",
 			"telefone":              "82999990000",
@@ -465,7 +465,7 @@ func TestEndToEndPlanejamentoMultiplosVeiculosPorCapacidade(t *testing.T) {
 	dataViagem := time.Now().AddDate(0, 0, 2).Format("2006-01-02")
 	for i := 0; i < 48; i++ {
 		clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
-			"nome":      "Cliente Capacidade E2E",
+			"nome":      "Cliente Capacidade Teste",
 			"cpf":       fmt.Sprintf("81%s%02d", suffix[len(suffix)-7:], i),
 			"senha":     "senha123",
 			"telefone":  "82999991111",
@@ -552,7 +552,7 @@ func TestEndToEndPlanejamentoIgnoraRecursosIndisponiveis(t *testing.T) {
 		"status":     "ativo",
 	})
 	wrongTurnoMotoristaID := createMotorista(t, h.Router, h.AdminToken, map[string]any{
-		"nome":                  "Motorista Turno Errado E2E",
+		"nome":                  "Motorista Turno Errado Teste",
 		"cpf":                   "90" + suffix[len(suffix)-7:] + "00",
 		"senha":                 "senha123",
 		"telefone":              "82999990000",
@@ -563,7 +563,7 @@ func TestEndToEndPlanejamentoIgnoraRecursosIndisponiveis(t *testing.T) {
 		"foto":                  "",
 	})
 	correctMotoristaID := createMotorista(t, h.Router, h.AdminToken, map[string]any{
-		"nome":                  "Motorista Turno Certo E2E",
+		"nome":                  "Motorista Turno Certo Teste",
 		"cpf":                   "90" + suffix[len(suffix)-7:] + "01",
 		"senha":                 "senha123",
 		"telefone":              "82999990001",
@@ -575,7 +575,7 @@ func TestEndToEndPlanejamentoIgnoraRecursosIndisponiveis(t *testing.T) {
 	})
 
 	clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
-		"nome":      "Cliente Recursos E2E",
+		"nome":      "Cliente Recursos Teste",
 		"cpf":       "80" + suffix[len(suffix)-7:] + "00",
 		"senha":     "senha123",
 		"telefone":  "82999991111",
@@ -664,7 +664,7 @@ func TestEndToEndPlanejamentoNaoReutilizaRecursosJaAlocados(t *testing.T) {
 		"status":     "ativo",
 	})
 	motoristaID := createMotorista(t, h.Router, h.AdminToken, map[string]any{
-		"nome":                  "Motorista Reuso E2E",
+		"nome":                  "Motorista Reuso Teste",
 		"cpf":                   "76" + suffix[len(suffix)-7:] + "00",
 		"senha":                 "senha123",
 		"telefone":              "82999990000",
@@ -684,7 +684,7 @@ func TestEndToEndPlanejamentoNaoReutilizaRecursosJaAlocados(t *testing.T) {
 	dataViagem := time.Now().AddDate(0, 0, 10).Format("2006-01-02")
 	for i, rotaInternaID := range []int64{rotaInternaAID, rotaInternaBID} {
 		clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
-			"nome":      "Cliente Reuso E2E",
+			"nome":      "Cliente Reuso Teste",
 			"cpf":       fmt.Sprintf("76%s%02d", suffix[len(suffix)-7:], i+1),
 			"senha":     "senha123",
 			"telefone":  "82999991111",
@@ -783,7 +783,7 @@ func TestEndToEndRotaDinamicaMultiplosDestinos(t *testing.T) {
 		"status":     "ativo",
 	})
 	createMotorista(t, h.Router, h.AdminToken, map[string]any{
-		"nome":                  "Motorista Multi E2E",
+		"nome":                  "Motorista Multi Teste",
 		"cpf":                   "92" + suffix[len(suffix)-7:] + "00",
 		"senha":                 "senha123",
 		"telefone":              "82999990000",
@@ -803,7 +803,7 @@ func TestEndToEndRotaDinamicaMultiplosDestinos(t *testing.T) {
 	dataViagem := time.Now().AddDate(0, 0, 3).Format("2006-01-02")
 	for i, destinoID := range destinosIDs {
 		clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
-			"nome":      "Cliente Multi E2E",
+			"nome":      "Cliente Multi Teste",
 			"cpf":       fmt.Sprintf("82%s%02d", suffix[len(suffix)-7:], i),
 			"senha":     "senha123",
 			"telefone":  "82999991111",
@@ -902,7 +902,7 @@ func TestEndToEndCancelarReservaInvalidaRotaDinamica(t *testing.T) {
 		"status":     "ativo",
 	})
 	createMotorista(t, h.Router, h.AdminToken, map[string]any{
-		"nome":                  "Motorista Invalida E2E",
+		"nome":                  "Motorista Invalida Teste",
 		"cpf":                   "97" + suffix[len(suffix)-7:] + "00",
 		"senha":                 "senha123",
 		"telefone":              "82999990000",
@@ -913,7 +913,7 @@ func TestEndToEndCancelarReservaInvalidaRotaDinamica(t *testing.T) {
 		"foto":                  "",
 	})
 	clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
-		"nome":      "Cliente Invalida E2E",
+		"nome":      "Cliente Invalida Teste",
 		"cpf":       "79" + suffix[len(suffix)-7:] + "00",
 		"senha":     "senha123",
 		"telefone":  "82999991111",
@@ -997,7 +997,7 @@ func TestEndToEndReservaCanceladaAntesDoPlanejamentoNaoEntraNaViagem(t *testing.
 		"status":     "ativo",
 	})
 	createMotorista(t, h.Router, h.AdminToken, map[string]any{
-		"nome":                  "Motorista Reserva Cancelada E2E",
+		"nome":                  "Motorista Reserva Cancelada Teste",
 		"cpf":                   "78" + suffix[len(suffix)-7:] + "00",
 		"senha":                 "senha123",
 		"telefone":              "82999990000",
@@ -1018,7 +1018,7 @@ func TestEndToEndReservaCanceladaAntesDoPlanejamentoNaoEntraNaViagem(t *testing.
 	var reservaConfirmadaID, reservaCanceladaID int64
 	for i := 0; i < 2; i++ {
 		clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
-			"nome":      "Cliente Reserva Cancelada E2E",
+			"nome":      "Cliente Reserva Cancelada Teste",
 			"cpf":       fmt.Sprintf("78%s%02d", suffix[len(suffix)-7:], i+1),
 			"senha":     "senha123",
 			"telefone":  "82999991111",
@@ -1155,7 +1155,7 @@ func TestEndToEndAutorizacaoPorDono(t *testing.T) {
 	motoristaCPF := "93" + suffix[len(suffix)-7:] + "00"
 	outroMotoristaCPF := "93" + suffix[len(suffix)-7:] + "01"
 	createMotorista(t, h.Router, h.AdminToken, map[string]any{
-		"nome":                  "Motorista Dono E2E",
+		"nome":                  "Motorista Dono Teste",
 		"cpf":                   motoristaCPF,
 		"senha":                 "senha123",
 		"telefone":              "82999990000",
@@ -1166,7 +1166,7 @@ func TestEndToEndAutorizacaoPorDono(t *testing.T) {
 		"foto":                  "",
 	})
 	createMotorista(t, h.Router, h.AdminToken, map[string]any{
-		"nome":                  "Outro Motorista Dono E2E",
+		"nome":                  "Outro Motorista Dono Teste",
 		"cpf":                   outroMotoristaCPF,
 		"senha":                 "senha123",
 		"telefone":              "82999990001",
@@ -1177,7 +1177,7 @@ func TestEndToEndAutorizacaoPorDono(t *testing.T) {
 		"foto":                  "",
 	})
 	clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
-		"nome":      "Cliente Dono E2E",
+		"nome":      "Cliente Dono Teste",
 		"cpf":       "83" + suffix[len(suffix)-7:] + "00",
 		"senha":     "senha123",
 		"telefone":  "82999991111",
@@ -1185,7 +1185,7 @@ func TestEndToEndAutorizacaoPorDono(t *testing.T) {
 		"foto":      "",
 	})
 	outroClienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
-		"nome":      "Outro Cliente Dono E2E",
+		"nome":      "Outro Cliente Dono Teste",
 		"cpf":       "83" + suffix[len(suffix)-7:] + "01",
 		"senha":     "senha123",
 		"telefone":  "82999991112",
@@ -1283,7 +1283,7 @@ func TestEndToEndReservaDuplicadaECancelada(t *testing.T) {
 		"paradas": []map[string]any{{"parada_id": paradaID, "ordem": 1}},
 	})
 	clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
-		"nome":      "Cliente Reserva E2E",
+		"nome":      "Cliente Reserva Teste",
 		"cpf":       "84" + suffix[len(suffix)-7:] + "00",
 		"senha":     "senha123",
 		"telefone":  "82999991111",
@@ -1291,7 +1291,7 @@ func TestEndToEndReservaDuplicadaECancelada(t *testing.T) {
 		"foto":      "",
 	})
 	outroClienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
-		"nome":      "Outro Cliente Reserva E2E",
+		"nome":      "Outro Cliente Reserva Teste",
 		"cpf":       "84" + suffix[len(suffix)-7:] + "01",
 		"senha":     "senha123",
 		"telefone":  "82999991112",
@@ -1632,7 +1632,7 @@ func setupPlanejamentoBase(t *testing.T, h *e2eHarness, options planejamentoBase
 	}
 	if options.CriarMotorista {
 		createMotorista(t, h.Router, h.AdminToken, map[string]any{
-			"nome":                  "Motorista Base E2E",
+			"nome":                  "Motorista Base Teste",
 			"cpf":                   options.MotoristaPrefix + "00",
 			"senha":                 "senha123",
 			"telefone":              "82999990000",
@@ -1645,7 +1645,7 @@ func setupPlanejamentoBase(t *testing.T, h *e2eHarness, options planejamentoBase
 	}
 
 	clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
-		"nome":      "Cliente Base E2E",
+		"nome":      "Cliente Base Teste",
 		"cpf":       options.ClientePrefix + "00",
 		"senha":     "senha123",
 		"telefone":  "82999991111",
