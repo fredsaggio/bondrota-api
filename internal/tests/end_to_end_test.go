@@ -68,7 +68,7 @@ func TestEndToEndPlanejamentoViagem(t *testing.T) {
 	adminPassword := "admin123"
 	motoristaCPF := "900" + suffix[len(suffix)-8:]
 	clienteCPF := "800" + suffix[len(suffix)-8:]
-	placa := "E2E" + suffix[len(suffix)-4:]
+	placa := e2ePlaca("BUS", suffix)
 	cidade := "e2e-cidade-" + suffix
 	destinoNome := "UFAL E2E " + suffix
 
@@ -407,7 +407,7 @@ func TestEndToEndPlanejamentoMultiplosVeiculosPorCapacidade(t *testing.T) {
 		AdminEmail:      h.AdminEmail,
 		MotoristaPrefix: "91" + suffix[len(suffix)-7:],
 		ClientePrefix:   "81" + suffix[len(suffix)-7:],
-		PlacaPrefix:     "C" + suffix[len(suffix)-5:],
+		PlacaPrefix:     e2ePlacaPrefix("CAR", suffix),
 		CidadeDestino:   cidade,
 		DestinoPrefix:   "Destino Capacidade E2E " + suffix,
 	})
@@ -429,14 +429,14 @@ func TestEndToEndPlanejamentoMultiplosVeiculosPorCapacidade(t *testing.T) {
 	})
 
 	createVeiculo(t, h.Router, h.AdminToken, map[string]any{
-		"placa":      "C" + suffix[len(suffix)-5:] + "E",
+		"placa":      e2ePlaca("CAB", suffix),
 		"modelo":     "Executivo E2E",
 		"categoria":  "executivo",
 		"capacidade": 46,
 		"status":     "ativo",
 	})
 	createVeiculo(t, h.Router, h.AdminToken, map[string]any{
-		"placa":      "C" + suffix[len(suffix)-5:] + "7",
+		"placa":      e2ePlaca("CAR", suffix),
 		"modelo":     "Carro E2E",
 		"categoria":  "carro_7_lugares",
 		"capacidade": 7,
@@ -516,7 +516,7 @@ func TestEndToEndPlanejamentoIgnoraRecursosIndisponiveis(t *testing.T) {
 		AdminEmail:      h.AdminEmail,
 		MotoristaPrefix: "90" + suffix[len(suffix)-7:],
 		ClientePrefix:   "80" + suffix[len(suffix)-7:],
-		PlacaPrefix:     "R" + suffix[len(suffix)-5:],
+		PlacaPrefix:     e2ePlacaPrefix("BUS", suffix),
 		CidadeDestino:   cidade,
 		DestinoPrefix:   "Destino Recursos E2E " + suffix,
 	})
@@ -538,14 +538,14 @@ func TestEndToEndPlanejamentoIgnoraRecursosIndisponiveis(t *testing.T) {
 	})
 
 	inactiveCarID := createVeiculo(t, h.Router, h.AdminToken, map[string]any{
-		"placa":      "R" + suffix[len(suffix)-5:] + "I",
+		"placa":      e2ePlaca("RUA", suffix),
 		"modelo":     "Carro Inativo E2E",
 		"categoria":  "carro_7_lugares",
 		"capacidade": 7,
 		"status":     "inativo",
 	})
 	activeEscolarID := createVeiculo(t, h.Router, h.AdminToken, map[string]any{
-		"placa":      "R" + suffix[len(suffix)-5:] + "A",
+		"placa":      e2ePlaca("RUR", suffix),
 		"modelo":     "Escolar Ativo E2E",
 		"categoria":  "escolar",
 		"capacidade": 24,
@@ -628,7 +628,7 @@ func TestEndToEndPlanejamentoNaoReutilizaRecursosJaAlocados(t *testing.T) {
 		AdminEmail:      h.AdminEmail,
 		MotoristaPrefix: "76" + suffix[len(suffix)-7:],
 		ClientePrefix:   "76" + suffix[len(suffix)-7:],
-		PlacaPrefix:     "U" + suffix[len(suffix)-5:],
+		PlacaPrefix:     e2ePlacaPrefix("VAN", suffix),
 		CidadeDestino:   cidade,
 		DestinoPrefix:   "Destino Reuso E2E " + suffix,
 	})
@@ -657,7 +657,7 @@ func TestEndToEndPlanejamentoNaoReutilizaRecursosJaAlocados(t *testing.T) {
 		"paradas": []map[string]any{{"parada_id": paradaBID, "ordem": 1}},
 	})
 	veiculoID := createVeiculo(t, h.Router, h.AdminToken, map[string]any{
-		"placa":      "U" + suffix[len(suffix)-5:] + "7",
+		"placa":      e2ePlaca("VAN", suffix),
 		"modelo":     "Carro Reuso E2E",
 		"categoria":  "carro_7_lugares",
 		"capacidade": 7,
@@ -745,7 +745,7 @@ func TestEndToEndRotaDinamicaMultiplosDestinos(t *testing.T) {
 		AdminEmail:      h.AdminEmail,
 		MotoristaPrefix: "92" + suffix[len(suffix)-7:],
 		ClientePrefix:   "82" + suffix[len(suffix)-7:],
-		PlacaPrefix:     "M" + suffix[len(suffix)-5:],
+		PlacaPrefix:     e2ePlacaPrefix("MUL", suffix),
 		CidadeDestino:   cidade,
 		DestinoPrefix:   "Destino Multi E2E " + suffix,
 	})
@@ -776,7 +776,7 @@ func TestEndToEndRotaDinamicaMultiplosDestinos(t *testing.T) {
 		"paradas": []map[string]any{{"parada_id": paradaID, "ordem": 1}},
 	})
 	createVeiculo(t, h.Router, h.AdminToken, map[string]any{
-		"placa":      "M" + suffix[len(suffix)-5:] + "7",
+		"placa":      e2ePlaca("MUL", suffix),
 		"modelo":     "Carro Multi E2E",
 		"categoria":  "carro_7_lugares",
 		"capacidade": 7,
@@ -874,7 +874,7 @@ func TestEndToEndCancelarReservaInvalidaRotaDinamica(t *testing.T) {
 		AdminEmail:      h.AdminEmail,
 		MotoristaPrefix: "97" + suffix[len(suffix)-7:],
 		ClientePrefix:   "79" + suffix[len(suffix)-7:],
-		PlacaPrefix:     "I" + suffix[len(suffix)-5:],
+		PlacaPrefix:     e2ePlacaPrefix("INV", suffix),
 		CidadeDestino:   cidade,
 		DestinoPrefix:   "Destino Invalida E2E " + suffix,
 	})
@@ -895,7 +895,7 @@ func TestEndToEndCancelarReservaInvalidaRotaDinamica(t *testing.T) {
 		"paradas": []map[string]any{{"parada_id": paradaID, "ordem": 1}},
 	})
 	createVeiculo(t, h.Router, h.AdminToken, map[string]any{
-		"placa":      "I" + suffix[len(suffix)-5:] + "7",
+		"placa":      e2ePlaca("INV", suffix),
 		"modelo":     "Carro Invalida E2E",
 		"categoria":  "carro_7_lugares",
 		"capacidade": 7,
@@ -969,7 +969,7 @@ func TestEndToEndReservaCanceladaAntesDoPlanejamentoNaoEntraNaViagem(t *testing.
 		AdminEmail:      h.AdminEmail,
 		MotoristaPrefix: "78" + suffix[len(suffix)-7:],
 		ClientePrefix:   "78" + suffix[len(suffix)-7:],
-		PlacaPrefix:     "N" + suffix[len(suffix)-5:],
+		PlacaPrefix:     e2ePlacaPrefix("NAT", suffix),
 		CidadeDestino:   cidade,
 		DestinoPrefix:   "Destino Reserva Cancelada E2E " + suffix,
 	})
@@ -990,7 +990,7 @@ func TestEndToEndReservaCanceladaAntesDoPlanejamentoNaoEntraNaViagem(t *testing.
 		"paradas": []map[string]any{{"parada_id": paradaID, "ordem": 1}},
 	})
 	createVeiculo(t, h.Router, h.AdminToken, map[string]any{
-		"placa":      "N" + suffix[len(suffix)-5:] + "7",
+		"placa":      e2ePlaca("NAT", suffix),
 		"modelo":     "Carro Reserva Cancelada E2E",
 		"categoria":  "carro_7_lugares",
 		"capacidade": 7,
@@ -1085,7 +1085,7 @@ func TestEndToEndFalhaOSRMNaoPersisteRotaDinamica(t *testing.T) {
 		AdminEmail:      h.AdminEmail,
 		MotoristaPrefix: "77" + suffix[len(suffix)-7:],
 		ClientePrefix:   "77" + suffix[len(suffix)-7:],
-		PlacaPrefix:     "F" + suffix[len(suffix)-5:],
+		PlacaPrefix:     e2ePlacaPrefix("FAL", suffix),
 		CidadeDestino:   cidade,
 		DestinoPrefix:   "Destino Base E2E " + suffix,
 	})
@@ -1095,7 +1095,7 @@ func TestEndToEndFalhaOSRMNaoPersisteRotaDinamica(t *testing.T) {
 		Prefixo:         suffix,
 		MotoristaPrefix: "77" + suffix[len(suffix)-7:],
 		ClientePrefix:   "77" + suffix[len(suffix)-7:],
-		PlacaPrefix:     "F" + suffix[len(suffix)-5:],
+		PlacaPrefix:     e2ePlacaPrefix("FAL", suffix),
 		CriarVeiculo:    true,
 		CriarMotorista:  true,
 		CriarHorario:    true,
@@ -1125,7 +1125,7 @@ func TestEndToEndAutorizacaoPorDono(t *testing.T) {
 		AdminEmail:      h.AdminEmail,
 		MotoristaPrefix: "93" + suffix[len(suffix)-7:],
 		ClientePrefix:   "83" + suffix[len(suffix)-7:],
-		PlacaPrefix:     "D" + suffix[len(suffix)-5:],
+		PlacaPrefix:     e2ePlacaPrefix("DON", suffix),
 		CidadeDestino:   cidade,
 		DestinoPrefix:   "Destino Dono E2E " + suffix,
 	})
@@ -1146,7 +1146,7 @@ func TestEndToEndAutorizacaoPorDono(t *testing.T) {
 		"paradas": []map[string]any{{"parada_id": paradaID, "ordem": 1}},
 	})
 	createVeiculo(t, h.Router, h.AdminToken, map[string]any{
-		"placa":      "D" + suffix[len(suffix)-5:] + "7",
+		"placa":      e2ePlaca("DON", suffix),
 		"modelo":     "Carro Dono E2E",
 		"categoria":  "carro_7_lugares",
 		"capacidade": 7,
@@ -1352,7 +1352,7 @@ func TestEndToEndPlanejamentoErrosSemRecursos(t *testing.T) {
 			AdminEmail:      h.AdminEmail,
 			MotoristaPrefix: "95" + suffix[len(suffix)-7:],
 			ClientePrefix:   "85" + suffix[len(suffix)-7:],
-			PlacaPrefix:     "H" + suffix[len(suffix)-5:],
+			PlacaPrefix:     e2ePlacaPrefix("HOR", suffix),
 			CidadeDestino:   cidade,
 			DestinoPrefix:   "Destino Base E2E " + suffix,
 		})
@@ -1362,7 +1362,7 @@ func TestEndToEndPlanejamentoErrosSemRecursos(t *testing.T) {
 			Prefixo:         suffix,
 			MotoristaPrefix: "95" + suffix[len(suffix)-7:],
 			ClientePrefix:   "85" + suffix[len(suffix)-7:],
-			PlacaPrefix:     "H" + suffix[len(suffix)-5:],
+			PlacaPrefix:     e2ePlacaPrefix("HOR", suffix),
 			CriarVeiculo:    true,
 			CriarMotorista:  true,
 		})
@@ -1413,7 +1413,7 @@ func TestEndToEndPlanejamentoErrosSemRecursos(t *testing.T) {
 		h.Cleanup(e2eCleanupData{
 			AdminEmail:    h.AdminEmail,
 			ClientePrefix: "87" + suffix[len(suffix)-7:],
-			PlacaPrefix:   "S" + suffix[len(suffix)-5:],
+			PlacaPrefix:   e2ePlacaPrefix("SEM", suffix),
 			CidadeDestino: cidade,
 			DestinoPrefix: "Destino Base E2E " + suffix,
 		})
@@ -1422,7 +1422,7 @@ func TestEndToEndPlanejamentoErrosSemRecursos(t *testing.T) {
 			CidadeDestino: cidade,
 			Prefixo:       suffix,
 			ClientePrefix: "87" + suffix[len(suffix)-7:],
-			PlacaPrefix:   "S" + suffix[len(suffix)-5:],
+			PlacaPrefix:   e2ePlacaPrefix("SEM", suffix),
 			CriarVeiculo:  true,
 			CriarHorario:  true,
 		})
@@ -1445,7 +1445,7 @@ func TestEndToEndViagemCanceladaNaoInicia(t *testing.T) {
 		AdminEmail:      h.AdminEmail,
 		MotoristaPrefix: "98" + suffix[len(suffix)-7:],
 		ClientePrefix:   "88" + suffix[len(suffix)-7:],
-		PlacaPrefix:     "V" + suffix[len(suffix)-5:],
+		PlacaPrefix:     e2ePlacaPrefix("VIA", suffix),
 		CidadeDestino:   cidade,
 		DestinoPrefix:   "Destino Base E2E " + suffix,
 	})
@@ -1455,7 +1455,7 @@ func TestEndToEndViagemCanceladaNaoInicia(t *testing.T) {
 		Prefixo:         suffix,
 		MotoristaPrefix: "98" + suffix[len(suffix)-7:],
 		ClientePrefix:   "88" + suffix[len(suffix)-7:],
-		PlacaPrefix:     "V" + suffix[len(suffix)-5:],
+		PlacaPrefix:     e2ePlacaPrefix("VIA", suffix),
 		CriarVeiculo:    true,
 		CriarMotorista:  true,
 		CriarHorario:    true,
@@ -1494,7 +1494,7 @@ func TestEndToEndProcessamentoAutomaticoPlanejamentoIdempotente(t *testing.T) {
 	cidade := "e2e-processador-" + suffix
 	motoristaPrefix := "91" + suffix[len(suffix)-7:]
 	clientePrefix := "81" + suffix[len(suffix)-7:]
-	placaPrefix := "P" + suffix[len(suffix)-5:]
+	placaPrefix := e2ePlacaPrefix("PRO", suffix)
 	h.Cleanup(e2eCleanupData{
 		AdminEmail:      h.AdminEmail,
 		MotoristaPrefix: motoristaPrefix,
@@ -1622,8 +1622,12 @@ func setupPlanejamentoBase(t *testing.T, h *e2eHarness, options planejamentoBase
 	})
 
 	if options.CriarVeiculo {
+		placaPrefix := options.PlacaPrefix
+		if len(placaPrefix) < 3 {
+			placaPrefix = "BUS"
+		}
 		createVeiculo(t, h.Router, h.AdminToken, map[string]any{
-			"placa":      options.PlacaPrefix + "7",
+			"placa":      e2ePlaca(placaPrefix[:3], options.Prefixo),
 			"modelo":     "Carro Base E2E",
 			"categoria":  "carro_7_lugares",
 			"capacidade": 7,
@@ -1891,6 +1895,29 @@ type e2eCleanupData struct {
 	CidadeDestino   string
 	DestinoNome     string
 	DestinoPrefix   string
+}
+
+func e2ePlaca(prefix, suffix string) string {
+	letters := strings.Builder{}
+	for _, r := range strings.ToUpper(prefix) {
+		if r >= 'A' && r <= 'Z' {
+			letters.WriteRune(r)
+			if letters.Len() == 3 {
+				break
+			}
+		}
+	}
+	for letters.Len() < 3 {
+		letters.WriteString("X")
+	}
+	if len(suffix) >= 4 {
+		return letters.String() + suffix[len(suffix)-4:]
+	}
+	return letters.String() + "1234"
+}
+
+func e2ePlacaPrefix(prefix, suffix string) string {
+	return e2ePlaca(prefix, suffix)[:5]
 }
 
 func cleanupE2EData(ctx context.Context, t *testing.T, pool *pgxpool.Pool, data e2eCleanupData) {
