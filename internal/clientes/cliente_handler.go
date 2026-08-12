@@ -1,12 +1,14 @@
 package clientes
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -18,14 +20,31 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/validation"
 )
 
-type ClienteHandler struct {
-	clienteSvc ClienteService
+// ArquivoMovedor move um objeto ja enviado ao Storage do caminho de espera
+// (onde a foto/comprovante entra antes do registro ter ID) para o caminho
+// definitivo, depois que o registro e criado. Definida aqui, e nao importada
+// de internal/storage, para este pacote nao depender de detalhes do provedor
+// de armazenamento — so precisa saber mover um arquivo de um lugar a outro.
+type ArquivoMovedor interface {
+	MoveObject(ctx context.Context, bucket, from, to string) error
 }
 
-func NewClienteHandler(clienteSvc ClienteService) *ClienteHandler {
-	return &ClienteHandler{
-		clienteSvc: clienteSvc,
+type ClienteHandler struct {
+	clienteSvc ClienteService
+	arquivos   ArquivoMovedor
+}
+
+// NewClienteHandler aceita o movedor de arquivos como variadico de proposito:
+// a maioria dos testes deste pacote nem chega a exercitar o campo foto, e
+// forcar todos eles a passar um mock so pra satisfazer a assinatura seria
+// ruido. Sem o argumento, a foto simplesmente fica no caminho que veio na
+// requisicao — igual ao comportamento de antes desta funcionalidade existir.
+func NewClienteHandler(clienteSvc ClienteService, arquivos ...ArquivoMovedor) *ClienteHandler {
+	h := &ClienteHandler{clienteSvc: clienteSvc}
+	if len(arquivos) > 0 {
+		h.arquivos = arquivos[0]
 	}
+	return h
 }
 
 type CreateClienteRequest struct {
@@ -140,7 +159,37 @@ func (h *ClienteHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if input.Foto != "" {
+		cliente = h.organizarFoto(ctx, cliente, input.Foto)
+	}
+
 	httputils.Respond(w, http.StatusCreated, toClienteResponse(cliente))
+}
+
+// organizarFoto leva a foto da pasta de espera (onde o admin envia antes do
+// cliente ter ID) para o caminho definitivo "clientes/{id}/foto{ext}".
+// Best-effort: se o Storage falhar aqui, o cliente ja foi criado com sucesso —
+// falhar a resposta agora deixaria o admin sem saber se o cadastro existe, e
+// um retry esbarraria no CPF duplicado. A foto so fica no caminho de espera
+// nesse caso raro, em vez de ficar organizada.
+func (h *ClienteHandler) organizarFoto(ctx context.Context, cliente *Cliente, caminhoEnviado string) *Cliente {
+	if h.arquivos == nil {
+		return cliente
+	}
+	destino := fmt.Sprintf("clientes/%s/foto%s", strconv.FormatInt(cliente.ID, 10), path.Ext(caminhoEnviado))
+	if err := h.arquivos.MoveObject(ctx, "fotos", caminhoEnviado, destino); err != nil {
+		slog.Error("failed to organize cliente foto", "error", err, "clienteID", cliente.ID)
+		return cliente
+	}
+	atualizado, err := h.clienteSvc.Update(ctx, cliente.ID, func(c *Cliente) (bool, error) {
+		c.Foto = destino
+		return true, nil
+	})
+	if err != nil {
+		slog.Error("failed to persist organized cliente foto", "error", err, "clienteID", cliente.ID)
+		return cliente
+	}
+	return atualizado
 }
 
 func (h *ClienteHandler) GetByID(w http.ResponseWriter, r *http.Request) {

@@ -199,6 +199,105 @@ func TestClienteHandler_Create(t *testing.T) {
 	}
 }
 
+// fakeArquivoMovedor grava a ultima chamada de MoveObject, para os testes
+// afirmarem de onde para onde o arquivo foi movido.
+type fakeArquivoMovedor struct {
+	bucket, from, to string
+	err              error
+}
+
+func (f *fakeArquivoMovedor) MoveObject(_ context.Context, bucket, from, to string) error {
+	f.bucket, f.from, f.to = bucket, from, to
+	return f.err
+}
+
+func TestClienteHandler_Create_OrganizaFoto(t *testing.T) {
+	body := body(map[string]any{
+		"nome":      " Maria Souza ",
+		"cpf":       "123.456.789-09",
+		"senha":     "secret",
+		"data_nasc": "2000-01-02",
+		"foto":      "clientes/_novo/xyz789/foto.png",
+	})
+
+	svc := fakeClienteService{
+		createFn: func(_ context.Context, input clientes.ClienteInput) (*clientes.Cliente, error) {
+			if input.Foto != "clientes/_novo/xyz789/foto.png" {
+				t.Fatalf("unexpected foto no create: %q", input.Foto)
+			}
+			return &clientes.Cliente{ID: 7, Foto: input.Foto}, nil
+		},
+		updateFn: func(_ context.Context, clienteID int64, updateFunc func(*clientes.Cliente) (bool, error)) (*clientes.Cliente, error) {
+			if clienteID != 7 {
+				t.Fatalf("unexpected clienteID no update: %d", clienteID)
+			}
+			c := &clientes.Cliente{ID: 7, Foto: "clientes/_novo/xyz789/foto.png"}
+			changed, err := updateFunc(c)
+			if err != nil || !changed || c.Foto != "clientes/7/foto.png" {
+				t.Fatalf("update nao organizou a foto corretamente: changed=%v err=%v foto=%q", changed, err, c.Foto)
+			}
+			return c, nil
+		},
+	}
+
+	mover := &fakeArquivoMovedor{}
+	h := clientes.NewClienteHandler(svc, mover)
+	req := httptest.NewRequest(http.MethodPost, "/clientes", body)
+	rr := httptest.NewRecorder()
+	newClienteRouter(h).ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("want 201, got %d — %s", rr.Code, rr.Body.String())
+	}
+	if mover.bucket != "fotos" || mover.from != "clientes/_novo/xyz789/foto.png" || mover.to != "clientes/7/foto.png" {
+		t.Fatalf("unexpected move: bucket=%q from=%q to=%q", mover.bucket, mover.from, mover.to)
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp["foto"] != "clientes/7/foto.png" {
+		t.Fatalf("want foto organizada na resposta, got %v", resp["foto"])
+	}
+}
+
+func TestClienteHandler_Create_FalhaAoOrganizarFotoNaoDerrubaCriacao(t *testing.T) {
+	body := body(map[string]any{
+		"nome":      " Maria Souza ",
+		"cpf":       "123.456.789-09",
+		"senha":     "secret",
+		"data_nasc": "2000-01-02",
+		"foto":      "clientes/_novo/xyz789/foto.png",
+	})
+
+	svc := fakeClienteService{
+		createFn: func(_ context.Context, input clientes.ClienteInput) (*clientes.Cliente, error) {
+			return &clientes.Cliente{ID: 7, Foto: input.Foto}, nil
+		},
+		updateFn: func(context.Context, int64, func(*clientes.Cliente) (bool, error)) (*clientes.Cliente, error) {
+			t.Fatal("update nao deveria ser chamado quando mover falha")
+			return nil, nil
+		},
+	}
+
+	mover := &fakeArquivoMovedor{err: errors.New("supabase indisponivel")}
+	h := clientes.NewClienteHandler(svc, mover)
+	req := httptest.NewRequest(http.MethodPost, "/clientes", body)
+	rr := httptest.NewRecorder()
+	newClienteRouter(h).ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("falha ao mover nao deveria derrubar a criacao: want 201, got %d — %s", rr.Code, rr.Body.String())
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp["foto"] != "clientes/_novo/xyz789/foto.png" {
+		t.Fatalf("foto deveria continuar no caminho de espera apos falha, got %v", resp["foto"])
+	}
+}
+
 func TestClienteHandler_GetListUpdateDelete(t *testing.T) {
 	t.Run("get not found", func(t *testing.T) {
 		h := clientes.NewClienteHandler(fakeClienteService{

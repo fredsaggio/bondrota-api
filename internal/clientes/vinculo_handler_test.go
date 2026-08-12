@@ -147,6 +147,113 @@ func TestVinculoHandler_Create(t *testing.T) {
 	}
 }
 
+func TestVinculoHandler_Create_OrganizaComprovante(t *testing.T) {
+	body := body(map[string]any{
+		"tipo":            "estagio",
+		"turno":           "NT",
+		"destino_id":      2,
+		"rota_interna_id": 3,
+		"curso":           "Computacao",
+		"validade":        "2026-07-01",
+		"horarios_fixos":  []int{1, 3},
+		"comprovante":     "clientes/1/vinculos/_novo/xyz/comprovante-estagio.pdf",
+	})
+
+	svc := fakeVinculoService{
+		createFn: func(_ context.Context, input clientes.VinculoInput) (*clientes.Vinculo, error) {
+			if input.Comprovante != "clientes/1/vinculos/_novo/xyz/comprovante-estagio.pdf" {
+				t.Fatalf("unexpected comprovante no create: %q", input.Comprovante)
+			}
+			v := sampleVinculo()
+			v.ID = 9
+			v.ClienteID = 1
+			v.Comprovante = input.Comprovante
+			return v, nil
+		},
+		updateFn: func(_ context.Context, vinculoID int64, input clientes.VinculoUpdateInput) (*clientes.Vinculo, error) {
+			if vinculoID != 9 {
+				t.Fatalf("unexpected vinculoID no update: %d", vinculoID)
+			}
+			// O caminho final carrega o tipo do vinculo, para dar pra saber pelo
+			// nome do arquivo no Supabase se e comprovante de estagio ou de
+			// faculdade sem precisar abrir o banco.
+			if input.Comprovante != "clientes/1/vinculos/9/comprovante-estagio.pdf" {
+				t.Fatalf("update nao organizou o comprovante corretamente: %q", input.Comprovante)
+			}
+			v := sampleVinculo()
+			v.ID = 9
+			v.ClienteID = 1
+			v.Comprovante = input.Comprovante
+			return v, nil
+		},
+	}
+
+	mover := &fakeArquivoMovedor{}
+	h := clientes.NewVinculoHandler(svc, mover)
+	req := httptest.NewRequest(http.MethodPost, "/clientes/1/vinculos", body)
+	rr := httptest.NewRecorder()
+	newVinculoRouter(h).ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("want 201, got %d — %s", rr.Code, rr.Body.String())
+	}
+	wantTo := "clientes/1/vinculos/9/comprovante-estagio.pdf"
+	if mover.bucket != "documentos" || mover.from != "clientes/1/vinculos/_novo/xyz/comprovante-estagio.pdf" || mover.to != wantTo {
+		t.Fatalf("unexpected move: bucket=%q from=%q to=%q", mover.bucket, mover.from, mover.to)
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp["comprovante"] != wantTo {
+		t.Fatalf("want comprovante organizado na resposta, got %v", resp["comprovante"])
+	}
+}
+
+func TestVinculoHandler_Create_FalhaAoOrganizarComprovanteNaoDerrubaCriacao(t *testing.T) {
+	body := body(map[string]any{
+		"tipo":            "estudante",
+		"turno":           "NT",
+		"destino_id":      2,
+		"rota_interna_id": 3,
+		"curso":           "Computacao",
+		"validade":        "2026-07-01",
+		"horarios_fixos":  []int{1, 3},
+		"comprovante":     "clientes/1/vinculos/_novo/xyz/comprovante-estudante.pdf",
+	})
+
+	svc := fakeVinculoService{
+		createFn: func(_ context.Context, input clientes.VinculoInput) (*clientes.Vinculo, error) {
+			v := sampleVinculo()
+			v.ID = 9
+			v.ClienteID = 1
+			v.Comprovante = input.Comprovante
+			return v, nil
+		},
+		updateFn: func(context.Context, int64, clientes.VinculoUpdateInput) (*clientes.Vinculo, error) {
+			t.Fatal("update nao deveria ser chamado quando mover falha")
+			return nil, nil
+		},
+	}
+
+	mover := &fakeArquivoMovedor{err: errors.New("supabase indisponivel")}
+	h := clientes.NewVinculoHandler(svc, mover)
+	req := httptest.NewRequest(http.MethodPost, "/clientes/1/vinculos", body)
+	rr := httptest.NewRecorder()
+	newVinculoRouter(h).ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("falha ao mover nao deveria derrubar a criacao: want 201, got %d — %s", rr.Code, rr.Body.String())
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp["comprovante"] != "clientes/1/vinculos/_novo/xyz/comprovante-estudante.pdf" {
+		t.Fatalf("comprovante deveria continuar no caminho de espera apos falha, got %v", resp["comprovante"])
+	}
+}
+
 func TestVinculoHandler_List(t *testing.T) {
 	t.Run("returns vinculos with cliente_nome flattened", func(t *testing.T) {
 		svc := fakeVinculoService{

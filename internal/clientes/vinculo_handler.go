@@ -1,12 +1,14 @@
 package clientes
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -17,11 +19,21 @@ import (
 )
 
 type VinculoHandler struct {
-	svc VinculoService
+	svc      VinculoService
+	arquivos ArquivoMovedor
 }
 
-func NewVinculoHandler(svc VinculoService) *VinculoHandler {
-	return &VinculoHandler{svc: svc}
+// NewVinculoHandler aceita o movedor de arquivos como variadico pelo mesmo
+// motivo de NewClienteHandler: a maioria dos testes deste pacote nem chega a
+// exercitar o campo comprovante, e sem o argumento ele so fica no caminho que
+// veio na requisicao — igual ao comportamento de antes desta funcionalidade
+// existir.
+func NewVinculoHandler(svc VinculoService, arquivos ...ArquivoMovedor) *VinculoHandler {
+	h := &VinculoHandler{svc: svc}
+	if len(arquivos) > 0 {
+		h.arquivos = arquivos[0]
+	}
+	return h
 }
 
 type VinculoRequest struct {
@@ -96,7 +108,56 @@ func (h *VinculoHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if input.Comprovante != "" {
+		vinculo = h.organizarComprovante(ctx, vinculo, input)
+	}
+
 	httputils.Respond(w, http.StatusCreated, toVinculoResponse(vinculo))
+}
+
+// organizarComprovante leva o comprovante da pasta de espera (onde o admin
+// envia antes do vinculo ter ID) para o caminho definitivo
+// "clientes/{cliente_id}/vinculos/{vinculo_id}/comprovante-{tipo}{ext}".
+// Best-effort: se o Storage falhar aqui, o vinculo ja foi criado com sucesso —
+// falhar a resposta agora deixaria o admin sem saber se o cadastro existe. O
+// comprovante so fica no caminho de espera nesse caso raro, em vez de ficar
+// organizado.
+//
+// Reaproveita VinculoService.Update em vez de um metodo novo: os dois campos
+// obrigatorios de VinculoInput e VinculoUpdateInput sao os mesmos, entao dá
+// pra montar o update com os valores que acabaram de criar o vinculo, so
+// trocando o Comprovante — sem precisar de um metodo novo no Store nem mexer
+// nos mocks gerados.
+func (h *VinculoHandler) organizarComprovante(ctx context.Context, vinculo *Vinculo, input VinculoInput) *Vinculo {
+	if h.arquivos == nil {
+		return vinculo
+	}
+	destino := fmt.Sprintf(
+		"clientes/%s/vinculos/%s/comprovante-%s%s",
+		strconv.FormatInt(input.ClienteID, 10),
+		strconv.FormatInt(vinculo.ID, 10),
+		input.Tipo,
+		path.Ext(input.Comprovante),
+	)
+	if err := h.arquivos.MoveObject(ctx, "documentos", input.Comprovante, destino); err != nil {
+		slog.Error("failed to organize vinculo comprovante", "error", err, "vinculoID", vinculo.ID)
+		return vinculo
+	}
+	atualizado, err := h.svc.Update(ctx, vinculo.ID, VinculoUpdateInput{
+		Tipo:          input.Tipo,
+		Turno:         input.Turno,
+		DestinoID:     input.DestinoID,
+		RotaInternaID: input.RotaInternaID,
+		Curso:         input.Curso,
+		Comprovante:   destino,
+		Validade:      input.Validade,
+		HorariosFixos: input.HorariosFixos,
+	})
+	if err != nil {
+		slog.Error("failed to persist organized vinculo comprovante", "error", err, "vinculoID", vinculo.ID)
+		return vinculo
+	}
+	return atualizado
 }
 
 func (h *VinculoHandler) List(w http.ResponseWriter, r *http.Request) {
