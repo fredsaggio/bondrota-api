@@ -4,11 +4,25 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
+	"strings"
 	"time"
+	"unicode"
 
 	"github.com/fredsaggio/bondrota-api/internal/db"
 	"github.com/jackc/pgx/v5"
 )
+
+var nonDigits = regexp.MustCompile(`\D`)
+
+func contemLetra(value string) bool {
+	for _, char := range value {
+		if unicode.IsLetter(char) {
+			return true
+		}
+	}
+	return false
+}
 
 type clienteStore struct {
 	db db.DB
@@ -105,26 +119,76 @@ func (s *clienteStore) GetByCPF(ctx context.Context, cpf string) (*Cliente, erro
 	return &c, nil
 }
 
-func (s *clienteStore) List(ctx context.Context) ([]Cliente, error) {
+const (
+	defaultClienteListLimit = 50
+	maxClienteListLimit     = 200
+)
+
+func (s *clienteStore) List(ctx context.Context, params ClienteListParams) (ClienteListResult, error) {
 	const op = "db/clienteStore.List"
+
+	limit := params.Limit
+	if limit <= 0 {
+		limit = defaultClienteListLimit
+	}
+	if limit > maxClienteListLimit {
+		limit = maxClienteListLimit
+	}
+
+	// A busca por CPF ignora pontuacao: o cadastro guarda so digitos, mas quem
+	// digita costuma colar o documento formatado. So vale para termos sem letra:
+	// senao "Cliente 13" viraria uma busca por CPF contendo "13" e traria junto
+	// todo mundo cujo documento tem esses digitos em qualquer posicao.
+	busca := strings.TrimSpace(params.Busca)
+	digitos := ""
+	if !contemLetra(busca) {
+		digitos = nonDigits.ReplaceAllString(busca, "")
+	}
 
 	const q = `
 		SELECT id, nome, cpf, telefone, data_nasc, foto
 		FROM clientes
+		WHERE (@cursor_id = 0 OR id < @cursor_id)
+		  AND (@busca = '' OR
+		       nome ILIKE '%' || @busca || '%' OR
+		       telefone ILIKE '%' || @busca || '%' OR
+		       (@digitos <> '' AND cpf LIKE '%' || @digitos || '%'))
 		ORDER BY id DESC
+		LIMIT @limit
 	`
 
-	rows, err := s.db.Query(ctx, q)
+	rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{
+		"cursor_id": params.CursorID,
+		"busca":     busca,
+		"digitos":   digitos,
+		"limit":     limit + 1,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return ClienteListResult{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	clientes, err := pgx.CollectRows(rows, scanCliente)
+	items, err := pgx.CollectRows(rows, scanCliente)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return ClienteListResult{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return clientes, nil
+	result := ClienteListResult{Items: items}
+	if len(items) > limit {
+		result.Items = items[:limit]
+		result.NextCursorID = result.Items[len(result.Items)-1].ID
+		result.HasMore = true
+	}
+	return result, nil
+}
+
+func (s *clienteStore) Resumo(ctx context.Context) (ClienteResumo, error) {
+	const op = "db/clienteStore.Resumo"
+
+	var resumo ClienteResumo
+	if err := s.db.QueryRow(ctx, `SELECT COUNT(*) FROM clientes`).Scan(&resumo.Total); err != nil {
+		return ClienteResumo{}, fmt.Errorf("%s: %w", op, err)
+	}
+	return resumo, nil
 }
 
 func (s *clienteStore) Update(ctx context.Context, clienteID int64, updateFunc func(*Cliente) (bool, error)) (*Cliente, error) {

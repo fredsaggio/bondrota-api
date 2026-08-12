@@ -300,27 +300,25 @@ func (_c *MockClienteStore_GetByID_Call) RunAndReturn(run func(ctx context.Conte
 }
 
 // List provides a mock function for the type MockClienteStore
-func (_mock *MockClienteStore) List(ctx context.Context) ([]clientes.Cliente, error) {
-	ret := _mock.Called(ctx)
+func (_mock *MockClienteStore) List(ctx context.Context, params clientes.ClienteListParams) (clientes.ClienteListResult, error) {
+	ret := _mock.Called(ctx, params)
 
 	if len(ret) == 0 {
 		panic("no return value specified for List")
 	}
 
-	var r0 []clientes.Cliente
+	var r0 clientes.ClienteListResult
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]clientes.Cliente, error)); ok {
-		return returnFunc(ctx)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, clientes.ClienteListParams) (clientes.ClienteListResult, error)); ok {
+		return returnFunc(ctx, params)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context) []clientes.Cliente); ok {
-		r0 = returnFunc(ctx)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, clientes.ClienteListParams) clientes.ClienteListResult); ok {
+		r0 = returnFunc(ctx, params)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]clientes.Cliente)
-		}
+		r0 = ret.Get(0).(clientes.ClienteListResult)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = returnFunc(ctx)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, clientes.ClienteListParams) error); ok {
+		r1 = returnFunc(ctx, params)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -334,11 +332,77 @@ type MockClienteStore_List_Call struct {
 
 // List is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockClienteStore_Expecter) List(ctx interface{}) *MockClienteStore_List_Call {
-	return &MockClienteStore_List_Call{Call: _e.mock.On("List", ctx)}
+//   - params clientes.ClienteListParams
+func (_e *MockClienteStore_Expecter) List(ctx interface{}, params interface{}) *MockClienteStore_List_Call {
+	return &MockClienteStore_List_Call{Call: _e.mock.On("List", ctx, params)}
 }
 
-func (_c *MockClienteStore_List_Call) Run(run func(ctx context.Context)) *MockClienteStore_List_Call {
+func (_c *MockClienteStore_List_Call) Run(run func(ctx context.Context, params clientes.ClienteListParams)) *MockClienteStore_List_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 clientes.ClienteListParams
+		if args[1] != nil {
+			arg1 = args[1].(clientes.ClienteListParams)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockClienteStore_List_Call) Return(clienteListResult clientes.ClienteListResult, err error) *MockClienteStore_List_Call {
+	_c.Call.Return(clienteListResult, err)
+	return _c
+}
+
+func (_c *MockClienteStore_List_Call) RunAndReturn(run func(ctx context.Context, params clientes.ClienteListParams) (clientes.ClienteListResult, error)) *MockClienteStore_List_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Resumo provides a mock function for the type MockClienteStore
+func (_mock *MockClienteStore) Resumo(ctx context.Context) (clientes.ClienteResumo, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Resumo")
+	}
+
+	var r0 clientes.ClienteResumo
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (clientes.ClienteResumo, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) clientes.ClienteResumo); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		r0 = ret.Get(0).(clientes.ClienteResumo)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockClienteStore_Resumo_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Resumo'
+type MockClienteStore_Resumo_Call struct {
+	*mock.Call
+}
+
+// Resumo is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockClienteStore_Expecter) Resumo(ctx interface{}) *MockClienteStore_Resumo_Call {
+	return &MockClienteStore_Resumo_Call{Call: _e.mock.On("Resumo", ctx)}
+}
+
+func (_c *MockClienteStore_Resumo_Call) Run(run func(ctx context.Context)) *MockClienteStore_Resumo_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -351,12 +415,12 @@ func (_c *MockClienteStore_List_Call) Run(run func(ctx context.Context)) *MockCl
 	return _c
 }
 
-func (_c *MockClienteStore_List_Call) Return(clientes1 []clientes.Cliente, err error) *MockClienteStore_List_Call {
-	_c.Call.Return(clientes1, err)
+func (_c *MockClienteStore_Resumo_Call) Return(clienteResumo clientes.ClienteResumo, err error) *MockClienteStore_Resumo_Call {
+	_c.Call.Return(clienteResumo, err)
 	return _c
 }
 
-func (_c *MockClienteStore_List_Call) RunAndReturn(run func(ctx context.Context) ([]clientes.Cliente, error)) *MockClienteStore_List_Call {
+func (_c *MockClienteStore_Resumo_Call) RunAndReturn(run func(ctx context.Context) (clientes.ClienteResumo, error)) *MockClienteStore_Resumo_Call {
 	_c.Call.Return(run)
 	return _c
 }

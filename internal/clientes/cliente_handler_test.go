@@ -3,6 +3,7 @@ package clientes_test
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,7 +22,8 @@ type fakeClienteService struct {
 	loginFn  func(ctx context.Context, cpf, senha string) (string, error)
 	createFn func(ctx context.Context, input clientes.ClienteInput) (*clientes.Cliente, error)
 	getFn    func(ctx context.Context, clienteID int64) (*clientes.ClienteComVinculos, error)
-	listFn   func(ctx context.Context) ([]clientes.Cliente, error)
+	listFn   func(ctx context.Context, params clientes.ClienteListParams) (clientes.ClienteListResult, error)
+	resumoFn func(ctx context.Context) (clientes.ClienteResumo, error)
 	updateFn func(ctx context.Context, clienteID int64, updateFunc func(*clientes.Cliente) (bool, error)) (*clientes.Cliente, error)
 	deleteFn func(ctx context.Context, clienteID int64) error
 }
@@ -38,8 +40,12 @@ func (s fakeClienteService) GetByID(ctx context.Context, clienteID int64) (*clie
 	return s.getFn(ctx, clienteID)
 }
 
-func (s fakeClienteService) List(ctx context.Context) ([]clientes.Cliente, error) {
-	return s.listFn(ctx)
+func (s fakeClienteService) List(ctx context.Context, params clientes.ClienteListParams) (clientes.ClienteListResult, error) {
+	return s.listFn(ctx, params)
+}
+
+func (s fakeClienteService) Resumo(ctx context.Context) (clientes.ClienteResumo, error) {
+	return s.resumoFn(ctx)
 }
 
 func (s fakeClienteService) Update(ctx context.Context, clienteID int64, updateFunc func(*clientes.Cliente) (bool, error)) (*clientes.Cliente, error) {
@@ -55,6 +61,7 @@ func newClienteRouter(h *clientes.ClienteHandler) http.Handler {
 	r.Post("/clientes/login", h.Login)
 	r.Post("/clientes", h.Create)
 	r.Get("/clientes", h.List)
+	r.Get("/clientes/resumo", h.Resumo)
 	r.Get("/clientes/{clienteID}", h.GetByID)
 	r.Put("/clientes/{clienteID}", h.Update)
 	r.Delete("/clientes/{clienteID}", h.Delete)
@@ -199,8 +206,12 @@ func TestClienteHandler_GetListUpdateDelete(t *testing.T) {
 
 	t.Run("list success", func(t *testing.T) {
 		h := clientes.NewClienteHandler(fakeClienteService{
-			listFn: func(_ context.Context) ([]clientes.Cliente, error) {
-				return []clientes.Cliente{*sampleCliente()}, nil
+			listFn: func(_ context.Context, _ clientes.ClienteListParams) (clientes.ClienteListResult, error) {
+				return clientes.ClienteListResult{
+					Items:        []clientes.Cliente{*sampleCliente()},
+					NextCursorID: 7,
+					HasMore:      true,
+				}, nil
 			},
 		})
 
@@ -210,6 +221,82 @@ func TestClienteHandler_GetListUpdateDelete(t *testing.T) {
 
 		if rr.Code != http.StatusOK {
 			t.Fatalf("want %d, got %d", http.StatusOK, rr.Code)
+		}
+		var resp struct {
+			Items      []map[string]any `json:"items"`
+			NextCursor string           `json:"next_cursor"`
+			HasMore    bool             `json:"has_more"`
+		}
+		if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("unmarshal: %v", err)
+		}
+		if len(resp.Items) != 1 || resp.NextCursor == "" || !resp.HasMore {
+			t.Fatalf("envelope paginado inesperado: %+v", resp)
+		}
+	})
+
+	t.Run("list repassa busca, limit e cursor", func(t *testing.T) {
+		var received clientes.ClienteListParams
+		h := clientes.NewClienteHandler(fakeClienteService{
+			listFn: func(_ context.Context, params clientes.ClienteListParams) (clientes.ClienteListResult, error) {
+				received = params
+				return clientes.ClienteListResult{}, nil
+			},
+		})
+
+		// Cursor precisa ser o mesmo formato opaco que a resposta devolve.
+		cursor := base64.RawURLEncoding.EncodeToString([]byte("42"))
+		req := httptest.NewRequest(http.MethodGet, "/clientes?q=maria&limit=10&cursor="+cursor, nil)
+		rr := httptest.NewRecorder()
+		newClienteRouter(h).ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Fatalf("want %d, got %d: %s", http.StatusOK, rr.Code, rr.Body.String())
+		}
+		if received.Busca != "maria" || received.Limit != 10 || received.CursorID != 42 {
+			t.Fatalf("params nao chegaram no service: %+v", received)
+		}
+	})
+
+	t.Run("list rejeita parametros invalidos sem chamar o service", func(t *testing.T) {
+		for _, query := range []string{"?limit=abc", "?limit=0", "?cursor=***"} {
+			h := clientes.NewClienteHandler(fakeClienteService{
+				listFn: func(_ context.Context, _ clientes.ClienteListParams) (clientes.ClienteListResult, error) {
+					t.Fatalf("service nao pode ser chamado para %q", query)
+					return clientes.ClienteListResult{}, nil
+				},
+			})
+
+			rr := httptest.NewRecorder()
+			newClienteRouter(h).ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/clientes"+query, nil))
+
+			if rr.Code != http.StatusBadRequest {
+				t.Fatalf("%s: want 400, got %d", query, rr.Code)
+			}
+		}
+	})
+
+	t.Run("resumo devolve o total", func(t *testing.T) {
+		h := clientes.NewClienteHandler(fakeClienteService{
+			resumoFn: func(_ context.Context) (clientes.ClienteResumo, error) {
+				return clientes.ClienteResumo{Total: 137}, nil
+			},
+		})
+
+		rr := httptest.NewRecorder()
+		newClienteRouter(h).ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/clientes/resumo", nil))
+
+		if rr.Code != http.StatusOK {
+			t.Fatalf("want 200, got %d: %s", rr.Code, rr.Body.String())
+		}
+		var resp struct {
+			Total int64 `json:"total"`
+		}
+		if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("unmarshal: %v", err)
+		}
+		if resp.Total != 137 {
+			t.Fatalf("want 137, got %d", resp.Total)
 		}
 	})
 

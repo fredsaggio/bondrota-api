@@ -552,6 +552,25 @@ components:
         foto:
           type: string
           example: https://...
+    ClienteListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClienteResponse'
+        next_cursor:
+          type: string
+          description: Opaco. So presente quando has_more e true.
+          example: MTIw
+        has_more:
+          type: boolean
+    ClienteResumoResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+          example: 137
     VinculoRequest:
       type: object
       required:
@@ -2243,7 +2262,43 @@ paths:
             schema:
               $ref: '#/components/schemas/CreateClienteRequest'
     get:
-      summary: Lista clientes
+      summary: Lista clientes, paginada por cursor
+      description: >-
+        q busca por nome, telefone ou CPF. A busca por CPF ignora pontuacao, mas
+        so quando o termo nao tem letra — senao "Ana 13" tambem procuraria
+        documentos contendo "13".
+      tags:
+      - Clientes
+      parameters:
+      - name: cursor
+        in: query
+        required: false
+        description: Opaco, devolvido em next_cursor.
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+          maximum: 200
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClienteListResponse'
+  /clientes/resumo:
+    get:
+      summary: Total de clientes cadastrados
+      description: Agrega no banco para o painel nao baixar a tabela so para contar.
       tags:
       - Clientes
       responses:
@@ -2252,9 +2307,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ClienteResponse'
+                $ref: '#/components/schemas/ClienteResumoResponse'
   /clientes/{clienteID}:
     get:
       summary: Busca cliente com vinculos

@@ -55,6 +55,27 @@ type ClienteComVinculos struct {
 	Vinculos []Vinculo
 }
 
+// ClienteListParams pagina por id (a listagem ordena por id DESC). Diferente de
+// reservas e viagens, cliente nao tem data de referencia para recortar.
+type ClienteListParams struct {
+	// CursorID > 0 retoma a partir da ultima linha vista.
+	CursorID int64
+	Limit    int
+	// Busca casa por nome, CPF ou telefone.
+	Busca string
+}
+
+type ClienteListResult struct {
+	Items        []Cliente
+	NextCursorID int64
+	HasMore      bool
+}
+
+// ClienteResumo evita que o painel baixe a tabela so para contar cadastros.
+type ClienteResumo struct {
+	Total int64
+}
+
 type ClienteInput struct {
 	Nome     string
 	CPF      string
@@ -118,7 +139,8 @@ type ClienteStore interface {
 	Create(ctx context.Context, input ClienteInput) (*Cliente, error)
 	GetByID(ctx context.Context, clienteID int64) (*ClienteComVinculos, error)
 	GetByCPF(ctx context.Context, cpf string) (*Cliente, error)
-	List(ctx context.Context) ([]Cliente, error)
+	List(ctx context.Context, params ClienteListParams) (ClienteListResult, error)
+	Resumo(ctx context.Context) (ClienteResumo, error)
 	Update(ctx context.Context, clienteID int64, updateFunc func(*Cliente) (bool, error)) (*Cliente, error)
 	Delete(ctx context.Context, clienteID int64) error
 }
@@ -136,7 +158,8 @@ type ClienteService interface {
 	Login(ctx context.Context, cpf, senha string) (string, error)
 	Create(ctx context.Context, input ClienteInput) (*Cliente, error)
 	GetByID(ctx context.Context, clienteID int64) (*ClienteComVinculos, error)
-	List(ctx context.Context) ([]Cliente, error)
+	List(ctx context.Context, params ClienteListParams) (ClienteListResult, error)
+	Resumo(ctx context.Context) (ClienteResumo, error)
 	Update(ctx context.Context, clienteID int64, updateFunc func(*Cliente) (bool, error)) (*Cliente, error)
 	Delete(ctx context.Context, clienteID int64) error
 }

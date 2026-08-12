@@ -557,11 +557,36 @@ Permissoes:
 | Metodo | Path completo | Descricao | Body | Sucesso | Erros |
 | --- | --- | --- | --- | --- | --- |
 | `POST` | `BASE_URL/clientes/` | Cria cliente. | `CreateClienteRequest` | `201 ClienteResponse` | `400`, `401`, `403`, `409`, `500` |
-| `GET` | `BASE_URL/clientes/` | Lista clientes. | nenhum | `200 ClienteResponse[]` | `401`, `403`, `500` |
+| `GET` | `BASE_URL/clientes/?cursor=&limit=50&q=` | Lista clientes, paginada por cursor. | nenhum | `200 ClienteListResponse` | `400`, `401`, `403`, `500` |
+| `GET` | `BASE_URL/clientes/resumo` | Total de clientes cadastrados. | nenhum | `200 ClienteResumoResponse` | `401`, `403`, `500` |
 | `GET` | `BASE_URL/clientes/{clienteID}` | Busca cliente com vinculos. | nenhum | `200 ClienteComVinculosResponse` | `400`, `401`, `403`, `404`, `500` |
 | `PUT` | `BASE_URL/clientes/{clienteID}` | Atualiza cliente. | `UpdateClienteRequest` parcial | `200 ClienteResponse` | `400`, `401`, `403`, `404`, `500` |
 | `DELETE` | `BASE_URL/clientes/{clienteID}` | Remove cliente. | nenhum | `204` | `400`, `401`, `403`, `404`, `409`, `500` |
 | `GET` | `BASE_URL/clientes/{clienteID}/reservas/` | Lista reservas do cliente. | nenhum | `200 ReservaResponse[]` | `400`, `401`, `403`, `500` |
+
+Listagem paginada (`GET /clientes/`):
+
+| Query param | Obrigatorio | Descricao |
+| --- | --- | --- |
+| `limit` | nao (padrao 50, teto 200) | tamanho da pagina |
+| `cursor` | nao (ausente = primeira pagina) | opaco, devolvido em `next_cursor` |
+| `q` | nao | busca por nome, telefone ou CPF |
+
+A busca por CPF ignora pontuacao (`300.000.000-01` acha `30000000001`), mas so
+quando o termo **nao tem letra**. Sem essa regra, procurar "Ana 13" viraria
+tambem uma busca por documento contendo "13" e traria gente sem relacao com o
+nome digitado.
+
+```json
+{
+  "items": [{ "id": 1, "nome": "Maria Cliente", "cpf": "11111111111" }],
+  "next_cursor": "MTIw",
+  "has_more": true
+}
+```
+
+`GET /clientes/resumo` responde `{"total": 137}`. Ele existe porque o painel
+precisa do numero de cadastros, e contar isso baixando a tabela nao escala.
 
 `telefone` e `foto` sao opcionais no update: omita a chave (ou envie `null`) para
 manter o valor atual, e envie `""` explicitamente para limpar o campo. `nome` e

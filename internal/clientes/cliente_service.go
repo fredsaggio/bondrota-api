@@ -56,8 +56,12 @@ func (s *clienteService) GetByID(ctx context.Context, clienteID int64) (*Cliente
 	return s.store.GetByID(ctx, clienteID)
 }
 
-func (s *clienteService) List(ctx context.Context) ([]Cliente, error) {
-	return s.store.List(ctx)
+func (s *clienteService) List(ctx context.Context, params ClienteListParams) (ClienteListResult, error) {
+	return s.store.List(ctx, params)
+}
+
+func (s *clienteService) Resumo(ctx context.Context) (ClienteResumo, error) {
+	return s.store.Resumo(ctx)
 }
 
 func (s *clienteService) Update(ctx context.Context, clienteID int64, updateFunc func(*Cliente) (bool, error)) (*Cliente, error) {

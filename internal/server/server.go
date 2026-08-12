@@ -162,6 +162,9 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin, auth.RoleCliente))
 			r.With(srv.authSvc.RequireRole(auth.RoleAdmin)).Post("/", srv.handlers.ClienteHandler.Create)
 			r.With(srv.authSvc.RequireRole(auth.RoleAdmin)).Get("/", srv.handlers.ClienteHandler.List)
+			// Rota estatica: o chi a resolve antes de /{clienteID}, entao "resumo"
+			// nunca cai no parse de id.
+			r.With(srv.authSvc.RequireRole(auth.RoleAdmin)).Get("/resumo", srv.handlers.ClienteHandler.Resumo)
 
 			r.Group(func(r chi.Router) {
 				r.Use(auth.RequireUserIDOrRole("clienteID", auth.RoleCliente, auth.RoleAdmin))
