@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/fredsaggio/bondrota-api/internal/crypto"
+	"github.com/fredsaggio/bondrota-api/internal/publicid"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -18,13 +19,14 @@ const TokenTTL = 24 * time.Hour
 
 type Claims struct {
 	jwt.RegisteredClaims
-	UserID int64  `json:"user_id"`
+	UserID int64  `json:"-"`
 	Role   string `json:"role"`
 }
 
 type AuthService struct {
-	hasher    crypto.PasswordHasher
-	jwtSecret []byte
+	hasher           crypto.PasswordHasher
+	jwtSecret        []byte
+	identityResolver publicid.Resolver
 }
 
 func NewAuthService(hasher crypto.PasswordHasher, jwtSecret string) *AuthService {
@@ -34,16 +36,20 @@ func NewAuthService(hasher crypto.PasswordHasher, jwtSecret string) *AuthService
 	}
 }
 
-func (s *AuthService) GenerateToken(userID int64, role string) (string, error) {
+func (s *AuthService) SetIdentityResolver(resolver publicid.Resolver) {
+	s.identityResolver = resolver
+}
+
+func (s *AuthService) GenerateToken(publicID, role string) (string, error) {
 	const op = "auth/AuthService.GenerateToken"
 
 	claims := Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   publicID,
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(TokenTTL)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
-		UserID: userID,
-		Role:   role,
+		Role: role,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

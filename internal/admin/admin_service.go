@@ -29,7 +29,7 @@ func (s *adminService) Login(ctx context.Context, email, password string) (strin
 		return "", auth.ErrInvalidCredentials
 	}
 
-	token, err := s.authSvc.GenerateToken(admin.ID, auth.RoleAdmin)
+	token, err := s.authSvc.GenerateToken(admin.PublicID, auth.RoleAdmin)
 	if err != nil {
 		return "", err
 	}
@@ -50,7 +50,7 @@ func (s *adminService) ChangePassword(ctx context.Context, adminID int64, senhaA
 	// A conferencia da senha atual acontece dentro do Update porque so ali a linha
 	// esta travada (SELECT ... FOR UPDATE) e o hash gravado e o mesmo que foi lido.
 	// Checar antes abriria janela para duas trocas simultaneas se perderem.
-	_, err = s.store.Update(ctx, adminID, func(a *Admin) (bool, error) {
+	updated, err := s.store.Update(ctx, adminID, func(a *Admin) (bool, error) {
 		ok, err := s.authSvc.CheckPassword(a.Senha, senhaAtual)
 		if err != nil || !ok {
 			return false, auth.ErrInvalidCredentials
@@ -62,7 +62,7 @@ func (s *adminService) ChangePassword(ctx context.Context, adminID int64, senhaA
 		return "", err
 	}
 
-	return s.authSvc.GenerateToken(adminID, auth.RoleAdmin)
+	return s.authSvc.GenerateToken(updated.PublicID, auth.RoleAdmin)
 }
 
 func (s *adminService) Create(ctx context.Context, input AdminInput) (*Admin, error) {

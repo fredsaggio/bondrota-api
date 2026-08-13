@@ -24,6 +24,7 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/motoristas"
 	"github.com/fredsaggio/bondrota-api/internal/municipios"
 	"github.com/fredsaggio/bondrota-api/internal/paradas"
+	"github.com/fredsaggio/bondrota-api/internal/publicid"
 	"github.com/fredsaggio/bondrota-api/internal/reservas"
 	"github.com/fredsaggio/bondrota-api/internal/rotasdinamicas"
 	"github.com/fredsaggio/bondrota-api/internal/rotasinternas"
@@ -182,17 +183,17 @@ func TestEndToEndPlanejamentoViagem(t *testing.T) {
 	cicloData := ciclo["ciclo"].(map[string]any)
 	cicloID := int64(cicloData["id"].(float64))
 	veiculoID := int64(cicloData["veiculo_id"].(float64))
-	cicloMotoristaID := int64(cicloData["motorista_id"].(float64))
+	cicloMotoristaID := cicloData["motorista_id"].(string)
 	if veiculoID <= 0 {
 		t.Fatalf("expected ciclo veiculo_id to be set, got %d", veiculoID)
 	}
 	if cicloMotoristaID != motoristaID {
-		t.Fatalf("expected same motorista on ciclo: got %d, want %d", cicloMotoristaID, motoristaID)
+		t.Fatalf("expected same motorista on ciclo: got %s, want %s", cicloMotoristaID, motoristaID)
 	}
-	viagemID := int64(viagensResp[0].(map[string]any)["id"].(float64))
+	viagemID := viagensResp[0].(map[string]any)["id"].(string)
 	motoristaToken := loginMotorista(t, router, motoristaCPF, "senha123")
 
-	rota := doJSON[map[string]any](t, router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/rota-dinamica/calcular", viagemID), motoristaToken, nil, http.StatusCreated)
+	rota := doJSON[map[string]any](t, router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%s/rota-dinamica/calcular", viagemID), motoristaToken, nil, http.StatusCreated)
 	rotaData := rota["rota"].(map[string]any)
 	if int64(rotaData["distancia_metros"].(float64)) != 12346 {
 		t.Fatalf("unexpected dynamic route distance: %v", rotaData["distancia_metros"])
@@ -201,34 +202,36 @@ func TestEndToEndPlanejamentoViagem(t *testing.T) {
 		t.Fatalf("expected 2 OSRM requests, got %d", osrmServer.Requests())
 	}
 
-	doJSON[map[string]any](t, router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/iniciar", viagemID), motoristaToken, nil, http.StatusOK)
+	doJSON[map[string]any](t, router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%s/iniciar", viagemID), motoristaToken, nil, http.StatusOK)
 
-	reservasViagem := doJSON[[]map[string]any](t, router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%d/reservas/", viagemID), motoristaToken, nil, http.StatusOK)
+	reservasViagem := doJSON[[]map[string]any](t, router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%s/reservas/", viagemID), motoristaToken, nil, http.StatusOK)
 	if len(reservasViagem) != 1 {
 		t.Fatalf("expected 1 reserva on selected viagem, got %d", len(reservasViagem))
 	}
-	reservaID := int64(reservasViagem[0]["reserva_id"].(float64))
+	reservaID := reservasViagem[0]["reserva_id"].(string)
 
-	doJSON[map[string]any](t, router, http.MethodPut, fmt.Sprintf("/api/v1/viagens/%d/reservas/%d/presenca", viagemID, reservaID), motoristaToken, map[string]any{
+	doJSON[map[string]any](t, router, http.MethodPut, fmt.Sprintf("/api/v1/viagens/%s/reservas/%s/presenca", viagemID, reservaID), motoristaToken, map[string]any{
 		"status_presenca": "embarcou",
 	}, http.StatusOK)
 
-	localizacao := doJSON[map[string]any](t, router, http.MethodPut, fmt.Sprintf("/api/v1/viagens/%d/localizacao", viagemID), motoristaToken, map[string]any{
-		"motorista_id":    motoristaID,
+	localizacao := doJSON[map[string]any](t, router, http.MethodPut, fmt.Sprintf("/api/v1/viagens/%s/localizacao", viagemID), motoristaToken, map[string]any{
+		// Mesmo que um cliente antigo ou uma chamada manual tente forjar o campo,
+		// o backend usa o motorista alocado no ciclo da viagem.
+		"motorista_id":    "mot_111111111111111111111",
 		"latitude":        -9.7812,
 		"longitude":       -36.3501,
 		"velocidade_kmh":  42.5,
 		"direcao_graus":   180,
 		"precisao_metros": 8,
 	}, http.StatusOK)
-	if int64(localizacao["motorista_id"].(float64)) != motoristaID {
+	if localizacao["motorista_id"].(string) != motoristaID {
 		t.Fatalf("unexpected motorista_id in localizacao: %v", localizacao["motorista_id"])
 	}
 
 	clienteToken := loginCliente(t, router, clienteCPF, "senha123")
-	doJSON[map[string]any](t, router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%d/localizacao", viagemID), clienteToken, nil, http.StatusOK)
+	doJSON[map[string]any](t, router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%s/localizacao", viagemID), clienteToken, nil, http.StatusOK)
 
-	doJSON[map[string]any](t, router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/concluir", viagemID), motoristaToken, nil, http.StatusOK)
+	doJSON[map[string]any](t, router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%s/concluir", viagemID), motoristaToken, nil, http.StatusOK)
 
 	planejamentoVolta := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/test/planejamentos/viagens", adminToken, map[string]any{
 		"municipio_destino_id": e2eMunicipioID,
@@ -243,25 +246,25 @@ func TestEndToEndPlanejamentoViagem(t *testing.T) {
 	}
 	cicloVolta := ciclosVolta[0].(map[string]any)
 	cicloVoltaData := cicloVolta["ciclo"].(map[string]any)
-	if int64(cicloVoltaData["id"].(float64)) != cicloID || int64(cicloVoltaData["veiculo_id"].(float64)) != veiculoID || int64(cicloVoltaData["motorista_id"].(float64)) != motoristaID {
+	if int64(cicloVoltaData["id"].(float64)) != cicloID || int64(cicloVoltaData["veiculo_id"].(float64)) != veiculoID || cicloVoltaData["motorista_id"].(string) != motoristaID {
 		t.Fatalf("expected return to reuse outbound cycle resources: ida=%+v volta=%+v", cicloData, cicloVoltaData)
 	}
 	viagensVolta := cicloVolta["viagens"].([]any)
 	if len(viagensVolta) != 1 {
 		t.Fatalf("expected only volta viagem, got %d", len(viagensVolta))
 	}
-	viagemVoltaID := int64(viagensVolta[0].(map[string]any)["id"].(float64))
+	viagemVoltaID := viagensVolta[0].(map[string]any)["id"].(string)
 
-	doJSON[map[string]any](t, router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/iniciar", viagemVoltaID), motoristaToken, nil, http.StatusOK)
-	reservasVolta := doJSON[[]map[string]any](t, router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%d/reservas/", viagemVoltaID), motoristaToken, nil, http.StatusOK)
+	doJSON[map[string]any](t, router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%s/iniciar", viagemVoltaID), motoristaToken, nil, http.StatusOK)
+	reservasVolta := doJSON[[]map[string]any](t, router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%s/reservas/", viagemVoltaID), motoristaToken, nil, http.StatusOK)
 	if len(reservasVolta) != 1 {
 		t.Fatalf("expected 1 reserva on volta viagem, got %d", len(reservasVolta))
 	}
-	reservaVoltaID := int64(reservasVolta[0]["reserva_id"].(float64))
-	doJSON[map[string]any](t, router, http.MethodPut, fmt.Sprintf("/api/v1/viagens/%d/reservas/%d/presenca", viagemVoltaID, reservaVoltaID), motoristaToken, map[string]any{
+	reservaVoltaID := reservasVolta[0]["reserva_id"].(string)
+	doJSON[map[string]any](t, router, http.MethodPut, fmt.Sprintf("/api/v1/viagens/%s/reservas/%s/presenca", viagemVoltaID, reservaVoltaID), motoristaToken, map[string]any{
 		"status_presenca": "embarcou",
 	}, http.StatusOK)
-	doJSON[map[string]any](t, router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/concluir", viagemVoltaID), motoristaToken, nil, http.StatusOK)
+	doJSON[map[string]any](t, router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%s/concluir", viagemVoltaID), motoristaToken, nil, http.StatusOK)
 }
 
 func TestEndToEndSupabaseStorageSignedURLs(t *testing.T) {
@@ -282,28 +285,29 @@ func TestEndToEndSupabaseStorageSignedURLs(t *testing.T) {
 
 	authSvc := auth.NewAuthService(crypto.NewBcryptHasher(crypto.DefaultCost), "e2e-secret")
 	router := buildE2ERouter(pool, authSvc, e2eRouterOptions{
+		IdentityResolver: fixedIdentityResolver{ID: 1},
 		StorageConfig: storage.SupabaseConfig{
 			URL:        supabase.URL,
 			ServiceKey: "service-key",
 		},
 	})
 
-	clienteToken, err := authSvc.GenerateToken(1, auth.RoleCliente)
+	clienteToken, err := authSvc.GenerateToken("cli_012345678901234567890", auth.RoleCliente)
 	if err != nil {
 		t.Fatalf("generate cliente token: %v", err)
 	}
-	motoristaToken, err := authSvc.GenerateToken(1, auth.RoleMotorista)
+	motoristaToken, err := authSvc.GenerateToken("mot_012345678901234567890", auth.RoleMotorista)
 	if err != nil {
 		t.Fatalf("generate motorista token: %v", err)
 	}
 
 	upload := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/storage/signed-upload-url", clienteToken, map[string]any{
 		"bucket":       "documentos",
-		"path":         "clientes/1/documento-identificacao.pdf",
+		"path":         "clientes/cli_012345678901234567890/documento-identificacao.pdf",
 		"content_type": "application/pdf",
 		"upsert":       true,
 	}, http.StatusCreated)
-	if upload["path"] != "clientes/1/documento-identificacao.pdf" {
+	if upload["path"] != "clientes/cli_012345678901234567890/documento-identificacao.pdf" {
 		t.Fatalf("unexpected signed upload path: %v", upload["path"])
 	}
 
@@ -323,7 +327,7 @@ func TestEndToEndSupabaseStorageSignedURLs(t *testing.T) {
 
 	download := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/storage/signed-download-url", clienteToken, map[string]any{
 		"bucket":             "documentos",
-		"path":               "clientes/1/documento-identificacao.pdf",
+		"path":               "clientes/cli_012345678901234567890/documento-identificacao.pdf",
 		"expires_in_seconds": 900,
 	}, http.StatusOK)
 	if download["signed_url"] == "" {
@@ -332,27 +336,27 @@ func TestEndToEndSupabaseStorageSignedURLs(t *testing.T) {
 
 	doStatus(t, router, http.MethodPost, "/api/v1/storage/signed-upload-url", clienteToken, map[string]any{
 		"bucket":       "documentos",
-		"path":         "clientes/2/documento-identificacao.pdf",
+		"path":         "clientes/cli_111111111111111111111/documento-identificacao.pdf",
 		"content_type": "application/pdf",
 	}, http.StatusForbidden)
 	doStatus(t, router, http.MethodPost, "/api/v1/storage/signed-upload-url", clienteToken, map[string]any{
 		"bucket":       "fotos",
-		"path":         "clientes/1/foto.png",
+		"path":         "clientes/cli_012345678901234567890/foto.png",
 		"content_type": "image/png",
 	}, http.StatusForbidden)
 	doStatus(t, router, http.MethodPost, "/api/v1/storage/signed-upload-url", clienteToken, map[string]any{
 		"bucket":       "arquivos",
-		"path":         "clientes/1/foto.png",
+		"path":         "clientes/cli_012345678901234567890/foto.png",
 		"content_type": "image/png",
 	}, http.StatusUnprocessableEntity)
 	doStatus(t, router, http.MethodPost, "/api/v1/storage/signed-upload-url", clienteToken, map[string]any{
 		"bucket":       "documentos",
-		"path":         "clientes/1/documento-identificacao.exe",
+		"path":         "clientes/cli_012345678901234567890/documento-identificacao.exe",
 		"content_type": "application/pdf",
 	}, http.StatusUnprocessableEntity)
 	doStatus(t, router, http.MethodPost, "/api/v1/storage/signed-upload-url", motoristaToken, map[string]any{
 		"bucket":       "documentos",
-		"path":         "motoristas/1/cnh.pdf",
+		"path":         "motoristas/mot_012345678901234567890/cnh.pdf",
 		"content_type": "application/pdf",
 	}, http.StatusForbidden)
 
@@ -381,13 +385,13 @@ func TestEndToEndAutorizacaoRoles(t *testing.T) {
 	t.Cleanup(pool.Close)
 
 	authSvc := auth.NewAuthService(crypto.NewBcryptHasher(crypto.DefaultCost), "e2e-secret")
-	router := buildE2ERouter(pool, authSvc, e2eRouterOptions{})
+	router := buildE2ERouter(pool, authSvc, e2eRouterOptions{IdentityResolver: fixedIdentityResolver{ID: 1}})
 
-	clienteToken, err := authSvc.GenerateToken(1, auth.RoleCliente)
+	clienteToken, err := authSvc.GenerateToken("cli_012345678901234567890", auth.RoleCliente)
 	if err != nil {
 		t.Fatalf("generate cliente token: %v", err)
 	}
-	motoristaToken, err := authSvc.GenerateToken(1, auth.RoleMotorista)
+	motoristaToken, err := authSvc.GenerateToken("mot_012345678901234567890", auth.RoleMotorista)
 	if err != nil {
 		t.Fatalf("generate motorista token: %v", err)
 	}
@@ -482,7 +486,7 @@ func TestEndToEndPlanejamentoMultiplosVeiculosPorCapacidade(t *testing.T) {
 			"destino_id":      destinoID,
 			"rota_interna_id": rotaInternaID,
 			"curso":           "Sistemas",
-			"comprovante":     fmt.Sprintf("clientes/%d/e2e/comprovante.pdf", clienteID),
+			"comprovante":     fmt.Sprintf("clientes/%s/e2e/comprovante.pdf", clienteID),
 			"validade":        "2027-12-31",
 			"horarios_fixos":  []int{1, 2, 3, 4, 5},
 		})
@@ -593,7 +597,7 @@ func TestEndToEndPlanejamentoIgnoraRecursosIndisponiveis(t *testing.T) {
 		"destino_id":      destinoID,
 		"rota_interna_id": rotaInternaID,
 		"curso":           "Sistemas",
-		"comprovante":     fmt.Sprintf("clientes/%d/e2e/comprovante.pdf", clienteID),
+		"comprovante":     fmt.Sprintf("clientes/%s/e2e/comprovante.pdf", clienteID),
 		"validade":        "2027-12-31",
 		"horarios_fixos":  []int{1, 2, 3, 4, 5},
 	})
@@ -620,8 +624,8 @@ func TestEndToEndPlanejamentoIgnoraRecursosIndisponiveis(t *testing.T) {
 	if got := int64(ciclo["veiculo_id"].(float64)); got != activeEscolarID {
 		t.Fatalf("expected active escolar fallback vehicle %d, got %d; inactive car was %d", activeEscolarID, got, inactiveCarID)
 	}
-	if got := int64(ciclo["motorista_id"].(float64)); got != correctMotoristaID {
-		t.Fatalf("expected correct turno motorista %d, got %d; wrong turno motorista was %d", correctMotoristaID, got, wrongTurnoMotoristaID)
+	if got := ciclo["motorista_id"].(string); got != correctMotoristaID {
+		t.Fatalf("expected correct turno motorista %s, got %s; wrong turno motorista was %s", correctMotoristaID, got, wrongTurnoMotoristaID)
 	}
 }
 
@@ -701,7 +705,7 @@ func TestEndToEndPlanejamentoNaoReutilizaRecursosJaAlocados(t *testing.T) {
 			"destino_id":      destinoID,
 			"rota_interna_id": rotaInternaID,
 			"curso":           "Sistemas",
-			"comprovante":     fmt.Sprintf("clientes/%d/e2e/comprovante.pdf", clienteID),
+			"comprovante":     fmt.Sprintf("clientes/%s/e2e/comprovante.pdf", clienteID),
 			"validade":        "2027-12-31",
 			"horarios_fixos":  []int{1, 2, 3, 4, 5},
 		})
@@ -722,8 +726,8 @@ func TestEndToEndPlanejamentoNaoReutilizaRecursosJaAlocados(t *testing.T) {
 	if got := int64(ciclo["veiculo_id"].(float64)); got != veiculoID {
 		t.Fatalf("expected first ciclo to use vehicle %d, got %d", veiculoID, got)
 	}
-	if got := int64(ciclo["motorista_id"].(float64)); got != motoristaID {
-		t.Fatalf("expected first ciclo to use motorista %d, got %d", motoristaID, got)
+	if got := ciclo["motorista_id"].(string); got != motoristaID {
+		t.Fatalf("expected first ciclo to use motorista %s, got %s", motoristaID, got)
 	}
 
 	doStatus(t, h.Router, http.MethodPost, "/api/v1/test/planejamentos/viagens", h.AdminToken, map[string]any{
@@ -819,7 +823,7 @@ func TestEndToEndRotaDinamicaMultiplosDestinos(t *testing.T) {
 			"destino_id":      destinoID,
 			"rota_interna_id": rotaInternaID,
 			"curso":           "Sistemas",
-			"comprovante":     fmt.Sprintf("clientes/%d/e2e/comprovante.pdf", clienteID),
+			"comprovante":     fmt.Sprintf("clientes/%s/e2e/comprovante.pdf", clienteID),
 			"validade":        "2027-12-31",
 			"horarios_fixos":  []int{1, 2, 3, 4, 5},
 		})
@@ -836,9 +840,9 @@ func TestEndToEndRotaDinamicaMultiplosDestinos(t *testing.T) {
 		"rota_interna_id":      rotaInternaID,
 		"sentido":              "ida",
 	}, http.StatusCreated)
-	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
+	viagemID := planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(string)
 
-	rota := doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/rota-dinamica/calcular", viagemID), h.AdminToken, nil, http.StatusCreated)
+	rota := doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%s/rota-dinamica/calcular", viagemID), h.AdminToken, nil, http.StatusCreated)
 	destinos := rota["destinos"].([]any)
 	if len(destinos) != 3 {
 		t.Fatalf("expected 3 route destinations, got %d", len(destinos))
@@ -857,7 +861,7 @@ func TestEndToEndRotaDinamicaMultiplosDestinos(t *testing.T) {
 		t.Fatalf("expected 2 OSRM requests, got %d", osrmServer.Requests())
 	}
 
-	doStatus(t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/rota-dinamica/calcular", viagemID), h.AdminToken, nil, http.StatusConflict)
+	doStatus(t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%s/rota-dinamica/calcular", viagemID), h.AdminToken, nil, http.StatusConflict)
 	if osrmServer.Requests() != 4 {
 		t.Fatalf("expected duplicate calculation to reach both OSRM services again, got %d requests", osrmServer.Requests())
 	}
@@ -928,7 +932,7 @@ func TestEndToEndCancelarReservaInvalidaRotaDinamica(t *testing.T) {
 		"destino_id":      destinoID,
 		"rota_interna_id": rotaInternaID,
 		"curso":           "Sistemas",
-		"comprovante":     fmt.Sprintf("clientes/%d/e2e/comprovante.pdf", clienteID),
+		"comprovante":     fmt.Sprintf("clientes/%s/e2e/comprovante.pdf", clienteID),
 		"validade":        "2027-12-31",
 		"horarios_fixos":  []int{1, 2, 3, 4, 5},
 	})
@@ -951,16 +955,16 @@ func TestEndToEndCancelarReservaInvalidaRotaDinamica(t *testing.T) {
 		"rota_interna_id":      rotaInternaID,
 		"sentido":              "ida",
 	}, http.StatusCreated)
-	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
+	viagemID := planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(string)
 
-	doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/rota-dinamica/calcular", viagemID), h.AdminToken, nil, http.StatusCreated)
-	doJSON[map[string]any](t, h.Router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%d/rota-dinamica", viagemID), h.AdminToken, nil, http.StatusOK)
+	doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%s/rota-dinamica/calcular", viagemID), h.AdminToken, nil, http.StatusCreated)
+	doJSON[map[string]any](t, h.Router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%s/rota-dinamica", viagemID), h.AdminToken, nil, http.StatusOK)
 
-	cancelada := doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/reservas/%d/cancelar", reservaID), h.AdminToken, nil, http.StatusOK)
+	cancelada := doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/reservas/%s/cancelar", reservaID), h.AdminToken, nil, http.StatusOK)
 	if cancelada["status"] != "cancelada" {
 		t.Fatalf("expected reserva cancelada, got %v", cancelada["status"])
 	}
-	doStatus(t, h.Router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%d/rota-dinamica", viagemID), h.AdminToken, nil, http.StatusNotFound)
+	doStatus(t, h.Router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%s/rota-dinamica", viagemID), h.AdminToken, nil, http.StatusNotFound)
 }
 
 func TestEndToEndReservaCanceladaAntesDoPlanejamentoNaoEntraNaViagem(t *testing.T) {
@@ -1016,7 +1020,7 @@ func TestEndToEndReservaCanceladaAntesDoPlanejamentoNaoEntraNaViagem(t *testing.
 		"horario_volta":        "22:00",
 	})
 	dataViagem := time.Now().AddDate(0, 0, 9).Format("2006-01-02")
-	var reservaConfirmadaID, reservaCanceladaID int64
+	var reservaConfirmadaID, reservaCanceladaID string
 	for i := 0; i < 2; i++ {
 		clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
 			"nome":      "Cliente Reserva Cancelada Teste",
@@ -1032,7 +1036,7 @@ func TestEndToEndReservaCanceladaAntesDoPlanejamentoNaoEntraNaViagem(t *testing.
 			"destino_id":      destinoID,
 			"rota_interna_id": rotaInternaID,
 			"curso":           "Sistemas",
-			"comprovante":     fmt.Sprintf("clientes/%d/e2e/comprovante.pdf", clienteID),
+			"comprovante":     fmt.Sprintf("clientes/%s/e2e/comprovante.pdf", clienteID),
 			"validade":        "2027-12-31",
 			"horarios_fixos":  []int{1, 2, 3, 4, 5},
 		})
@@ -1046,7 +1050,7 @@ func TestEndToEndReservaCanceladaAntesDoPlanejamentoNaoEntraNaViagem(t *testing.
 			continue
 		}
 		reservaCanceladaID = reservaID
-		doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/reservas/%d/cancelar", reservaCanceladaID), h.AdminToken, nil, http.StatusOK)
+		doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/reservas/%s/cancelar", reservaCanceladaID), h.AdminToken, nil, http.StatusOK)
 	}
 	planejamento := doJSON[map[string]any](t, h.Router, http.MethodPost, "/api/v1/test/planejamentos/viagens", h.AdminToken, map[string]any{
 		"municipio_destino_id": e2eMunicipioID,
@@ -1058,17 +1062,17 @@ func TestEndToEndReservaCanceladaAntesDoPlanejamentoNaoEntraNaViagem(t *testing.
 	if int(planejamento["quantidade_reservas"].(float64)) != 1 {
 		t.Fatalf("expected only 1 confirmed ida reservation, got %v", planejamento["quantidade_reservas"])
 	}
-	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
-	reservasViagem := doJSON[[]map[string]any](t, h.Router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%d/reservas/", viagemID), h.AdminToken, nil, http.StatusOK)
+	viagemID := planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(string)
+	reservasViagem := doJSON[[]map[string]any](t, h.Router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%s/reservas/", viagemID), h.AdminToken, nil, http.StatusOK)
 	if len(reservasViagem) != 1 {
 		t.Fatalf("expected 1 viagem_reserva, got %d", len(reservasViagem))
 	}
-	gotReservaID := int64(reservasViagem[0]["reserva_id"].(float64))
+	gotReservaID := reservasViagem[0]["reserva_id"].(string)
 	if gotReservaID != reservaConfirmadaID {
-		t.Fatalf("expected confirmed reserva %d on viagem, got %d", reservaConfirmadaID, gotReservaID)
+		t.Fatalf("expected confirmed reserva %s on viagem, got %s", reservaConfirmadaID, gotReservaID)
 	}
 	if gotReservaID == reservaCanceladaID {
-		t.Fatalf("canceled reserva %d should not enter viagem", reservaCanceladaID)
+		t.Fatalf("canceled reserva %s should not enter viagem", reservaCanceladaID)
 	}
 }
 
@@ -1109,13 +1113,13 @@ func TestEndToEndFalhaOSRMNaoPersisteRotaDinamica(t *testing.T) {
 		"rota_interna_id":      rotaInternaID,
 		"sentido":              "ida",
 	}, http.StatusCreated)
-	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
+	viagemID := planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(string)
 
-	doStatus(t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/rota-dinamica/calcular", viagemID), h.AdminToken, nil, http.StatusInternalServerError)
+	doStatus(t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%s/rota-dinamica/calcular", viagemID), h.AdminToken, nil, http.StatusInternalServerError)
 	if osrmServer.Requests() != 1 {
 		t.Fatalf("expected 1 failing OSRM request, got %d", osrmServer.Requests())
 	}
-	doStatus(t, h.Router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%d/rota-dinamica", viagemID), h.AdminToken, nil, http.StatusNotFound)
+	doStatus(t, h.Router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%s/rota-dinamica", viagemID), h.AdminToken, nil, http.StatusNotFound)
 }
 
 func TestEndToEndAutorizacaoPorDono(t *testing.T) {
@@ -1197,7 +1201,7 @@ func TestEndToEndAutorizacaoPorDono(t *testing.T) {
 		"destino_id":      destinoID,
 		"rota_interna_id": rotaInternaID,
 		"curso":           "Sistemas",
-		"comprovante":     fmt.Sprintf("clientes/%d/e2e/comprovante.pdf", clienteID),
+		"comprovante":     fmt.Sprintf("clientes/%s/e2e/comprovante.pdf", clienteID),
 		"validade":        "2027-12-31",
 		"horarios_fixos":  []int{1, 2, 3, 4, 5},
 	})
@@ -1220,20 +1224,24 @@ func TestEndToEndAutorizacaoPorDono(t *testing.T) {
 		"rota_interna_id":      rotaInternaID,
 		"sentido":              "ida",
 	}, http.StatusCreated)
-	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
+	viagemID := planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(string)
 	motoristaToken := loginMotorista(t, h.Router, motoristaCPF, "senha123")
 	outroMotoristaToken := loginMotorista(t, h.Router, outroMotoristaCPF, "senha123")
 	outroClienteToken := loginCliente(t, h.Router, e2eCPF("83"+suffix[len(suffix)-5:]+"01"), "senha123")
+	clienteToken := loginCliente(t, h.Router, e2eCPF("83"+suffix[len(suffix)-5:]+"00"), "senha123")
 
-	doStatus(t, h.Router, http.MethodPut, fmt.Sprintf("/api/v1/viagens/%d/localizacao", viagemID), motoristaToken, map[string]any{
+	// O ID sequencial interno nunca e aceito pela fronteira HTTP, nem pelo dono.
+	doStatus(t, h.Router, http.MethodGet, "/api/v1/clientes/1", clienteToken, nil, http.StatusNotFound)
+
+	doStatus(t, h.Router, http.MethodPut, fmt.Sprintf("/api/v1/viagens/%s/localizacao", viagemID), motoristaToken, map[string]any{
 		"latitude":        -9.7812,
 		"longitude":       -36.3501,
 		"velocidade_kmh":  42.5,
 		"direcao_graus":   180,
 		"precisao_metros": 8,
 	}, http.StatusForbidden)
-	doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/iniciar", viagemID), motoristaToken, nil, http.StatusOK)
-	doStatus(t, h.Router, http.MethodPut, fmt.Sprintf("/api/v1/viagens/%d/localizacao", viagemID), outroMotoristaToken, map[string]any{
+	doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%s/iniciar", viagemID), motoristaToken, nil, http.StatusOK)
+	doStatus(t, h.Router, http.MethodPut, fmt.Sprintf("/api/v1/viagens/%s/localizacao", viagemID), outroMotoristaToken, map[string]any{
 		"latitude":        -9.7812,
 		"longitude":       -36.3501,
 		"velocidade_kmh":  42.5,
@@ -1241,16 +1249,16 @@ func TestEndToEndAutorizacaoPorDono(t *testing.T) {
 		"precisao_metros": 8,
 	}, http.StatusForbidden)
 
-	doJSON[map[string]any](t, h.Router, http.MethodPut, fmt.Sprintf("/api/v1/viagens/%d/localizacao", viagemID), motoristaToken, map[string]any{
+	doJSON[map[string]any](t, h.Router, http.MethodPut, fmt.Sprintf("/api/v1/viagens/%s/localizacao", viagemID), motoristaToken, map[string]any{
 		"latitude":        -9.7812,
 		"longitude":       -36.3501,
 		"velocidade_kmh":  42.5,
 		"direcao_graus":   180,
 		"precisao_metros": 8,
 	}, http.StatusOK)
-	doStatus(t, h.Router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%d/localizacao", viagemID), outroClienteToken, nil, http.StatusForbidden)
+	doStatus(t, h.Router, http.MethodGet, fmt.Sprintf("/api/v1/viagens/%s/localizacao", viagemID), outroClienteToken, nil, http.StatusForbidden)
 
-	if outroClienteID <= 0 {
+	if outroClienteID == "" {
 		t.Fatalf("expected other cliente to be created")
 	}
 }
@@ -1303,7 +1311,7 @@ func TestEndToEndReservaDuplicadaECancelada(t *testing.T) {
 		"destino_id":      destinoID,
 		"rota_interna_id": rotaInternaID,
 		"curso":           "Sistemas",
-		"comprovante":     fmt.Sprintf("clientes/%d/e2e/comprovante.pdf", clienteID),
+		"comprovante":     fmt.Sprintf("clientes/%s/e2e/comprovante.pdf", clienteID),
 		"validade":        "2027-12-31",
 		"horarios_fixos":  []int{1, 2, 3, 4, 5},
 	})
@@ -1320,23 +1328,23 @@ func TestEndToEndReservaDuplicadaECancelada(t *testing.T) {
 	})
 
 	reservaID := createReserva(t, h.Router, h.AdminToken, clienteID, vinculoID, body)
-	doStatus(t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/clientes/%d/vinculos/%d/reservas/", clienteID, vinculoID), h.AdminToken, body, http.StatusConflict)
+	doStatus(t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/clientes/%s/vinculos/%s/reservas/", clienteID, vinculoID), h.AdminToken, body, http.StatusConflict)
 	outroClienteToken := loginCliente(t, h.Router, e2eCPF("84"+suffix[len(suffix)-5:]+"01"), "senha123")
-	doStatus(t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/reservas/%d/cancelar", reservaID), outroClienteToken, nil, http.StatusForbidden)
+	doStatus(t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/reservas/%s/cancelar", reservaID), outroClienteToken, nil, http.StatusForbidden)
 
 	clienteToken := loginCliente(t, h.Router, e2eCPF("84"+suffix[len(suffix)-5:]+"00"), "senha123")
-	cancelada := doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/reservas/%d/cancelar", reservaID), clienteToken, nil, http.StatusOK)
+	cancelada := doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/reservas/%s/cancelar", reservaID), clienteToken, nil, http.StatusOK)
 	if cancelada["status"] != "cancelada" {
 		t.Fatalf("expected reserva cancelada, got %v", cancelada["status"])
 	}
-	if int64(cancelada["cliente_id"].(float64)) != clienteID {
-		t.Fatalf("expected owner cliente_id %d, got %v", clienteID, cancelada["cliente_id"])
+	if cancelada["cliente_id"].(string) != clienteID {
+		t.Fatalf("expected owner cliente_id %s, got %v", clienteID, cancelada["cliente_id"])
 	}
-	if outroClienteID <= 0 {
+	if outroClienteID == "" {
 		t.Fatalf("expected other cliente to be created")
 	}
 
-	nova := doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/clientes/%d/vinculos/%d/reservas/", clienteID, vinculoID), h.AdminToken, body, http.StatusCreated)
+	nova := doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/clientes/%s/vinculos/%s/reservas/", clienteID, vinculoID), h.AdminToken, body, http.StatusCreated)
 	if nova["status"] != "confirmada" {
 		t.Fatalf("expected recreated reserva confirmada, got %v", nova["status"])
 	}
@@ -1469,14 +1477,14 @@ func TestEndToEndViagemCanceladaNaoInicia(t *testing.T) {
 		"rota_interna_id":      rotaInternaID,
 		"sentido":              "ida",
 	}, http.StatusCreated)
-	viagemID := int64(planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(float64))
+	viagemID := planejamento["ciclos"].([]any)[0].(map[string]any)["viagens"].([]any)[0].(map[string]any)["id"].(string)
 
-	cancelada := doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/cancelar", viagemID), h.AdminToken, nil, http.StatusOK)
+	cancelada := doJSON[map[string]any](t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%s/cancelar", viagemID), h.AdminToken, nil, http.StatusOK)
 	if cancelada["status"] != "cancelada" {
 		t.Fatalf("expected viagem cancelada, got %v", cancelada["status"])
 	}
 
-	doStatus(t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%d/iniciar", viagemID), h.AdminToken, nil, http.StatusConflict)
+	doStatus(t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/viagens/%s/iniciar", viagemID), h.AdminToken, nil, http.StatusConflict)
 }
 
 func TestEndToEndProcessamentoAutomaticoPlanejamentoIdempotente(t *testing.T) {
@@ -1662,7 +1670,7 @@ func setupPlanejamentoBase(t *testing.T, h *e2eHarness, options planejamentoBase
 		"destino_id":      destinoID,
 		"rota_interna_id": rotaInternaID,
 		"curso":           "Sistemas",
-		"comprovante":     fmt.Sprintf("clientes/%d/e2e/comprovante.pdf", clienteID),
+		"comprovante":     fmt.Sprintf("clientes/%s/e2e/comprovante.pdf", clienteID),
 		"validade":        "2027-12-31",
 		"horarios_fixos":  []int{1, 2, 3, 4, 5},
 	})
@@ -1685,7 +1693,7 @@ func setupPlanejamentoBase(t *testing.T, h *e2eHarness, options planejamentoBase
 	if options.CriarHorario {
 		createReserva(t, h.Router, h.AdminToken, clienteID, vinculoID, reservaBody)
 	} else {
-		doStatus(t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/clientes/%d/vinculos/%d/reservas/", clienteID, vinculoID), h.AdminToken, reservaBody, http.StatusUnprocessableEntity)
+		doStatus(t, h.Router, http.MethodPost, fmt.Sprintf("/api/v1/clientes/%s/vinculos/%s/reservas/", clienteID, vinculoID), h.AdminToken, reservaBody, http.StatusUnprocessableEntity)
 	}
 
 	return rotaInternaID, dataViagem
@@ -1697,6 +1705,15 @@ type e2eRouterOptions struct {
 	Location           *time.Location
 	Now                func() time.Time
 	PlanningCronSecret string
+	IdentityResolver   publicid.Resolver
+}
+
+type fixedIdentityResolver struct {
+	ID int64
+}
+
+func (r fixedIdentityResolver) Resolve(_ context.Context, _ publicid.Prefix, _ string) (int64, error) {
+	return r.ID, nil
 }
 
 type e2eHarness struct {
@@ -1756,6 +1773,11 @@ func (h *e2eHarness) Cleanup(data e2eCleanupData) {
 }
 
 func buildE2ERouter(pool *pgxpool.Pool, authSvc *auth.AuthService, options e2eRouterOptions) http.Handler {
+	publicIDs := options.IdentityResolver
+	if publicIDs == nil {
+		publicIDs = publicid.NewResolver(pool)
+	}
+	authSvc.SetIdentityResolver(publicIDs)
 	location := options.Location
 	if location == nil {
 		location = time.Local
@@ -1849,6 +1871,7 @@ func buildE2ERouter(pool *pgxpool.Pool, authSvc *auth.AuthService, options e2eRo
 	server.NewServer(handlers, authSvc, server.Config{
 		BaseCity:           "Campo Alegre",
 		PlanningCronSecret: planningCronSecret,
+		PublicIDs:          publicIDs,
 	}).RegisterRoutes(apiRouter)
 	apiRouter.With(authSvc.Authenticate, authSvc.RequireRole(auth.RoleAdmin)).Post(
 		"/test/planejamentos/viagens",
@@ -1875,13 +1898,22 @@ func seedAdmin(t *testing.T, ctx context.Context, pool *pgxpool.Pool, email, pas
 		t.Fatalf("hash admin password: %v", err)
 	}
 	_, err = pool.Exec(ctx, `
-		INSERT INTO administrador (email, senha)
-		VALUES ($1, $2)
+		INSERT INTO administrador (public_id, email, senha)
+		VALUES ($1, $2, $3)
 		ON CONFLICT (email) DO UPDATE SET senha = EXCLUDED.senha
-	`, email, hash)
+	`, "adm_"+e2eRandomPart(email), email, hash)
 	if err != nil {
 		t.Fatalf("seed admin: %v", err)
 	}
+}
+
+func e2eRandomPart(seed string) string {
+	const alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_-"
+	result := make([]byte, publicid.RandomLength)
+	for i := range result {
+		result[i] = alphabet[(int(seed[i%len(seed)])+i)%len(alphabet)]
+	}
+	return string(result)
 }
 
 type e2eCleanupData struct {
@@ -2064,13 +2096,13 @@ func createVeiculo(t *testing.T, router http.Handler, token string, body map[str
 	return int64(resp["id"].(float64))
 }
 
-func createMotorista(t *testing.T, router http.Handler, token string, body map[string]any) int64 {
+func createMotorista(t *testing.T, router http.Handler, token string, body map[string]any) string {
 	t.Helper()
 	resp := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/motoristas/", token, body, http.StatusCreated)
-	return int64(resp["id"].(float64))
+	return resp["id"].(string)
 }
 
-func createCliente(t *testing.T, router http.Handler, token string, body map[string]any) int64 {
+func createCliente(t *testing.T, router http.Handler, token string, body map[string]any) string {
 	t.Helper()
 	delete(body, "foto")
 	if _, ok := body["documento_identificacao"]; !ok {
@@ -2080,19 +2112,19 @@ func createCliente(t *testing.T, router http.Handler, token string, body map[str
 		body["comprovante_residencia"] = "clientes/_novo/e2e/comprovante-residencia.pdf"
 	}
 	resp := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/clientes/", token, body, http.StatusCreated)
-	return int64(resp["id"].(float64))
+	return resp["id"].(string)
 }
 
-func createVinculo(t *testing.T, router http.Handler, token string, clienteID int64, body map[string]any) int64 {
+func createVinculo(t *testing.T, router http.Handler, token, clienteID string, body map[string]any) string {
 	t.Helper()
-	resp := doJSON[map[string]any](t, router, http.MethodPost, fmt.Sprintf("/api/v1/clientes/%d/vinculos/", clienteID), token, body, http.StatusCreated)
-	return int64(resp["id"].(float64))
+	resp := doJSON[map[string]any](t, router, http.MethodPost, fmt.Sprintf("/api/v1/clientes/%s/vinculos/", clienteID), token, body, http.StatusCreated)
+	return resp["id"].(string)
 }
 
-func createReserva(t *testing.T, router http.Handler, token string, clienteID, vinculoID int64, body map[string]any) int64 {
+func createReserva(t *testing.T, router http.Handler, token, clienteID, vinculoID string, body map[string]any) string {
 	t.Helper()
-	resp := doJSON[map[string]any](t, router, http.MethodPost, fmt.Sprintf("/api/v1/clientes/%d/vinculos/%d/reservas/", clienteID, vinculoID), token, body, http.StatusCreated)
-	return int64(resp["id"].(float64))
+	resp := doJSON[map[string]any](t, router, http.MethodPost, fmt.Sprintf("/api/v1/clientes/%s/vinculos/%s/reservas/", clienteID, vinculoID), token, body, http.StatusCreated)
+	return resp["id"].(string)
 }
 
 func createHorarioTurno(t *testing.T, router http.Handler, token string, body map[string]any) int64 {
@@ -2284,7 +2316,7 @@ func newFakeSupabaseStorageServer(t *testing.T) *fakeSupabaseStorageServer {
 	var baseURL string
 	fake.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/storage/v1/object/upload/sign/documentos/clientes/1/documento-identificacao.pdf"):
+		case r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/storage/v1/object/upload/sign/documentos/clientes/cli_012345678901234567890/documento-identificacao.pdf"):
 			fake.signUploadRequests++
 			if r.Header.Get("Authorization") != "Bearer service-key" {
 				t.Errorf("missing service key authorization header")
@@ -2292,7 +2324,7 @@ func newFakeSupabaseStorageServer(t *testing.T) *fakeSupabaseStorageServer {
 			w.Header().Set("Content-Type", "application/json")
 			io.WriteString(w, fmt.Sprintf(`{
 				"signedURL": %q,
-				"path": "clientes/1/documento-identificacao.pdf",
+				"path": "clientes/cli_012345678901234567890/documento-identificacao.pdf",
 				"token": "upload-token"
 			}`, baseURL+"/upload-target"))
 		case r.Method == http.MethodPut && r.URL.Path == "/upload-target":
@@ -2301,7 +2333,7 @@ func newFakeSupabaseStorageServer(t *testing.T) *fakeSupabaseStorageServer {
 				t.Errorf("unexpected upload content type: %s", r.Header.Get("Content-Type"))
 			}
 			w.WriteHeader(http.StatusOK)
-		case r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/storage/v1/object/sign/documentos/clientes/1/documento-identificacao.pdf"):
+		case r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/storage/v1/object/sign/documentos/clientes/cli_012345678901234567890/documento-identificacao.pdf"):
 			fake.signDownloadRequests++
 			w.Header().Set("Content-Type", "application/json")
 			io.WriteString(w, fmt.Sprintf(`{

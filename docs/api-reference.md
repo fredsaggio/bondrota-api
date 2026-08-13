@@ -72,11 +72,12 @@ usa GET /admin/session para restaurar a sessão e POST /admin/logout para
 encerrá-la. Requisições mutáveis autenticadas por cookie exigem uma origem
 listada em ALLOWED_ORIGINS.
 
-O JWT contem pelo menos:
+O JWT usa o identificador publico como `sub`; o BIGINT interno nunca entra no
+token:
 
 ```json
 {
-  "user_id": 1,
+  "sub": "adm_7WjJ5P0l_qt2Zk8AxY3Bc",
   "role": "admin",
   "exp": 1791234567,
   "iat": 1791148167
@@ -96,6 +97,27 @@ identidade normalizada. Quando o limite é excedido, a API responde
 `429 Too Many Requests` e inclui o header `Retry-After`.
 
 O token expira em 24 horas.
+
+### Identificadores publicos
+
+As entidades que representam pessoas e operacoes usam uma arquitetura hibrida:
+o banco mantem `BIGINT` como chave primaria e nas FKs, enquanto as identidades
+publicas abaixo usam um valor opaco em HTTP, JWT e paths de Storage. Cada ID tem um prefixo semantico, `_` e
+exatamente 21 caracteres aleatorios URL-safe (`A-Z`, `a-z`, `0-9`, `_` e `-`).
+
+| Entidade | Formato |
+| --- | --- |
+| Administrador | `adm_<21 caracteres>` |
+| Cliente | `cli_<21 caracteres>` |
+| Motorista | `mot_<21 caracteres>` |
+| Vinculo | `vin_<21 caracteres>` |
+| Reserva | `res_<21 caracteres>` |
+| Viagem | `via_<21 caracteres>` |
+
+Esses valores devem ser tratados como strings opacas. O cliente nao deve
+interpretar, gerar nem incrementar IDs. Identificadores numericos enviados nos
+paths dessas entidades retornam `404 Not Found`. IDs de catalogo, como municipio,
+destino, parada, rota interna e veiculo, continuam numericos.
 
 ### Codigos HTTP
 
@@ -159,7 +181,8 @@ A resposta também inclui Set-Cookie para a sessão HttpOnly administrativa.
 
 ### GET BASE_URL/admin/session
 
-Retorna user_id, role e expires_at da sessão administrativa autenticada.
+Retorna `user_id` (o ID publico `adm_...`), `role` e `expires_at` da sessão
+administrativa autenticada.
 
 ### POST BASE_URL/admin/logout
 
@@ -233,7 +256,7 @@ Response de consulta:
 
 ```json
 {
-  "id": 1,
+  "id": "adm_7WjJ5P0l_qt2Zk8AxY3Bc",
   "email": "admin@bondrota.com"
 }
 ```
@@ -548,7 +571,7 @@ Response:
 
 ```json
 {
-  "id": 1,
+  "id": "mot_Km4sYq7vN2xA0cDe8BfGh",
   "nome": "Joao Motorista",
   "cpf": "00000000000",
   "telefone": "82999990000",
@@ -564,7 +587,7 @@ Response:
 Permissoes:
 
 - `POST /clientes/` e `GET /clientes/`: somente `admin`.
-- Rotas com `{clienteID}`: `admin` ou o proprio cliente, quando `clienteID` for igual ao `user_id` do JWT.
+- Rotas com `{clienteID}`: `admin` ou o proprio cliente, quando `clienteID` for igual ao `sub` do JWT.
 
 | Metodo | Path completo | Descricao | Body | Sucesso | Erros |
 | --- | --- | --- | --- | --- | --- |
@@ -591,7 +614,7 @@ nome digitado.
 
 ```json
 {
-  "items": [{ "id": 1, "nome": "Maria Cliente", "cpf": "11111111111" }],
+  "items": [{ "id": "cli_N8f2Qx5mL0sV7kWp3ZaBc", "nome": "Maria Cliente", "cpf": "11111111111" }],
   "next_cursor": "MTIw",
   "has_more": true
 }
@@ -630,13 +653,13 @@ Response:
 
 ```json
 {
-  "id": 1,
+  "id": "cli_N8f2Qx5mL0sV7kWp3ZaBc",
   "nome": "Maria Cliente",
   "cpf": "11111111111",
   "telefone": "82999991111",
   "data_nasc": "2002-08-10",
-  "documento_identificacao": "clientes/1/documento-identificacao.pdf",
-  "comprovante_residencia": "clientes/1/comprovante-residencia.pdf"
+  "documento_identificacao": "clientes/cli_N8f2Qx5mL0sV7kWp3ZaBc/documento-identificacao.pdf",
+  "comprovante_residencia": "clientes/cli_N8f2Qx5mL0sV7kWp3ZaBc/comprovante-residencia.pdf"
 }
 ```
 
@@ -644,17 +667,17 @@ Response de `GET /clientes/{clienteID}`:
 
 ```json
 {
-  "id": 1,
+  "id": "cli_N8f2Qx5mL0sV7kWp3ZaBc",
   "nome": "Maria Cliente",
   "cpf": "11111111111",
   "telefone": "82999991111",
   "data_nasc": "2002-08-10",
-  "documento_identificacao": "clientes/1/documento-identificacao.pdf",
-  "comprovante_residencia": "clientes/1/comprovante-residencia.pdf",
+  "documento_identificacao": "clientes/cli_N8f2Qx5mL0sV7kWp3ZaBc/documento-identificacao.pdf",
+  "comprovante_residencia": "clientes/cli_N8f2Qx5mL0sV7kWp3ZaBc/comprovante-residencia.pdf",
   "vinculos": [
     {
-      "id": 10,
-      "cliente_id": 1,
+      "id": "vin_H3mQ8sTx1cV6kNp0ZaB7d",
+      "cliente_id": "cli_N8f2Qx5mL0sV7kWp3ZaBc",
       "tipo": "estudante",
       "turno": "NT",
       "destino_id": 1,
@@ -665,7 +688,7 @@ Response de `GET /clientes/{clienteID}`:
       "horarios_fixos": [
         {
           "id": 1,
-          "vinculo_id": 10,
+          "vinculo_id": "vin_H3mQ8sTx1cV6kNp0ZaB7d",
           "dia_semana": 1
         }
       ]
@@ -720,8 +743,8 @@ Response:
 
 ```json
 {
-  "id": 10,
-  "cliente_id": 1,
+  "id": "vin_H3mQ8sTx1cV6kNp0ZaB7d",
+  "cliente_id": "cli_N8f2Qx5mL0sV7kWp3ZaBc",
   "tipo": "estudante",
   "turno": "NT",
   "destino_id": 1,
@@ -732,7 +755,7 @@ Response:
   "horarios_fixos": [
     {
       "id": 1,
-      "vinculo_id": 10,
+      "vinculo_id": "vin_H3mQ8sTx1cV6kNp0ZaB7d",
       "dia_semana": 1
     }
   ]
@@ -761,8 +784,8 @@ parte dos dias.
 {
   "items": [
     {
-      "id": 10,
-      "cliente_id": 1,
+      "id": "vin_H3mQ8sTx1cV6kNp0ZaB7d",
+      "cliente_id": "cli_N8f2Qx5mL0sV7kWp3ZaBc",
       "cliente_nome": "Maria Souza",
       "tipo": "estudante",
       "turno": "NT",
@@ -775,7 +798,7 @@ parte dos dias.
       "horarios_fixos": [
         {
           "id": 1,
-          "vinculo_id": 10,
+          "vinculo_id": "vin_H3mQ8sTx1cV6kNp0ZaB7d",
           "dia_semana": 1
         }
       ]
@@ -825,10 +848,10 @@ Listagem paginada (`GET /reservas/`):
 {
   "items": [
     {
-      "id": 1,
-      "cliente_id": 1,
+      "id": "res_P4mY8tQ2kV7sN0xAaB3Cd",
+      "cliente_id": "cli_N8f2Qx5mL0sV7kWp3ZaBc",
       "cliente_nome": "Maria Souza",
-      "vinculo_id": 10,
+      "vinculo_id": "vin_H3mQ8sTx1cV6kNp0ZaB7d",
       "data_viagem": "2026-06-10",
       "turno": "NT",
       "destino_id": 1,
@@ -881,9 +904,9 @@ Response:
 
 ```json
 {
-  "id": 1,
-  "cliente_id": 1,
-  "vinculo_id": 10,
+  "id": "res_P4mY8tQ2kV7sN0xAaB3Cd",
+  "cliente_id": "cli_N8f2Qx5mL0sV7kWp3ZaBc",
+  "vinculo_id": "vin_H3mQ8sTx1cV6kNp0ZaB7d",
   "data_viagem": "2026-06-10",
   "turno": "NT",
   "destino_id": 1,
@@ -1100,7 +1123,7 @@ consulta, entao a paginacao dele nao vem com paginas incompletas.
 {
   "items": [
     {
-      "viagem": { "id": 1, "sentido": "ida", "status": "programada" },
+      "viagem": { "id": "via_R7nK2xQa9mT4sV0pBcD8e", "sentido": "ida", "status": "programada" },
       "ciclo": { "id": 1, "data_viagem": "2026-06-10", "turno": "NT", "municipio_destino_id": 2704302 },
       "municipio_nome": "Maceio",
       "veiculo_placa": "ABC1D23"
@@ -1130,7 +1153,7 @@ Response de viagem com ciclo:
 ```json
 {
   "viagem": {
-    "id": 1,
+    "id": "via_R7nK2xQa9mT4sV0pBcD8e",
     "ciclo_viagem_id": 1,
     "sentido": "ida",
     "status": "programada",
@@ -1143,7 +1166,7 @@ Response de viagem com ciclo:
     "turno": "NT",
     "rota_interna_id": 1,
     "veiculo_id": 1,
-    "motorista_id": 1,
+    "motorista_id": "mot_Km4sYq7vN2xA0cDe8BfGh",
     "status": "planejado",
     "expires_at": "2026-09-10T00:00:00Z",
     "created_at": "2026-06-06T20:00:00Z",
@@ -1156,7 +1179,7 @@ Response de status:
 
 ```json
 {
-  "id": 1,
+  "id": "via_R7nK2xQa9mT4sV0pBcD8e",
   "ciclo_viagem_id": 1,
   "sentido": "ida",
   "status": "em_andamento",
@@ -1171,7 +1194,7 @@ Horarios:
 [
   {
     "id": 1,
-    "viagem_id": 1,
+    "viagem_id": "via_R7nK2xQa9mT4sV0pBcD8e",
     "tipo": "partida_prevista",
     "horario": "2026-06-10T17:00:00Z",
     "created_at": "2026-06-06T20:00:00Z",
@@ -1195,8 +1218,8 @@ Response:
 ```json
 {
   "id": 1,
-  "viagem_id": 1,
-  "reserva_id": 1,
+  "viagem_id": "via_R7nK2xQa9mT4sV0pBcD8e",
+  "reserva_id": "res_P4mY8tQ2kV7sN0xAaB3Cd",
   "status_presenca": "embarcou",
   "created_at": "2026-06-06T20:00:00Z",
   "updated_at": "2026-06-06T20:10:00Z"
@@ -1209,13 +1232,13 @@ Lista de reservas da viagem:
 [
   {
     "id": 1,
-    "viagem_id": 1,
-    "reserva_id": 1,
+    "viagem_id": "via_R7nK2xQa9mT4sV0pBcD8e",
+    "reserva_id": "res_P4mY8tQ2kV7sN0xAaB3Cd",
     "status_presenca": "aguardando",
     "created_at": "2026-06-06T20:00:00Z",
     "updated_at": "2026-06-06T20:00:00Z",
-    "cliente_id": 1,
-    "vinculo_id": 10,
+    "cliente_id": "cli_N8f2Qx5mL0sV7kWp3ZaBc",
+    "vinculo_id": "vin_H3mQ8sTx1cV6kNp0ZaB7d",
     "data_viagem": "2026-06-10",
     "turno": "NT",
     "destino_id": 1,
@@ -1236,8 +1259,9 @@ Regras de acesso:
 
 - Motorista so atualiza/localiza viagem atribuida a ele.
 - Cliente so consulta localizacao se tiver reserva vinculada a viagem.
-- Para motorista autenticado, o backend usa o `user_id` do JWT como `motorista_id`.
-- Para admin, envie `motorista_id` no body do `PUT`.
+- O backend sempre usa o motorista alocado no ciclo da viagem. Qualquer
+  `motorista_id` legado enviado no body e ignorado; o chamador nao escolhe a
+  identidade associada a localizacao.
 - Atualizacao de localizacao exige viagem em andamento.
 
 | Metodo | Path completo | Descricao | Body | Sucesso | Erros |
@@ -1249,7 +1273,6 @@ Request:
 
 ```json
 {
-  "motorista_id": 1,
   "latitude": -9.7812,
   "longitude": -36.3501,
   "velocidade_kmh": 52.4,
@@ -1262,8 +1285,8 @@ Response:
 
 ```json
 {
-  "viagem_id": 1,
-  "motorista_id": 1,
+  "viagem_id": "via_R7nK2xQa9mT4sV0pBcD8e",
+  "motorista_id": "mot_Km4sYq7vN2xA0cDe8BfGh",
   "latitude": -9.7812,
   "longitude": -36.3501,
   "velocidade_kmh": 52.4,
@@ -1328,7 +1351,7 @@ Response:
 {
   "rota": {
     "id": 1,
-    "viagem_id": 1,
+    "viagem_id": "via_R7nK2xQa9mT4sV0pBcD8e",
     "provider": "osrm",
     "origem": {
       "nome": "Ultima parada da rota interna",
@@ -1914,8 +1937,8 @@ Buckets aceitos:
 Regras de acesso por path:
 
 - `admin`: pode assinar paths permitidos em qualquer bucket.
-- `cliente`: pode assinar apenas paths iniciando com `clientes/{user_id}/` e somente no bucket `documentos`.
-- `motorista`: pode assinar apenas paths iniciando com `motoristas/{user_id}/` e somente no bucket `fotos`.
+- `cliente`: pode assinar apenas paths iniciando com `clientes/{sub}/` e somente no bucket `documentos`.
+- `motorista`: pode assinar apenas paths iniciando com `motoristas/{sub}/` e somente no bucket `fotos`.
 
 Content types aceitos:
 

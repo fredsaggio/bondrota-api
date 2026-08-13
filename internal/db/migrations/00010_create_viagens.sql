@@ -43,12 +43,14 @@ CREATE INDEX idx_ciclos_viagem_expires_at
 
 CREATE TABLE viagens (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    public_id TEXT COLLATE "C" NOT NULL UNIQUE,
     ciclo_viagem_id BIGINT NOT NULL REFERENCES ciclos_viagem(id) ON DELETE CASCADE,
     sentido sentido_viagem NOT NULL,
     status status_viagem NOT NULL DEFAULT 'programada',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_viagens_ciclo_sentido UNIQUE (ciclo_viagem_id, sentido)
+    CONSTRAINT uq_viagens_ciclo_sentido UNIQUE (ciclo_viagem_id, sentido),
+    CONSTRAINT chk_viagens_public_id CHECK (public_id ~ '^via_[A-Za-z0-9_-]{21}$')
 );
 
 CREATE TRIGGER set_updated_at_viagens

@@ -24,6 +24,7 @@ const (
 
 type Motorista struct {
 	ID                  int64
+	PublicID            string
 	Nome                string
 	CPF                 string
 	Senha               string

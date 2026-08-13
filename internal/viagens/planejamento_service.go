@@ -192,6 +192,7 @@ func montarCiclosIdaComReservasInput(input PlanejamentoViagensInput, veiculosAlo
 				RotaInternaID:      input.RotaInternaID,
 				VeiculoID:          veiculo.ID,
 				MotoristaID:        motoristasAlocados[i].ID,
+				MotoristaPublicID:  motoristasAlocados[i].PublicID,
 				ExpiresAt:          input.ExpiresAt,
 			},
 			ReservaIDs: reservasPorVeiculo[i],

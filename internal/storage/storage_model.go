@@ -8,8 +8,9 @@ const (
 )
 
 type Actor struct {
-	UserID int64
-	Role   string
+	UserID   int64
+	PublicID string
+	Role     string
 }
 
 type SignedUploadURLInput struct {

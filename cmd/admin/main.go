@@ -128,7 +128,7 @@ func runSeed(ctx context.Context, args []string) error {
 		return err
 	}
 	if existing != nil {
-		slog.Info("admin already exists", "email", email, "id", existing.ID)
+		slog.Info("admin already exists", "email", email, "id", existing.PublicID)
 		return nil
 	}
 
@@ -137,7 +137,7 @@ func runSeed(ctx context.Context, args []string) error {
 		return err
 	}
 
-	slog.Info("admin created", "email", created.Email, "id", created.ID)
+	slog.Info("admin created", "email", created.Email, "id", created.PublicID)
 	return nil
 }
 
@@ -167,9 +167,9 @@ func runList(ctx context.Context, args []string) error {
 		return nil
 	}
 
-	fmt.Printf("%-6s %s\n", "ID", "E-MAIL")
+	fmt.Printf("%-25s %s\n", "ID", "E-MAIL")
 	for _, item := range admins {
-		fmt.Printf("%-6d %s\n", item.ID, item.Email)
+		fmt.Printf("%-25s %s\n", item.PublicID, item.Email)
 	}
 	fmt.Printf("\n%d administrador(es).\n", len(admins))
 	return nil
@@ -202,7 +202,7 @@ func runCreate(ctx context.Context, args []string) error {
 		return err
 	}
 	if existing != nil {
-		return fmt.Errorf("ja existe um administrador com o e-mail %s (id %d)", clean, existing.ID)
+		return fmt.Errorf("ja existe um administrador com o e-mail %s (id %s)", clean, existing.PublicID)
 	}
 
 	password, err := promptNewPassword(fmt.Sprintf("Senha para %s", clean))
@@ -215,7 +215,7 @@ func runCreate(ctx context.Context, args []string) error {
 		return err
 	}
 
-	slog.Info("admin created", "email", created.Email, "id", created.ID)
+	slog.Info("admin created", "email", created.Email, "id", created.PublicID)
 	return nil
 }
 
@@ -268,7 +268,7 @@ func runPasswd(ctx context.Context, args []string) error {
 		return fmt.Errorf("update admin password: %w", err)
 	}
 
-	slog.Info("admin password updated", "email", clean, "id", existing.ID)
+	slog.Info("admin password updated", "email", clean, "id", existing.PublicID)
 	warnActiveSessions()
 	return nil
 }
@@ -328,7 +328,7 @@ func runDelete(ctx context.Context, args []string) error {
 		return fmt.Errorf("delete admin: %w", err)
 	}
 
-	slog.Info("admin deleted", "email", found.Email, "id", found.ID)
+	slog.Info("admin deleted", "email", found.Email, "id", found.PublicID)
 	warnActiveSessions()
 	return nil
 }

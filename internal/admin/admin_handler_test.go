@@ -78,7 +78,7 @@ func TestAdminHandler_Session(t *testing.T) {
 	h := admin.NewAdminHandler(svc)
 	expiresAt := time.Now().Add(time.Hour).Truncate(time.Second)
 	claims := &auth.Claims{
-		RegisteredClaims: jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(expiresAt)},
+		RegisteredClaims: jwt.RegisteredClaims{Subject: "adm_012345678901234567890", ExpiresAt: jwt.NewNumericDate(expiresAt)},
 		UserID:           7,
 		Role:             auth.RoleAdmin,
 	}
@@ -94,7 +94,7 @@ func TestAdminHandler_Session(t *testing.T) {
 	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
 		t.Fatal(err)
 	}
-	if response.UserID != 7 || response.Role != auth.RoleAdmin || response.ExpiresAt != expiresAt.UnixMilli() {
+	if response.UserID != "adm_012345678901234567890" || response.Role != auth.RoleAdmin || response.ExpiresAt != expiresAt.UnixMilli() {
 		t.Fatalf("unexpected session: %#v", response)
 	}
 }
@@ -121,7 +121,7 @@ func jsonBuf(v any) *bytes.Buffer {
 }
 
 func sampleAdmin() *admin.Admin {
-	return &admin.Admin{ID: 1, Email: "admin@bondrota.com", Senha: "hash"}
+	return &admin.Admin{ID: 1, PublicID: "adm_012345678901234567890", Email: "admin@bondrota.com", Senha: "hash"}
 }
 
 // --- Login ---

@@ -109,7 +109,8 @@ func actorFromRequest(r *http.Request) (Actor, error) {
 		return Actor{}, brerror.ErrUnauthenticated
 	}
 	return Actor{
-		UserID: claims.UserID,
-		Role:   claims.Role,
+		UserID:   claims.UserID,
+		PublicID: claims.Subject,
+		Role:     claims.Role,
 	}, nil
 }

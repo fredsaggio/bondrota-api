@@ -15,6 +15,7 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/brerror"
 	"github.com/fredsaggio/bondrota-api/internal/conv"
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
+	"github.com/go-chi/chi/v5"
 )
 
 type ViagemHandler struct {
@@ -76,7 +77,6 @@ type AtualizarPresencaRequest struct {
 }
 
 type AtualizarLocalizacaoRequest struct {
-	MotoristaID    int64   `json:"motorista_id"`
 	Latitude       float64 `json:"latitude"`
 	Longitude      float64 `json:"longitude"`
 	VelocidadeKmh  float64 `json:"velocidade_kmh"`
@@ -85,7 +85,7 @@ type AtualizarLocalizacaoRequest struct {
 }
 
 type ViagemResponse struct {
-	ID            int64         `json:"id"`
+	ID            string        `json:"id"`
 	CicloViagemID int64         `json:"ciclo_viagem_id"`
 	Sentido       SentidoViagem `json:"sentido"`
 	Status        StatusViagem  `json:"status"`
@@ -100,7 +100,7 @@ type CicloViagemResponse struct {
 	MunicipioDestinoID int64             `json:"municipio_destino_id"`
 	RotaInternaID      int64             `json:"rota_interna_id"`
 	VeiculoID          int64             `json:"veiculo_id"`
-	MotoristaID        int64             `json:"motorista_id"`
+	MotoristaID        string            `json:"motorista_id"`
 	Status             StatusCicloViagem `json:"status"`
 	ExpiresAt          string            `json:"expires_at"`
 	CreatedAt          string            `json:"created_at"`
@@ -134,7 +134,7 @@ type ViagemResumoResponse struct {
 
 type ViagemHorarioResponse struct {
 	ID        int64             `json:"id"`
-	ViagemID  int64             `json:"viagem_id"`
+	ViagemID  string            `json:"viagem_id"`
 	Tipo      TipoHorarioViagem `json:"tipo"`
 	Horario   string            `json:"horario"`
 	CreatedAt string            `json:"created_at"`
@@ -143,8 +143,8 @@ type ViagemHorarioResponse struct {
 
 type ViagemReservaResponse struct {
 	ID             int64                `json:"id"`
-	ViagemID       int64                `json:"viagem_id"`
-	ReservaID      int64                `json:"reserva_id"`
+	ViagemID       string               `json:"viagem_id"`
+	ReservaID      string               `json:"reserva_id"`
 	StatusPresenca StatusPresencaViagem `json:"status_presenca"`
 	CreatedAt      string               `json:"created_at"`
 	UpdatedAt      string               `json:"updated_at"`
@@ -152,8 +152,8 @@ type ViagemReservaResponse struct {
 
 type ViagemReservaComReservaResponse struct {
 	ViagemReservaResponse
-	ClienteID     int64         `json:"cliente_id"`
-	VinculoID     int64         `json:"vinculo_id"`
+	ClienteID     string        `json:"cliente_id"`
+	VinculoID     string        `json:"vinculo_id"`
 	DataViagem    string        `json:"data_viagem"`
 	Turno         TurnoViagem   `json:"turno"`
 	DestinoID     int64         `json:"destino_id"`
@@ -162,8 +162,8 @@ type ViagemReservaComReservaResponse struct {
 }
 
 type ViagemLocalizacaoResponse struct {
-	ViagemID       int64   `json:"viagem_id"`
-	MotoristaID    int64   `json:"motorista_id"`
+	ViagemID       string  `json:"viagem_id"`
+	MotoristaID    string  `json:"motorista_id"`
 	Latitude       float64 `json:"latitude"`
 	Longitude      float64 `json:"longitude"`
 	VelocidadeKmh  float64 `json:"velocidade_kmh"`
@@ -432,6 +432,8 @@ func (h *ViagemHandler) AtualizarPresenca(w http.ResponseWriter, r *http.Request
 		h.handleError(w, err, "failed to update presenca")
 		return
 	}
+	viagemReserva.ViagemPublicID = chi.URLParam(r, "viagemID")
+	viagemReserva.ReservaPublicID = chi.URLParam(r, "reservaID")
 
 	httputils.Respond(w, http.StatusOK, toViagemReservaResponse(viagemReserva))
 }
@@ -459,10 +461,15 @@ func (h *ViagemHandler) AtualizarLocalizacao(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "Não foi possível processar os dados enviados.", http.StatusBadRequest)
 		return
 	}
+	viagem, err := h.viagemSvc.GetByID(r.Context(), viagemID)
+	if err != nil {
+		h.handleError(w, err, "failed to load viagem location assignment")
+		return
+	}
 
 	localizacao, err := h.localizacaoSvc.Atualizar(r.Context(), actor, ViagemLocalizacaoInput{
 		ViagemID:       viagemID,
-		MotoristaID:    req.MotoristaID,
+		MotoristaID:    viagem.Ciclo.MotoristaID,
 		Latitude:       req.Latitude,
 		Longitude:      req.Longitude,
 		VelocidadeKmh:  req.VelocidadeKmh,
@@ -473,6 +480,8 @@ func (h *ViagemHandler) AtualizarLocalizacao(w http.ResponseWriter, r *http.Requ
 		h.handleError(w, err, "failed to update viagem localizacao")
 		return
 	}
+	localizacao.ViagemPublicID = chi.URLParam(r, "viagemID")
+	localizacao.MotoristaPublicID = viagem.Ciclo.MotoristaPublicID
 
 	httputils.Respond(w, http.StatusOK, toViagemLocalizacaoResponse(localizacao))
 }
@@ -500,6 +509,7 @@ func (h *ViagemHandler) GetLocalizacao(w http.ResponseWriter, r *http.Request) {
 		h.handleError(w, err, "failed to get viagem localizacao")
 		return
 	}
+	localizacao.ViagemPublicID = chi.URLParam(r, "viagemID")
 
 	httputils.Respond(w, http.StatusOK, toViagemLocalizacaoResponse(localizacao))
 }
@@ -551,8 +561,9 @@ func actorFromRequest(r *http.Request) (ViagemLocalizacaoActor, error) {
 	}
 
 	return ViagemLocalizacaoActor{
-		UserID: claims.UserID,
-		Role:   claims.Role,
+		UserID:   claims.UserID,
+		PublicID: claims.Subject,
+		Role:     claims.Role,
 	}, nil
 }
 
@@ -594,7 +605,7 @@ func toViagemComCicloResponse(v *ViagemComCiclo) ViagemComCicloResponse {
 
 func toViagemResponse(v *Viagem) ViagemResponse {
 	return ViagemResponse{
-		ID:            v.ID,
+		ID:            v.PublicID,
 		CicloViagemID: v.CicloViagemID,
 		Sentido:       v.Sentido,
 		Status:        v.Status,
@@ -611,7 +622,7 @@ func toCicloViagemResponse(c *CicloViagem) CicloViagemResponse {
 		MunicipioDestinoID: c.MunicipioDestinoID,
 		RotaInternaID:      c.RotaInternaID,
 		VeiculoID:          c.VeiculoID,
-		MotoristaID:        c.MotoristaID,
+		MotoristaID:        c.MotoristaPublicID,
 		Status:             c.Status,
 		ExpiresAt:          c.ExpiresAt.Format(time.RFC3339),
 		CreatedAt:          c.CreatedAt.Format(time.RFC3339),
@@ -630,7 +641,7 @@ func toViagemHorarioResponses(horarios []ViagemHorario) []ViagemHorarioResponse 
 func toViagemHorarioResponse(h *ViagemHorario) ViagemHorarioResponse {
 	return ViagemHorarioResponse{
 		ID:        h.ID,
-		ViagemID:  h.ViagemID,
+		ViagemID:  h.ViagemPublicID,
 		Tipo:      h.Tipo,
 		Horario:   h.Horario.Format(time.RFC3339),
 		CreatedAt: h.CreatedAt.Format(time.RFC3339),
@@ -649,8 +660,8 @@ func toViagemReservaComReservaResponses(reservas []ViagemReservaComReserva) []Vi
 func toViagemReservaComReservaResponse(vr *ViagemReservaComReserva) ViagemReservaComReservaResponse {
 	return ViagemReservaComReservaResponse{
 		ViagemReservaResponse: toViagemReservaResponse(&vr.ViagemReserva),
-		ClienteID:             vr.ClienteID,
-		VinculoID:             vr.VinculoID,
+		ClienteID:             vr.ClientePublicID,
+		VinculoID:             vr.VinculoPublicID,
 		DataViagem:            vr.DataViagem.Format("2006-01-02"),
 		Turno:                 vr.Turno,
 		DestinoID:             vr.DestinoID,
@@ -662,8 +673,8 @@ func toViagemReservaComReservaResponse(vr *ViagemReservaComReserva) ViagemReserv
 func toViagemReservaResponse(vr *ViagemReserva) ViagemReservaResponse {
 	return ViagemReservaResponse{
 		ID:             vr.ID,
-		ViagemID:       vr.ViagemID,
-		ReservaID:      vr.ReservaID,
+		ViagemID:       vr.ViagemPublicID,
+		ReservaID:      vr.ReservaPublicID,
 		StatusPresenca: vr.StatusPresenca,
 		CreatedAt:      vr.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:      vr.UpdatedAt.Format(time.RFC3339),
@@ -672,8 +683,8 @@ func toViagemReservaResponse(vr *ViagemReserva) ViagemReservaResponse {
 
 func toViagemLocalizacaoResponse(l *ViagemLocalizacao) ViagemLocalizacaoResponse {
 	return ViagemLocalizacaoResponse{
-		ViagemID:       l.ViagemID,
-		MotoristaID:    l.MotoristaID,
+		ViagemID:       l.ViagemPublicID,
+		MotoristaID:    l.MotoristaPublicID,
 		Latitude:       l.Latitude,
 		Longitude:      l.Longitude,
 		VelocidadeKmh:  l.VelocidadeKmh,

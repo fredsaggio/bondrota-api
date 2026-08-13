@@ -6,6 +6,7 @@ CREATE TYPE status_reserva AS ENUM ('confirmada', 'cancelada');
 
 CREATE TABLE reservas (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    public_id TEXT COLLATE "C" NOT NULL UNIQUE,
     cliente_id BIGINT NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
     vinculo_id BIGINT NOT NULL REFERENCES cliente_vinculos(id) ON DELETE RESTRICT,
     data_viagem DATE NOT NULL,
@@ -16,7 +17,8 @@ CREATE TABLE reservas (
     status status_reserva NOT NULL DEFAULT 'confirmada',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT chk_reservas_turno_operacional CHECK (turno IN ('MT', 'VT', 'NT'))
+    CONSTRAINT chk_reservas_turno_operacional CHECK (turno IN ('MT', 'VT', 'NT')),
+    CONSTRAINT chk_reservas_public_id CHECK (public_id ~ '^res_[A-Za-z0-9_-]{21}$')
 );
 
 CREATE TRIGGER set_updated_at_reservas

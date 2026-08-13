@@ -9,6 +9,7 @@ import (
 
 	"github.com/fredsaggio/bondrota-api/internal/brerror"
 	"github.com/fredsaggio/bondrota-api/internal/db"
+	"github.com/fredsaggio/bondrota-api/internal/publicid"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -23,54 +24,58 @@ func NewViagemStore(db db.DB) ViagemStore {
 func (s *viagemStore) CreateViagem(ctx context.Context, input ViagemInput) (*Viagem, error) {
 	const op = "db/viagemStore.CreateViagem"
 
-	var viagem Viagem
-
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		const q = `
-			INSERT INTO viagens (ciclo_viagem_id, sentido)
-			VALUES (@ciclo_viagem_id, @sentido)
-			RETURNING id, ciclo_viagem_id, sentido, status, created_at, updated_at
+	viagem, err := publicid.Insert(publicid.Viagem, func(publicID string) (*Viagem, error) {
+		var viagem Viagem
+		err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+			const q = `
+			INSERT INTO viagens (public_id, ciclo_viagem_id, sentido)
+			VALUES (@public_id, @ciclo_viagem_id, @sentido)
+			RETURNING id, public_id, ciclo_viagem_id, sentido, status, created_at, updated_at
 		`
 
-		rows, err := tx.Query(ctx, q, pgx.StrictNamedArgs{
-			"ciclo_viagem_id": input.CicloViagemID,
-			"sentido":         input.Sentido,
-		})
-		if err != nil {
-			if isViagemAlreadyCreated(err) {
-				return brerror.ErrAlreadyExists
+			rows, err := tx.Query(ctx, q, pgx.StrictNamedArgs{
+				"public_id":       publicID,
+				"ciclo_viagem_id": input.CicloViagemID,
+				"sentido":         input.Sentido,
+			})
+			if err != nil {
+				if isViagemAlreadyCreated(err) {
+					return brerror.ErrAlreadyExists
+				}
+				return fmt.Errorf("insert viagem: %w", err)
 			}
-			return fmt.Errorf("insert viagem: %w", err)
-		}
 
-		viagem, err = pgx.CollectExactlyOneRow(rows, scanViagem)
-		if err != nil {
-			if isViagemAlreadyCreated(err) {
-				return brerror.ErrAlreadyExists
+			viagem, err = pgx.CollectExactlyOneRow(rows, scanViagem)
+			if err != nil {
+				if isViagemAlreadyCreated(err) {
+					return brerror.ErrAlreadyExists
+				}
+				return fmt.Errorf("insert viagem: %w", err)
 			}
-			return fmt.Errorf("insert viagem: %w", err)
-		}
 
-		const horarioQ = `
+			const horarioQ = `
 			INSERT INTO viagem_horarios (viagem_id, tipo, horario)
 			VALUES (@viagem_id, @tipo, @horario)
 		`
 
-		if _, err := tx.Exec(ctx, horarioQ, pgx.StrictNamedArgs{
-			"viagem_id": viagem.ID,
-			"tipo":      TipoHorarioPartidaPrevista,
-			"horario":   input.PartidaPrevista,
-		}); err != nil {
-			return fmt.Errorf("insert partida prevista: %w", err)
-		}
+			if _, err := tx.Exec(ctx, horarioQ, pgx.StrictNamedArgs{
+				"viagem_id": viagem.ID,
+				"tipo":      TipoHorarioPartidaPrevista,
+				"horario":   input.PartidaPrevista,
+			}); err != nil {
+				return fmt.Errorf("insert partida prevista: %w", err)
+			}
 
-		return nil
+			return nil
+		})
+		return &viagem, err
+	}, func(err error) bool {
+		return db.IsUniqueViolation(err, "viagens_public_id_key")
 	})
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
-
-	return &viagem, nil
+	return viagem, nil
 }
 
 func (s *viagemStore) GetViagemByID(ctx context.Context, viagemID int64) (*ViagemComCiclo, error) {
@@ -95,9 +100,9 @@ const (
 // listViagensColumns e a projecao compartilhada entre a listagem paginada e as
 // "proximas viagens" do resumo, para as duas devolverem exatamente a mesma forma.
 const listViagensColumns = `
-	v.id, v.ciclo_viagem_id, v.sentido, v.status, v.created_at, v.updated_at,
+	v.id, v.public_id, v.ciclo_viagem_id, v.sentido, v.status, v.created_at, v.updated_at,
 	c.id, c.data_viagem, c.turno, c.municipio_destino_id, c.rota_interna_id,
-	c.veiculo_id, c.motorista_id, c.status, c.expires_at, c.created_at, c.updated_at,
+	c.veiculo_id, c.motorista_id, mot.public_id, c.status, c.expires_at, c.created_at, c.updated_at,
 	m.nome, ve.placa
 `
 
@@ -106,6 +111,7 @@ const listViagensFrom = `
 	JOIN ciclos_viagem c ON c.id = v.ciclo_viagem_id
 	JOIN municipios m ON m.codigo_ibge = c.municipio_destino_id
 	JOIN veiculos ve ON ve.id = c.veiculo_id
+	JOIN motoristas mot ON mot.id = c.motorista_id
 `
 
 func (s *viagemStore) ListViagens(ctx context.Context, params ViagemListParams) (ViagemListResult, error) {
@@ -284,7 +290,7 @@ func (s *viagemStore) ListViagensByCiclo(ctx context.Context, cicloID int64) ([]
 
 	const q = `
 		SELECT
-			id, ciclo_viagem_id, sentido, status, created_at, updated_at
+			id, public_id, ciclo_viagem_id, sentido, status, created_at, updated_at
 		FROM viagens
 		WHERE ciclo_viagem_id = @ciclo_viagem_id
 		ORDER BY sentido ASC, id ASC
@@ -310,10 +316,11 @@ func (s *viagemStore) ListHorariosByViagem(ctx context.Context, viagemID int64) 
 	const op = "db/viagemStore.ListHorariosByViagem"
 
 	const q = `
-		SELECT id, viagem_id, tipo, horario, created_at, updated_at
-		FROM viagem_horarios
-		WHERE viagem_id = @viagem_id
-		ORDER BY created_at ASC, id ASC
+		SELECT h.id, h.viagem_id, v.public_id, h.tipo, h.horario, h.created_at, h.updated_at
+		FROM viagem_horarios h
+		JOIN viagens v ON v.id = h.viagem_id
+		WHERE h.viagem_id = @viagem_id
+		ORDER BY h.created_at ASC, h.id ASC
 	`
 
 	rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{"viagem_id": viagemID})
@@ -353,12 +360,15 @@ func (s *viagemStore) RegistrarHorarioViagem(ctx context.Context, viagemID int64
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	viagemHorario, err := pgx.CollectExactlyOneRow(rows, scanViagemHorario)
+	viagemHorario, err := pgx.CollectExactlyOneRow(rows, scanViagemHorarioInternal)
 	if err != nil {
 		if isHorarioViagemAlreadyRegistered(err) {
 			return nil, fmt.Errorf("%s: %w", op, brerror.ErrAlreadyExists)
 		}
 		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	if err := s.db.QueryRow(ctx, `SELECT public_id FROM viagens WHERE id = $1`, viagemID).Scan(&viagemHorario.ViagemPublicID); err != nil {
+		return nil, fmt.Errorf("%s: resolve viagem public id: %w", op, err)
 	}
 
 	return &viagemHorario, nil
@@ -385,7 +395,7 @@ func (s *viagemStore) AtualizarStatusERegistrarHorarioViagem(ctx context.Context
 			UPDATE viagens
 			SET status = @status
 			WHERE id = @id
-			RETURNING id, ciclo_viagem_id, sentido, status, created_at, updated_at
+			RETURNING id, public_id, ciclo_viagem_id, sentido, status, created_at, updated_at
 		`
 
 		rows, err := tx.Query(ctx, updateQ, pgx.StrictNamedArgs{
@@ -453,7 +463,7 @@ func (s *viagemStore) UpdateViagem(ctx context.Context, viagemID int64, updateFu
 			UPDATE viagens
 			SET status = @status
 			WHERE id = @id
-			RETURNING id, ciclo_viagem_id, sentido, status, created_at, updated_at
+			RETURNING id, public_id, ciclo_viagem_id, sentido, status, created_at, updated_at
 		`
 
 		rows, err := tx.Query(ctx, q, pgx.StrictNamedArgs{
@@ -483,7 +493,7 @@ func getViagemByID(ctx context.Context, querier interface {
 }, viagemID int64, forUpdate bool) (*Viagem, error) {
 	q := `
 		SELECT
-			id, ciclo_viagem_id, sentido, status, created_at, updated_at
+			id, public_id, ciclo_viagem_id, sentido, status, created_at, updated_at
 		FROM viagens
 		WHERE id = @id
 	`
@@ -509,11 +519,12 @@ func getViagemComCicloByID(ctx context.Context, querier interface {
 }, viagemID int64) (*ViagemComCiclo, error) {
 	const q = `
 		SELECT
-			v.id, v.ciclo_viagem_id, v.sentido, v.status, v.created_at, v.updated_at,
+			v.id, v.public_id, v.ciclo_viagem_id, v.sentido, v.status, v.created_at, v.updated_at,
 			c.id, c.data_viagem, c.turno, c.municipio_destino_id, c.rota_interna_id,
-			c.veiculo_id, c.motorista_id, c.status, c.expires_at, c.created_at, c.updated_at
+			c.veiculo_id, c.motorista_id, m.public_id, c.status, c.expires_at, c.created_at, c.updated_at
 		FROM viagens v
 		JOIN ciclos_viagem c ON c.id = v.ciclo_viagem_id
+		JOIN motoristas m ON m.id = c.motorista_id
 		WHERE v.id = @id
 	`
 
@@ -534,6 +545,7 @@ func scanViagem(row pgx.CollectableRow) (Viagem, error) {
 	var viagem Viagem
 	err := row.Scan(
 		&viagem.ID,
+		&viagem.PublicID,
 		&viagem.CicloViagemID,
 		&viagem.Sentido,
 		&viagem.Status,
@@ -544,6 +556,20 @@ func scanViagem(row pgx.CollectableRow) (Viagem, error) {
 }
 
 func scanViagemHorario(row pgx.CollectableRow) (ViagemHorario, error) {
+	var horario ViagemHorario
+	err := row.Scan(
+		&horario.ID,
+		&horario.ViagemID,
+		&horario.ViagemPublicID,
+		&horario.Tipo,
+		&horario.Horario,
+		&horario.CreatedAt,
+		&horario.UpdatedAt,
+	)
+	return horario, err
+}
+
+func scanViagemHorarioInternal(row pgx.CollectableRow) (ViagemHorario, error) {
 	var horario ViagemHorario
 	err := row.Scan(
 		&horario.ID,
@@ -560,6 +586,7 @@ func scanViagemComCiclo(row pgx.CollectableRow) (ViagemComCiclo, error) {
 	var data ViagemComCiclo
 	err := row.Scan(
 		&data.Viagem.ID,
+		&data.Viagem.PublicID,
 		&data.Viagem.CicloViagemID,
 		&data.Viagem.Sentido,
 		&data.Viagem.Status,
@@ -572,6 +599,7 @@ func scanViagemComCiclo(row pgx.CollectableRow) (ViagemComCiclo, error) {
 		&data.Ciclo.RotaInternaID,
 		&data.Ciclo.VeiculoID,
 		&data.Ciclo.MotoristaID,
+		&data.Ciclo.MotoristaPublicID,
 		&data.Ciclo.Status,
 		&data.Ciclo.ExpiresAt,
 		&data.Ciclo.CreatedAt,
@@ -584,6 +612,7 @@ func scanViagemComCicloENomes(row pgx.CollectableRow) (ViagemComCicloENomes, err
 	var item ViagemComCicloENomes
 	err := row.Scan(
 		&item.Viagem.ID,
+		&item.Viagem.PublicID,
 		&item.Viagem.CicloViagemID,
 		&item.Viagem.Sentido,
 		&item.Viagem.Status,
@@ -596,6 +625,7 @@ func scanViagemComCicloENomes(row pgx.CollectableRow) (ViagemComCicloENomes, err
 		&item.Ciclo.RotaInternaID,
 		&item.Ciclo.VeiculoID,
 		&item.Ciclo.MotoristaID,
+		&item.Ciclo.MotoristaPublicID,
 		&item.Ciclo.Status,
 		&item.Ciclo.ExpiresAt,
 		&item.Ciclo.CreatedAt,

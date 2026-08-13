@@ -23,9 +23,10 @@ func ValidarSenha(senha string) error {
 }
 
 type Admin struct {
-	ID    int64  `json:"id"`
-	Email string `json:"email"`
-	Senha string `json:"-"`
+	ID       int64  `json:"-"`
+	PublicID string `json:"id"`
+	Email    string `json:"email"`
+	Senha    string `json:"-"`
 }
 
 type AdminInput struct {

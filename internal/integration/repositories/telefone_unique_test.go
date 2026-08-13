@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/fredsaggio/bondrota-api/internal/db"
+	"github.com/fredsaggio/bondrota-api/internal/publicid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -14,20 +15,20 @@ func TestTelefoneUnicoEntreClientesEMotoristas(t *testing.T) {
 
 	_, err := tx.Exec(ctx, `
 		INSERT INTO motoristas (
-			nome, cpf, senha, telefone, data_nasc, turno, municipio_trabalho_id
-		) VALUES ('Motorista Telefone', '30000000001', 'hash', '82999995555', '1985-05-20', 'MT', $1)`,
-		testMunicipioID,
+			public_id, nome, cpf, senha, telefone, data_nasc, turno, municipio_trabalho_id
+		) VALUES ($1, 'Motorista Telefone', '30000000001', 'hash', '82999995555', '1985-05-20', 'MT', $2)`,
+		newPublicID(t, publicid.Motorista), testMunicipioID,
 	)
 	require.NoError(t, err)
 
 	_, err = tx.Exec(ctx, `
 		INSERT INTO clientes (
-			nome, cpf, senha, telefone, data_nasc,
+			public_id, nome, cpf, senha, telefone, data_nasc,
 			documento_identificacao, comprovante_residencia
 		) VALUES (
-			'Cliente Telefone', '40000000001', 'hash', '82999995555', '2002-08-10',
+			$1, 'Cliente Telefone', '40000000001', 'hash', '82999995555', '2002-08-10',
 			'identidade.pdf', 'residencia.pdf'
-		)`)
+		)`, newPublicID(t, publicid.Cliente))
 	require.Error(t, err)
 	require.True(t, db.IsUniqueViolation(err, "telefones_cadastrados_pkey"), "%v", err)
 }
@@ -37,18 +38,18 @@ func TestTelefoneUnicoNaMesmaEntidade(t *testing.T) {
 
 	_, err := tx.Exec(ctx, `
 		INSERT INTO clientes (
-			nome, cpf, senha, telefone, data_nasc,
+			public_id, nome, cpf, senha, telefone, data_nasc,
 			documento_identificacao, comprovante_residencia
 		) VALUES
-			('Cliente Um', '40000000002', 'hash', '82999996666', '2002-08-10', 'id-1.pdf', 'res-1.pdf')`)
+			($1, 'Cliente Um', '40000000002', 'hash', '82999996666', '2002-08-10', 'id-1.pdf', 'res-1.pdf')`, newPublicID(t, publicid.Cliente))
 	require.NoError(t, err)
 
 	_, err = tx.Exec(ctx, `
 		INSERT INTO clientes (
-			nome, cpf, senha, telefone, data_nasc,
+			public_id, nome, cpf, senha, telefone, data_nasc,
 			documento_identificacao, comprovante_residencia
 		) VALUES
-			('Cliente Dois', '40000000003', 'hash', '82999996666', '2002-08-10', 'id-2.pdf', 'res-2.pdf')`)
+			($1, 'Cliente Dois', '40000000003', 'hash', '82999996666', '2002-08-10', 'id-2.pdf', 'res-2.pdf')`, newPublicID(t, publicid.Cliente))
 	require.Error(t, err)
 	require.True(t, db.IsUniqueViolation(err, "telefones_cadastrados_pkey"), "%v", err)
 }
@@ -58,11 +59,12 @@ func TestTelefoneVazioPodeSeRepetir(t *testing.T) {
 
 	_, err := tx.Exec(ctx, `
 		INSERT INTO clientes (
-			nome, cpf, senha, telefone, data_nasc,
+			public_id, nome, cpf, senha, telefone, data_nasc,
 			documento_identificacao, comprovante_residencia
 		) VALUES
-			('Sem Telefone Um', '40000000004', 'hash', '', '2002-08-10', 'id-1.pdf', 'res-1.pdf'),
-			('Sem Telefone Dois', '40000000005', 'hash', '', '2002-08-10', 'id-2.pdf', 'res-2.pdf')`)
+			($1, 'Sem Telefone Um', '40000000004', 'hash', '', '2002-08-10', 'id-1.pdf', 'res-1.pdf'),
+			($2, 'Sem Telefone Dois', '40000000005', 'hash', '', '2002-08-10', 'id-2.pdf', 'res-2.pdf')`,
+		newPublicID(t, publicid.Cliente), newPublicID(t, publicid.Cliente))
 	require.NoError(t, err)
 }
 
@@ -71,11 +73,12 @@ func TestTelefoneDuplicadoEmUpdate(t *testing.T) {
 
 	_, err := tx.Exec(ctx, `
 		INSERT INTO clientes (
-			nome, cpf, senha, telefone, data_nasc,
+			public_id, nome, cpf, senha, telefone, data_nasc,
 			documento_identificacao, comprovante_residencia
 		) VALUES
-			('Cliente Update Um', '40000000006', 'hash', '82999997771', '2002-08-10', 'id-1.pdf', 'res-1.pdf'),
-			('Cliente Update Dois', '40000000007', 'hash', '82999997772', '2002-08-10', 'id-2.pdf', 'res-2.pdf')`)
+			($1, 'Cliente Update Um', '40000000006', 'hash', '82999997771', '2002-08-10', 'id-1.pdf', 'res-1.pdf'),
+			($2, 'Cliente Update Dois', '40000000007', 'hash', '82999997772', '2002-08-10', 'id-2.pdf', 'res-2.pdf')`,
+		newPublicID(t, publicid.Cliente), newPublicID(t, publicid.Cliente))
 	require.NoError(t, err)
 
 	_, err = tx.Exec(ctx, `

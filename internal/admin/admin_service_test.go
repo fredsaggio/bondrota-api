@@ -65,7 +65,7 @@ func TestAdminService_Login(t *testing.T) {
 			password: "secret",
 			setup: func(st *mocks.MockAdminStore) {
 				st.EXPECT().GetByEmail(mock.Anything, "admin@bondrota.com").
-					Return(&admin.Admin{ID: 1, Email: "admin@bondrota.com", Senha: "hashed:secret"}, nil)
+					Return(&admin.Admin{ID: 1, PublicID: "adm_012345678901234567890", Email: "admin@bondrota.com", Senha: "hashed:secret"}, nil)
 			},
 			hasher:    okHasher(),
 			wantToken: true,
@@ -76,7 +76,7 @@ func TestAdminService_Login(t *testing.T) {
 			password: "wrong",
 			setup: func(st *mocks.MockAdminStore) {
 				st.EXPECT().GetByEmail(mock.Anything, "admin@bondrota.com").
-					Return(&admin.Admin{ID: 1, Senha: "hashed:secret"}, nil)
+					Return(&admin.Admin{ID: 1, PublicID: "adm_012345678901234567890", Senha: "hashed:secret"}, nil)
 			},
 			hasher:  okHasher(),
 			wantErr: auth.ErrInvalidCredentials,
@@ -382,7 +382,7 @@ func TestAdminService_ChangePassword(t *testing.T) {
 		store := mocks.NewMockAdminStore(t)
 		store.EXPECT().Update(mock.Anything, int64(7), mock.Anything).
 			RunAndReturn(func(_ context.Context, _ int64, fn func(*admin.Admin) (bool, error)) (*admin.Admin, error) {
-				a := &admin.Admin{ID: 7, Email: "a@b.com", Senha: "hashed:" + senhaAtual}
+				a := &admin.Admin{ID: 7, PublicID: "adm_012345678901234567890", Email: "a@b.com", Senha: "hashed:" + senhaAtual}
 				updated, err := fn(a)
 				assert.NoError(t, err)
 				assert.True(t, updated)
@@ -398,7 +398,7 @@ func TestAdminService_ChangePassword(t *testing.T) {
 
 		claims, err := authSvc.ValidateToken(token)
 		assert.NoError(t, err)
-		assert.Equal(t, int64(7), claims.UserID)
+		assert.Equal(t, "adm_012345678901234567890", claims.Subject)
 		assert.Equal(t, auth.RoleAdmin, claims.Role)
 	})
 

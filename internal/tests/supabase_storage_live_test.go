@@ -2,6 +2,7 @@ package tests
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/fredsaggio/bondrota-api/internal/auth"
 	"github.com/fredsaggio/bondrota-api/internal/crypto"
+	"github.com/fredsaggio/bondrota-api/internal/publicid"
 	"github.com/fredsaggio/bondrota-api/internal/storage"
 	"github.com/go-chi/chi/v5"
 )
@@ -33,7 +35,7 @@ func TestLiveSupabaseStorageSignedUploadDownload(t *testing.T) {
 		ServiceKey: serviceKey,
 	})
 
-	clienteID := int64(777777)
+	clienteID := "cli_012345678901234567890"
 	clienteToken, err := authSvc.GenerateToken(clienteID, auth.RoleCliente)
 	if err != nil {
 		t.Fatalf("generate cliente token: %v", err)
@@ -50,14 +52,14 @@ func TestLiveSupabaseStorageSignedUploadDownload(t *testing.T) {
 		{
 			name:        "foto",
 			bucket:      storage.BucketFotos,
-			path:        fmt.Sprintf("clientes/%d/e2e/live-%d.png", clienteID, suffix),
+			path:        fmt.Sprintf("clientes/%s/e2e/live-%d.png", clienteID, suffix),
 			contentType: "image/png",
 			payload:     []byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a},
 		},
 		{
 			name:        "documento",
 			bucket:      storage.BucketDocumentos,
-			path:        fmt.Sprintf("clientes/%d/e2e/live-%d.pdf", clienteID, suffix),
+			path:        fmt.Sprintf("clientes/%s/e2e/live-%d.pdf", clienteID, suffix),
 			contentType: "application/pdf",
 			payload:     []byte("%PDF-1.4\n% bondrota e2e\n"),
 		},
@@ -125,6 +127,7 @@ func TestLiveSupabaseStorageSignedUploadDownload(t *testing.T) {
 }
 
 func newLiveStorageRouter(authSvc *auth.AuthService, config storage.SupabaseConfig) http.Handler {
+	authSvc.SetIdentityResolver(liveStorageIdentityResolver{})
 	storageHandler := storage.NewHandler(storage.NewService(storage.NewSupabaseClient(config, &http.Client{
 		Timeout: 30 * time.Second,
 	})))
@@ -137,4 +140,10 @@ func newLiveStorageRouter(authSvc *auth.AuthService, config storage.SupabaseConf
 		r.Post("/signed-download-url", storageHandler.CreateSignedDownloadURL)
 	})
 	return r
+}
+
+type liveStorageIdentityResolver struct{}
+
+func (liveStorageIdentityResolver) Resolve(_ context.Context, _ publicid.Prefix, _ string) (int64, error) {
+	return 777777, nil
 }

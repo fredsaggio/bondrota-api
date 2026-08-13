@@ -72,7 +72,7 @@ func TestMotoristaService_Login(t *testing.T) {
 			senha: "plain",
 			setup: func(st *mocks.MockMotoristaStore) {
 				st.EXPECT().GetByCPF(mock.Anything, "123.456.789-00").
-					Return(&motoristas.Motorista{ID: 1, CPF: "123.456.789-00", Senha: "hashed:plain"}, nil)
+					Return(&motoristas.Motorista{ID: 1, PublicID: "mot_012345678901234567890", CPF: "123.456.789-00", Senha: "hashed:plain"}, nil)
 			},
 			hasher:    okHasher(),
 			wantToken: true,
@@ -83,7 +83,7 @@ func TestMotoristaService_Login(t *testing.T) {
 			senha: "wrong",
 			setup: func(st *mocks.MockMotoristaStore) {
 				st.EXPECT().GetByCPF(mock.Anything, "123.456.789-00").
-					Return(&motoristas.Motorista{ID: 1, Senha: "hashed:plain"}, nil)
+					Return(&motoristas.Motorista{ID: 1, PublicID: "mot_012345678901234567890", Senha: "hashed:plain"}, nil)
 			},
 			hasher:  okHasher(),
 			wantErr: auth.ErrInvalidCredentials,

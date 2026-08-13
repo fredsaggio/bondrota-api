@@ -56,11 +56,11 @@ type CreateAdminRequest struct {
 }
 
 type CreateAdminResponse struct {
-	ID int64 `json:"id"`
+	ID string `json:"id"`
 }
 
 type AdminResponse struct {
-	ID    int64  `json:"id"`
+	ID    string `json:"id"`
 	Email string `json:"email"`
 }
 
@@ -74,7 +74,7 @@ type LoginRequest struct {
 }
 
 type SessionResponse struct {
-	UserID    int64  `json:"user_id"`
+	UserID    string `json:"user_id"`
 	Role      string `json:"role"`
 	ExpiresAt int64  `json:"expires_at"`
 }
@@ -161,7 +161,7 @@ func (h *AdminHandler) Session(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httputils.Respond(w, http.StatusOK, SessionResponse{
-		UserID:    claims.UserID,
+		UserID:    claims.Subject,
 		Role:      claims.Role,
 		ExpiresAt: claims.ExpiresAt.Time.UnixMilli(),
 	})
@@ -212,7 +212,7 @@ func (h *AdminHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httputils.Respond(w, http.StatusCreated, CreateAdminResponse{ID: admin.ID})
+	httputils.Respond(w, http.StatusCreated, CreateAdminResponse{ID: admin.PublicID})
 }
 
 func (h *AdminHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -242,7 +242,7 @@ func (h *AdminHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httputils.Respond(w, http.StatusOK, AdminResponse{
-		ID:    admin.ID,
+		ID:    admin.PublicID,
 		Email: admin.Email,
 	})
 }
@@ -267,7 +267,7 @@ func (h *AdminHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httputils.Respond(w, http.StatusOK, AdminResponse{
-		ID:    admin.ID,
+		ID:    admin.PublicID,
 		Email: admin.Email,
 	})
 }
@@ -307,7 +307,7 @@ func (h *AdminHandler) List(w http.ResponseWriter, r *http.Request) {
 	resp := make([]AdminResponse, 0, len(admins))
 	for _, a := range admins {
 		resp = append(resp, AdminResponse{
-			ID:    a.ID,
+			ID:    a.PublicID,
 			Email: a.Email,
 		})
 	}

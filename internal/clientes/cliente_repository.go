@@ -10,6 +10,7 @@ import (
 	"unicode"
 
 	"github.com/fredsaggio/bondrota-api/internal/db"
+	"github.com/fredsaggio/bondrota-api/internal/publicid"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -37,37 +38,39 @@ func (s *clienteStore) Create(ctx context.Context, input ClienteInput) (*Cliente
 
 	const q = `
 		INSERT INTO clientes (
-			nome, cpf, senha, telefone, data_nasc,
+			public_id, nome, cpf, senha, telefone, data_nasc,
 			documento_identificacao, comprovante_residencia
 		)
 		VALUES (
-			@nome, @cpf, @senha, @telefone, @data_nasc,
+			@public_id, @nome, @cpf, @senha, @telefone, @data_nasc,
 			@documento_identificacao, @comprovante_residencia
 		)
-		RETURNING id, nome, cpf, telefone, data_nasc,
+		RETURNING id, public_id, nome, cpf, telefone, data_nasc,
 			documento_identificacao, comprovante_residencia
 	`
-	args := pgx.StrictNamedArgs{
-		"nome":                    input.Nome,
-		"cpf":                     input.CPF,
-		"senha":                   input.Senha,
-		"telefone":                input.Telefone,
-		"data_nasc":               input.DataNasc,
-		"documento_identificacao": input.DocumentoIdentificacao,
-		"comprovante_residencia":  input.ComprovanteResidencia,
-	}
-
-	rows, err := s.db.Query(ctx, q, args)
+	cliente, err := publicid.Insert(publicid.Cliente, func(publicID string) (*Cliente, error) {
+		rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{
+			"public_id":               publicID,
+			"nome":                    input.Nome,
+			"cpf":                     input.CPF,
+			"senha":                   input.Senha,
+			"telefone":                input.Telefone,
+			"data_nasc":               input.DataNasc,
+			"documento_identificacao": input.DocumentoIdentificacao,
+			"comprovante_residencia":  input.ComprovanteResidencia,
+		})
+		if err != nil {
+			return nil, err
+		}
+		created, err := pgx.CollectExactlyOneRow(rows, scanCliente)
+		return &created, err
+	}, func(err error) bool {
+		return db.IsUniqueViolation(err, "clientes_public_id_key")
+	})
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
-
-	c, err := pgx.CollectExactlyOneRow(rows, scanCliente)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
-
-	return &c, nil
+	return cliente, nil
 }
 
 func (s *clienteStore) GetByID(ctx context.Context, clienteID int64) (*ClienteComVinculos, error) {
@@ -75,9 +78,9 @@ func (s *clienteStore) GetByID(ctx context.Context, clienteID int64) (*ClienteCo
 
 	const q = `
 		SELECT
-			c.id, c.nome, c.cpf, c.telefone, c.data_nasc,
+			c.id, c.public_id, c.nome, c.cpf, c.telefone, c.data_nasc,
 			c.documento_identificacao, c.comprovante_residencia,
-			v.id, v.cliente_id, v.tipo, v.turno, v.destino_id, v.rota_interna_id,
+			v.id, v.public_id, v.cliente_id, c.public_id, v.tipo, v.turno, v.destino_id, v.rota_interna_id,
 			v.curso, v.comprovante, v.validade,
 			h.id, h.vinculo_id, h.dia_semana
 		FROM clientes c
@@ -107,7 +110,7 @@ func (s *clienteStore) GetByCPF(ctx context.Context, cpf string) (*Cliente, erro
 	const op = "db/clienteStore.GetByCPF"
 
 	const q = `
-		SELECT id, nome, cpf, senha, telefone, data_nasc,
+		SELECT id, public_id, nome, cpf, senha, telefone, data_nasc,
 			documento_identificacao, comprovante_residencia
 		FROM clientes
 		WHERE cpf = @cpf
@@ -156,7 +159,7 @@ func (s *clienteStore) List(ctx context.Context, params ClienteListParams) (Clie
 	}
 
 	const q = `
-		SELECT id, nome, cpf, telefone, data_nasc,
+		SELECT id, public_id, nome, cpf, telefone, data_nasc,
 			documento_identificacao, comprovante_residencia
 		FROM clientes
 		WHERE (@cursor_id = 0 OR id < @cursor_id)
@@ -209,7 +212,7 @@ func (s *clienteStore) Update(ctx context.Context, clienteID int64, updateFunc f
 
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		const selectQ = `
-			SELECT id, nome, cpf, telefone, data_nasc,
+			SELECT id, public_id, nome, cpf, telefone, data_nasc,
 				documento_identificacao, comprovante_residencia
 			FROM clientes
 			WHERE id = @id
@@ -293,6 +296,7 @@ func collectClienteComVinculos(rows pgx.Rows) (*ClienteComVinculos, error) {
 	for rows.Next() {
 		var (
 			cID                     int64
+			cPublicID               string
 			cNome                   string
 			cCPF                    string
 			cTelefone               string
@@ -300,7 +304,9 @@ func collectClienteComVinculos(rows pgx.Rows) (*ClienteComVinculos, error) {
 			cDocumentoIdentificacao string
 			cComprovanteResidencia  string
 			vID                     *int64
+			vPublicID               *string
 			vClienteID              *int64
+			vClientePublicID        *string
 			vTipo                   *TipoConta
 			vTurno                  *TurnoCliente
 			vDestinoID              *int64
@@ -314,9 +320,9 @@ func collectClienteComVinculos(rows pgx.Rows) (*ClienteComVinculos, error) {
 		)
 
 		if err := rows.Scan(
-			&cID, &cNome, &cCPF, &cTelefone, &cDataNasc,
+			&cID, &cPublicID, &cNome, &cCPF, &cTelefone, &cDataNasc,
 			&cDocumentoIdentificacao, &cComprovanteResidencia,
-			&vID, &vClienteID, &vTipo, &vTurno, &vDestinoID, &vRotaID,
+			&vID, &vPublicID, &vClienteID, &vClientePublicID, &vTipo, &vTurno, &vDestinoID, &vRotaID,
 			&vCurso, &vComp, &vValidade,
 			&hID, &hVinculoID, &hDia,
 		); err != nil {
@@ -327,6 +333,7 @@ func collectClienteComVinculos(rows pgx.Rows) (*ClienteComVinculos, error) {
 			result = &ClienteComVinculos{
 				Cliente: Cliente{
 					ID:                     cID,
+					PublicID:               cPublicID,
 					Nome:                   cNome,
 					CPF:                    cCPF,
 					Telefone:               cTelefone,
@@ -341,16 +348,18 @@ func collectClienteComVinculos(rows pgx.Rows) (*ClienteComVinculos, error) {
 		if vID != nil {
 			if _, ok := vinculoIndex[*vID]; !ok {
 				result.Vinculos = append(result.Vinculos, Vinculo{
-					ID:            *vID,
-					ClienteID:     *vClienteID,
-					Tipo:          *vTipo,
-					Turno:         *vTurno,
-					DestinoID:     *vDestinoID,
-					RotaInternaID: *vRotaID,
-					Curso:         *vCurso,
-					Comprovante:   *vComp,
-					Validade:      *vValidade,
-					HorariosFixos: []HorarioFixo{},
+					ID:              *vID,
+					PublicID:        *vPublicID,
+					ClienteID:       *vClienteID,
+					ClientePublicID: *vClientePublicID,
+					Tipo:            *vTipo,
+					Turno:           *vTurno,
+					DestinoID:       *vDestinoID,
+					RotaInternaID:   *vRotaID,
+					Curso:           *vCurso,
+					Comprovante:     *vComp,
+					Validade:        *vValidade,
+					HorariosFixos:   []HorarioFixo{},
 				})
 				vinculoIndex[*vID] = len(result.Vinculos) - 1
 			}
@@ -372,7 +381,7 @@ func collectClienteComVinculos(rows pgx.Rows) (*ClienteComVinculos, error) {
 func scanCliente(row pgx.CollectableRow) (Cliente, error) {
 	var c Cliente
 	err := row.Scan(
-		&c.ID, &c.Nome, &c.CPF, &c.Telefone, &c.DataNasc,
+		&c.ID, &c.PublicID, &c.Nome, &c.CPF, &c.Telefone, &c.DataNasc,
 		&c.DocumentoIdentificacao, &c.ComprovanteResidencia,
 	)
 	return c, err
@@ -381,7 +390,7 @@ func scanCliente(row pgx.CollectableRow) (Cliente, error) {
 func scanClienteComSenha(row pgx.CollectableRow) (Cliente, error) {
 	var c Cliente
 	err := row.Scan(
-		&c.ID, &c.Nome, &c.CPF, &c.Senha, &c.Telefone, &c.DataNasc,
+		&c.ID, &c.PublicID, &c.Nome, &c.CPF, &c.Senha, &c.Telefone, &c.DataNasc,
 		&c.DocumentoIdentificacao, &c.ComprovanteResidencia,
 	)
 	return c, err

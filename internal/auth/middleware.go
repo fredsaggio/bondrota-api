@@ -2,11 +2,11 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/fredsaggio/bondrota-api/internal/publicid"
 )
 
 type contextKey string
@@ -53,11 +53,40 @@ func (s *AuthService) AuthenticateWithCookie(cookieName string) func(http.Handle
 				http.Error(w, "Sua sessão expirou. Entre novamente.", http.StatusUnauthorized)
 				return
 			}
+			if err := s.resolveIdentity(r.Context(), claims); err != nil {
+				http.Error(w, "Sua sessão expirou. Entre novamente.", http.StatusUnauthorized)
+				return
+			}
 
 			ctx := context.WithValue(r.Context(), ClaimsKey, claims)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+func (s *AuthService) resolveIdentity(ctx context.Context, claims *Claims) error {
+	if s.identityResolver == nil || claims == nil {
+		return errors.New("identity resolver is not configured")
+	}
+
+	var prefix publicid.Prefix
+	switch claims.Role {
+	case RoleAdmin:
+		prefix = publicid.Admin
+	case RoleCliente:
+		prefix = publicid.Cliente
+	case RoleMotorista:
+		prefix = publicid.Motorista
+	default:
+		return errors.New("unsupported identity role")
+	}
+
+	id, err := s.identityResolver.Resolve(ctx, prefix, claims.Subject)
+	if err != nil {
+		return err
+	}
+	claims.UserID = id
+	return nil
 }
 
 func (s *AuthService) RequireRole(roles ...string) func(http.Handler) http.Handler {
@@ -91,9 +120,9 @@ func RequireUserIDOrRole(idParam, ownerRole string, bypassRoles ...string) func(
 				return
 			}
 
-			resourceID, err := strconv.ParseInt(chi.URLParam(r, idParam), 10, 64)
-			if err != nil || resourceID <= 0 {
-				http.Error(w, "Registro não encontrado.", http.StatusBadRequest)
+			resourceID, ok := publicid.ResolvedParam(r.Context(), idParam)
+			if !ok {
+				http.Error(w, "Registro não encontrado.", http.StatusNotFound)
 				return
 			}
 			if resourceID != claims.UserID {

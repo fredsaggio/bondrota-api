@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/fredsaggio/bondrota-api/internal/db"
+	"github.com/fredsaggio/bondrota-api/internal/publicid"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -24,43 +25,51 @@ func (s *reservaStore) Create(ctx context.Context, input ReservaInput) (*Reserva
 
 	const q = `
 		INSERT INTO reservas (
-			cliente_id, vinculo_id, data_viagem, turno, destino_id, rota_interna_id, sentido
+			public_id, cliente_id, vinculo_id, data_viagem, turno, destino_id, rota_interna_id, sentido
 		)
 		VALUES (
-			@cliente_id, @vinculo_id, @data_viagem, @turno, @destino_id, @rota_interna_id, @sentido
+			@public_id, @cliente_id, @vinculo_id, @data_viagem, @turno, @destino_id, @rota_interna_id, @sentido
 		)
 		RETURNING
-			id, cliente_id, vinculo_id, data_viagem, turno, destino_id, rota_interna_id,
+			id, public_id, cliente_id, vinculo_id, data_viagem, turno, destino_id, rota_interna_id,
 			sentido, status, created_at, updated_at
 	`
 
-	var reserva Reserva
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if err := bloquearSePlanejamentoIniciado(ctx, tx, input.DataViagem, input.Turno, input.DestinoID, input.RotaInternaID, input.Sentido); err != nil {
-			return err
-		}
+	reserva, err := publicid.Insert(publicid.Reserva, func(publicID string) (*Reserva, error) {
+		var reserva Reserva
+		err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+			if err := bloquearSePlanejamentoIniciado(ctx, tx, input.DataViagem, input.Turno, input.DestinoID, input.RotaInternaID, input.Sentido); err != nil {
+				return err
+			}
 
-		rows, err := tx.Query(ctx, q, pgx.StrictNamedArgs{
-			"cliente_id":      input.ClienteID,
-			"vinculo_id":      input.VinculoID,
-			"data_viagem":     input.DataViagem,
-			"turno":           input.Turno,
-			"destino_id":      input.DestinoID,
-			"rota_interna_id": input.RotaInternaID,
-			"sentido":         input.Sentido,
+			rows, err := tx.Query(ctx, q, pgx.StrictNamedArgs{
+				"public_id":       publicID,
+				"cliente_id":      input.ClienteID,
+				"vinculo_id":      input.VinculoID,
+				"data_viagem":     input.DataViagem,
+				"turno":           input.Turno,
+				"destino_id":      input.DestinoID,
+				"rota_interna_id": input.RotaInternaID,
+				"sentido":         input.Sentido,
+			})
+			if err != nil {
+				return err
+			}
+
+			reserva, err = pgx.CollectExactlyOneRow(rows, scanReserva)
+			if err != nil {
+				return err
+			}
+			return hydrateReservaPublicIDs(ctx, tx, &reserva)
 		})
-		if err != nil {
-			return err
-		}
-
-		reserva, err = pgx.CollectExactlyOneRow(rows, scanReserva)
-		return err
+		return &reserva, err
+	}, func(err error) bool {
+		return db.IsUniqueViolation(err, "reservas_public_id_key")
 	})
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
-
-	return &reserva, nil
+	return reserva, nil
 }
 
 func (s *reservaStore) GetByID(ctx context.Context, reservaID int64) (*Reserva, error) {
@@ -143,11 +152,12 @@ func (s *reservaStore) List(ctx context.Context, params ReservaListParams) (Rese
 	// (data_inicio/data_fim) e o unico jeito de restringir por data.
 	const q = `
 		SELECT
-			r.id, r.cliente_id, r.vinculo_id, r.data_viagem, r.turno, r.destino_id,
+			r.id, r.public_id, r.cliente_id, c.public_id, r.vinculo_id, v.public_id, r.data_viagem, r.turno, r.destino_id,
 			r.rota_interna_id, r.sentido, r.status, r.created_at, r.updated_at,
 			c.nome, d.nome
 		FROM reservas r
 		JOIN clientes c ON c.id = r.cliente_id
+		JOIN cliente_vinculos v ON v.id = r.vinculo_id
 		JOIN destinos d ON d.id = r.destino_id
 		WHERE (@data_inicio::DATE IS NULL OR r.data_viagem >= @data_inicio)
 		  AND (@data_fim::DATE IS NULL OR r.data_viagem <= @data_fim)
@@ -233,11 +243,14 @@ func (s *reservaStore) ListByCliente(ctx context.Context, clienteID int64) ([]Re
 
 	const q = `
 		SELECT
-			id, cliente_id, vinculo_id, data_viagem, turno, destino_id, rota_interna_id,
-			sentido, status, created_at, updated_at
-		FROM reservas
-		WHERE cliente_id = @cliente_id
-		ORDER BY data_viagem DESC, id DESC
+			r.id, r.public_id, r.cliente_id, c.public_id, r.vinculo_id, v.public_id,
+			r.data_viagem, r.turno, r.destino_id, r.rota_interna_id,
+			r.sentido, r.status, r.created_at, r.updated_at
+		FROM reservas r
+		JOIN clientes c ON c.id = r.cliente_id
+		JOIN cliente_vinculos v ON v.id = r.vinculo_id
+		WHERE r.cliente_id = @cliente_id
+		ORDER BY r.data_viagem DESC, r.id DESC
 	`
 
 	rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{"cliente_id": clienteID})
@@ -245,7 +258,7 @@ func (s *reservaStore) ListByCliente(ctx context.Context, clienteID int64) ([]Re
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	reservas, err := pgx.CollectRows(rows, scanReserva)
+	reservas, err := pgx.CollectRows(rows, scanReservaPublic)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
@@ -262,12 +275,15 @@ func (s *reservaStore) ListByVinculo(ctx context.Context, clienteID, vinculoID i
 
 	const q = `
 		SELECT
-			id, cliente_id, vinculo_id, data_viagem, turno, destino_id, rota_interna_id,
-			sentido, status, created_at, updated_at
-		FROM reservas
-		WHERE cliente_id = @cliente_id
-			AND vinculo_id = @vinculo_id
-		ORDER BY data_viagem DESC, id DESC
+			r.id, r.public_id, r.cliente_id, c.public_id, r.vinculo_id, v.public_id,
+			r.data_viagem, r.turno, r.destino_id, r.rota_interna_id,
+			r.sentido, r.status, r.created_at, r.updated_at
+		FROM reservas r
+		JOIN clientes c ON c.id = r.cliente_id
+		JOIN cliente_vinculos v ON v.id = r.vinculo_id
+		WHERE r.cliente_id = @cliente_id
+			AND r.vinculo_id = @vinculo_id
+		ORDER BY r.data_viagem DESC, r.id DESC
 	`
 
 	rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{
@@ -278,7 +294,7 @@ func (s *reservaStore) ListByVinculo(ctx context.Context, clienteID, vinculoID i
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	reservas, err := pgx.CollectRows(rows, scanReserva)
+	reservas, err := pgx.CollectRows(rows, scanReservaPublic)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
@@ -326,7 +342,7 @@ func (s *reservaStore) Update(ctx context.Context, reservaID int64, updateFunc f
 				status = @status
 			WHERE id = @id
 			RETURNING
-				id, cliente_id, vinculo_id, data_viagem, turno, destino_id, rota_interna_id,
+				id, public_id, cliente_id, vinculo_id, data_viagem, turno, destino_id, rota_interna_id,
 				sentido, status, created_at, updated_at
 		`
 
@@ -344,6 +360,9 @@ func (s *reservaStore) Update(ctx context.Context, reservaID int64, updateFunc f
 		reserva, err = pgx.CollectExactlyOneRow(rows, scanReserva)
 		if err != nil {
 			return fmt.Errorf("update reserva: %w", err)
+		}
+		if err := hydrateReservaPublicIDs(ctx, tx, &reserva); err != nil {
+			return fmt.Errorf("hydrate reserva public ids: %w", err)
 		}
 
 		return nil
@@ -456,13 +475,16 @@ func getReservaByID(ctx context.Context, querier interface {
 }, reservaID int64, forUpdate bool) (*Reserva, error) {
 	q := `
 		SELECT
-			id, cliente_id, vinculo_id, data_viagem, turno, destino_id, rota_interna_id,
-			sentido, status, created_at, updated_at
-		FROM reservas
-		WHERE id = @id
+			r.id, r.public_id, r.cliente_id, c.public_id, r.vinculo_id, v.public_id,
+			r.data_viagem, r.turno, r.destino_id, r.rota_interna_id,
+			r.sentido, r.status, r.created_at, r.updated_at
+		FROM reservas r
+		JOIN clientes c ON c.id = r.cliente_id
+		JOIN cliente_vinculos v ON v.id = r.vinculo_id
+		WHERE r.id = @id
 	`
 	if forUpdate {
-		q += " FOR UPDATE"
+		q += " FOR UPDATE OF r"
 	}
 
 	rows, err := querier.Query(ctx, q, pgx.StrictNamedArgs{"id": reservaID})
@@ -470,7 +492,7 @@ func getReservaByID(ctx context.Context, querier interface {
 		return nil, err
 	}
 
-	reserva, err := pgx.CollectExactlyOneRow(rows, scanReserva)
+	reserva, err := pgx.CollectExactlyOneRow(rows, scanReservaPublic)
 	if err != nil {
 		return nil, err
 	}
@@ -511,6 +533,7 @@ func scanReserva(row pgx.CollectableRow) (Reserva, error) {
 	var r Reserva
 	err := row.Scan(
 		&r.ID,
+		&r.PublicID,
 		&r.ClienteID,
 		&r.VinculoID,
 		&r.DataViagem,
@@ -525,12 +548,49 @@ func scanReserva(row pgx.CollectableRow) (Reserva, error) {
 	return r, err
 }
 
+func scanReservaPublic(row pgx.CollectableRow) (Reserva, error) {
+	var r Reserva
+	err := row.Scan(
+		&r.ID,
+		&r.PublicID,
+		&r.ClienteID,
+		&r.ClientePublicID,
+		&r.VinculoID,
+		&r.VinculoPublicID,
+		&r.DataViagem,
+		&r.Turno,
+		&r.DestinoID,
+		&r.RotaInternaID,
+		&r.Sentido,
+		&r.Status,
+		&r.CreatedAt,
+		&r.UpdatedAt,
+	)
+	return r, err
+}
+
+func hydrateReservaPublicIDs(ctx context.Context, querier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}, reserva *Reserva) error {
+	return querier.QueryRow(ctx, `
+		SELECT c.public_id, v.public_id
+		FROM clientes c, cliente_vinculos v
+		WHERE c.id = @cliente_id AND v.id = @vinculo_id
+	`, pgx.StrictNamedArgs{
+		"cliente_id": reserva.ClienteID,
+		"vinculo_id": reserva.VinculoID,
+	}).Scan(&reserva.ClientePublicID, &reserva.VinculoPublicID)
+}
+
 func scanReservaComNomes(row pgx.CollectableRow) (ReservaComNomes, error) {
 	var item ReservaComNomes
 	err := row.Scan(
 		&item.ID,
+		&item.PublicID,
 		&item.ClienteID,
+		&item.ClientePublicID,
 		&item.VinculoID,
+		&item.VinculoPublicID,
 		&item.DataViagem,
 		&item.Turno,
 		&item.DestinoID,

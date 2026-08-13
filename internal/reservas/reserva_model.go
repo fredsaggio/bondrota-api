@@ -39,17 +39,20 @@ const (
 )
 
 type Reserva struct {
-	ID            int64
-	ClienteID     int64
-	VinculoID     int64
-	DataViagem    time.Time
-	Turno         TurnoReserva
-	DestinoID     int64
-	RotaInternaID int64
-	Sentido       SentidoReserva
-	Status        StatusReserva
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID              int64
+	PublicID        string
+	ClienteID       int64
+	ClientePublicID string
+	VinculoID       int64
+	VinculoPublicID string
+	DataViagem      time.Time
+	Turno           TurnoReserva
+	DestinoID       int64
+	RotaInternaID   int64
+	Sentido         SentidoReserva
+	Status          StatusReserva
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 type ReservaInput struct {

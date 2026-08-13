@@ -307,15 +307,15 @@ func TestClienteHandler_Create_OrganizaDocumentos(t *testing.T) {
 			if input.DocumentoIdentificacao != "clientes/_novo/xyz789/documento-identificacao.png" || input.ComprovanteResidencia != "clientes/_novo/xyz789/comprovante-residencia.pdf" {
 				t.Fatalf("unexpected documents on create: %+v", input)
 			}
-			return &clientes.Cliente{ID: 7, DocumentoIdentificacao: input.DocumentoIdentificacao, ComprovanteResidencia: input.ComprovanteResidencia}, nil
+			return &clientes.Cliente{ID: 7, PublicID: "cli_012345678901234567890", DocumentoIdentificacao: input.DocumentoIdentificacao, ComprovanteResidencia: input.ComprovanteResidencia}, nil
 		},
 		updateFn: func(_ context.Context, clienteID int64, updateFunc func(*clientes.Cliente) (bool, error)) (*clientes.Cliente, error) {
 			if clienteID != 7 {
 				t.Fatalf("unexpected clienteID no update: %d", clienteID)
 			}
-			c := &clientes.Cliente{ID: 7, DocumentoIdentificacao: "clientes/_novo/xyz789/documento-identificacao.png", ComprovanteResidencia: "clientes/_novo/xyz789/comprovante-residencia.pdf"}
+			c := &clientes.Cliente{ID: 7, PublicID: "cli_012345678901234567890", DocumentoIdentificacao: "clientes/_novo/xyz789/documento-identificacao.png", ComprovanteResidencia: "clientes/_novo/xyz789/comprovante-residencia.pdf"}
 			changed, err := updateFunc(c)
-			if err != nil || !changed || c.DocumentoIdentificacao != "clientes/7/documento-identificacao.png" || c.ComprovanteResidencia != "clientes/7/comprovante-residencia.pdf" {
+			if err != nil || !changed || c.DocumentoIdentificacao != "clientes/cli_012345678901234567890/documento-identificacao.png" || c.ComprovanteResidencia != "clientes/cli_012345678901234567890/comprovante-residencia.pdf" {
 				t.Fatalf("update nao organizou os documentos corretamente: changed=%v err=%v cliente=%+v", changed, err, c)
 			}
 			return c, nil
@@ -335,8 +335,8 @@ func TestClienteHandler_Create_OrganizaDocumentos(t *testing.T) {
 		t.Fatalf("want two moves, got %+v", mover.calls)
 	}
 	wantMoves := []movimentoArquivo{
-		{bucket: "documentos", from: "clientes/_novo/xyz789/documento-identificacao.png", to: "clientes/7/documento-identificacao.png"},
-		{bucket: "documentos", from: "clientes/_novo/xyz789/comprovante-residencia.pdf", to: "clientes/7/comprovante-residencia.pdf"},
+		{bucket: "documentos", from: "clientes/_novo/xyz789/documento-identificacao.png", to: "clientes/cli_012345678901234567890/documento-identificacao.png"},
+		{bucket: "documentos", from: "clientes/_novo/xyz789/comprovante-residencia.pdf", to: "clientes/cli_012345678901234567890/comprovante-residencia.pdf"},
 	}
 	for i, want := range wantMoves {
 		if mover.calls[i] != want {
@@ -347,7 +347,7 @@ func TestClienteHandler_Create_OrganizaDocumentos(t *testing.T) {
 	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
 		t.Fatal(err)
 	}
-	if resp["documento_identificacao"] != "clientes/7/documento-identificacao.png" || resp["comprovante_residencia"] != "clientes/7/comprovante-residencia.pdf" {
+	if resp["documento_identificacao"] != "clientes/cli_012345678901234567890/documento-identificacao.png" || resp["comprovante_residencia"] != "clientes/cli_012345678901234567890/comprovante-residencia.pdf" {
 		t.Fatalf("want organized documents in response, got %+v", resp)
 	}
 }
@@ -364,7 +364,7 @@ func TestClienteHandler_Create_FalhaAoOrganizarDocumentosNaoDerrubaCriacao(t *te
 
 	svc := fakeClienteService{
 		createFn: func(_ context.Context, input clientes.ClienteInput) (*clientes.Cliente, error) {
-			return &clientes.Cliente{ID: 7, DocumentoIdentificacao: input.DocumentoIdentificacao, ComprovanteResidencia: input.ComprovanteResidencia}, nil
+			return &clientes.Cliente{ID: 7, PublicID: "cli_012345678901234567890", DocumentoIdentificacao: input.DocumentoIdentificacao, ComprovanteResidencia: input.ComprovanteResidencia}, nil
 		},
 		updateFn: func(context.Context, int64, func(*clientes.Cliente) (bool, error)) (*clientes.Cliente, error) {
 			t.Fatal("update nao deveria ser chamado quando mover falha")

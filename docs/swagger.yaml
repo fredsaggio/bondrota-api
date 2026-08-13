@@ -22,6 +22,30 @@ components:
       scheme: bearer
       description: Segredo interno configurado em PLANNING_CRON_SECRET
   schemas:
+    AdminPublicId:
+      type: string
+      pattern: '^adm_[A-Za-z0-9_-]{21}$'
+      example: adm_7WjJ5P0l_qt2Zk8AxY3Bc
+    ClientePublicId:
+      type: string
+      pattern: '^cli_[A-Za-z0-9_-]{21}$'
+      example: cli_N8f2Qx5mL0sV7kWp3ZaBc
+    MotoristaPublicId:
+      type: string
+      pattern: '^mot_[A-Za-z0-9_-]{21}$'
+      example: mot_Km4sYq7vN2xA0cDe8BfGh
+    VinculoPublicId:
+      type: string
+      pattern: '^vin_[A-Za-z0-9_-]{21}$'
+      example: vin_H3mQ8sTx1cV6kNp0ZaB7d
+    ReservaPublicId:
+      type: string
+      pattern: '^res_[A-Za-z0-9_-]{21}$'
+      example: res_P4mY8tQ2kV7sN0xAaB3Cd
+    ViagemPublicId:
+      type: string
+      pattern: '^via_[A-Za-z0-9_-]{21}$'
+      example: via_R7nK2xQa9mT4sV0pBcD8e
     LoginRequestEmail:
       type: object
       required:
@@ -60,8 +84,7 @@ components:
       - expires_at
       properties:
         user_id:
-          type: integer
-          format: int64
+          $ref: '#/components/schemas/AdminPublicId'
         role:
           type: string
           example: admin
@@ -132,8 +155,7 @@ components:
       type: object
       properties:
         id:
-          type: integer
-          example: 1
+          $ref: '#/components/schemas/AdminPublicId'
         email:
           type: string
           example: admin@bondrota.com
@@ -441,8 +463,7 @@ components:
       type: object
       properties:
         id:
-          type: integer
-          example: 1
+          $ref: '#/components/schemas/MotoristaPublicId'
         nome:
           type: string
           example: Joao Motorista
@@ -536,8 +557,7 @@ components:
       type: object
       properties:
         id:
-          type: integer
-          example: 1
+          $ref: '#/components/schemas/ClientePublicId'
         nome:
           type: string
           example: Maria Cliente
@@ -636,8 +656,7 @@ components:
           type: integer
           example: 1
         vinculo_id:
-          type: integer
-          example: 10
+          $ref: '#/components/schemas/VinculoPublicId'
         dia_semana:
           type: integer
           example: 1
@@ -645,11 +664,9 @@ components:
       type: object
       properties:
         id:
-          type: integer
-          example: 10
+          $ref: '#/components/schemas/VinculoPublicId'
         cliente_id:
-          type: integer
-          example: 1
+          $ref: '#/components/schemas/ClientePublicId'
         tipo:
           type: string
           enum:
@@ -770,14 +787,11 @@ components:
       type: object
       properties:
         id:
-          type: integer
-          example: 1
+          $ref: '#/components/schemas/ReservaPublicId'
         cliente_id:
-          type: integer
-          example: 1
+          $ref: '#/components/schemas/ClientePublicId'
         vinculo_id:
-          type: integer
-          example: 10
+          $ref: '#/components/schemas/VinculoPublicId'
         data_viagem:
           type: string
           format: date
@@ -974,8 +988,7 @@ components:
           type: integer
           example: 1
         motorista_id:
-          type: integer
-          example: 1
+          $ref: '#/components/schemas/MotoristaPublicId'
         status:
           type: string
           enum:
@@ -1000,8 +1013,7 @@ components:
       type: object
       properties:
         id:
-          type: integer
-          example: 1
+          $ref: '#/components/schemas/ViagemPublicId'
         ciclo_viagem_id:
           type: integer
           example: 1
@@ -1187,8 +1199,7 @@ components:
           type: integer
           example: 1
         viagem_id:
-          type: integer
-          example: 1
+          $ref: '#/components/schemas/ViagemPublicId'
         tipo:
           type: string
           enum:
@@ -1227,11 +1238,9 @@ components:
           type: integer
           example: 1
         viagem_id:
-          type: integer
-          example: 1
+          $ref: '#/components/schemas/ViagemPublicId'
         reserva_id:
-          type: integer
-          example: 1
+          $ref: '#/components/schemas/ReservaPublicId'
         status_presenca:
           type: string
           enum:
@@ -1254,11 +1263,9 @@ components:
       - type: object
         properties:
           cliente_id:
-            type: integer
-            example: 1
+            $ref: '#/components/schemas/ClientePublicId'
           vinculo_id:
-            type: integer
-            example: 10
+            $ref: '#/components/schemas/VinculoPublicId'
           data_viagem:
             type: string
             format: date
@@ -1285,16 +1292,12 @@ components:
     AtualizarLocalizacaoRequest:
       type: object
       required:
-      - motorista_id
       - latitude
       - longitude
       - velocidade_kmh
       - direcao_graus
       - precisao_metros
       properties:
-        motorista_id:
-          type: integer
-          example: 1
         latitude:
           type: number
           example: -9.7812
@@ -1314,11 +1317,9 @@ components:
       type: object
       properties:
         viagem_id:
-          type: integer
-          example: 1
+          $ref: '#/components/schemas/ViagemPublicId'
         motorista_id:
-          type: integer
-          example: 1
+          $ref: '#/components/schemas/MotoristaPublicId'
         latitude:
           type: number
           example: -9.7812
@@ -1440,8 +1441,7 @@ components:
               type: integer
               example: 1
             viagem_id:
-              type: integer
-              example: 1
+              $ref: '#/components/schemas/ViagemPublicId'
             provider:
               type: string
               example: osrm
@@ -1740,7 +1740,7 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/AdminPublicId'
   /admin/senha:
     put:
       summary: Troca a senha do proprio admin autenticado
@@ -2232,7 +2232,7 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/MotoristaPublicId'
     put:
       summary: Atualiza motorista
       tags:
@@ -2251,7 +2251,7 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/MotoristaPublicId'
       requestBody:
         required: true
         content:
@@ -2272,7 +2272,7 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/MotoristaPublicId'
   /clientes/:
     post:
       summary: Cria cliente
@@ -2357,7 +2357,7 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ClientePublicId'
     put:
       summary: Atualiza cliente
       tags:
@@ -2376,7 +2376,7 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ClientePublicId'
       requestBody:
         required: true
         content:
@@ -2397,7 +2397,7 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ClientePublicId'
   /clientes/{clienteID}/reservas/:
     get:
       summary: Lista reservas do cliente
@@ -2418,7 +2418,7 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ClientePublicId'
   /vinculos/:
     get:
       summary: Lista vinculos de todos os clientes, paginada por cursor (somente admin)
@@ -2473,7 +2473,7 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ClientePublicId'
       requestBody:
         required: true
         content:
@@ -2498,7 +2498,7 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ClientePublicId'
   /clientes/{clienteID}/vinculos/{vinculoID}:
     get:
       summary: Busca vinculo do cliente
@@ -2516,12 +2516,12 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ClientePublicId'
       - name: vinculoID
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/VinculoPublicId'
     put:
       summary: Atualiza vinculo
       tags:
@@ -2538,12 +2538,12 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ClientePublicId'
       - name: vinculoID
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/VinculoPublicId'
       requestBody:
         required: true
         content:
@@ -2564,12 +2564,12 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ClientePublicId'
       - name: vinculoID
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/VinculoPublicId'
   /clientes/{clienteID}/vinculos/{vinculoID}/reservas/:
     post:
       summary: Cria reserva usando vinculo
@@ -2587,12 +2587,12 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ClientePublicId'
       - name: vinculoID
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/VinculoPublicId'
       requestBody:
         required: true
         content:
@@ -2617,12 +2617,12 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ClientePublicId'
       - name: vinculoID
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/VinculoPublicId'
   /clientes/{clienteID}/vinculos/{vinculoID}/reservas/disponibilidade:
     get:
       summary: Consulta disponibilidade para reservar um sentido
@@ -2633,12 +2633,12 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ClientePublicId'
       - name: vinculoID
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/VinculoPublicId'
       - name: data_viagem
         in: query
         required: true
@@ -2742,7 +2742,7 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ReservaPublicId'
     put:
       summary: Atualiza dados editáveis da reserva
       tags:
@@ -2759,7 +2759,7 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ReservaPublicId'
       requestBody:
         required: true
         content:
@@ -2778,7 +2778,7 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ReservaPublicId'
   /reservas/{reservaID}/cancelar:
     post:
       summary: Cancela reserva
@@ -2796,7 +2796,7 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ReservaPublicId'
   /horarios-turno-viagem/:
     post:
       summary: Cria horário por cidade de destino e turno
@@ -3044,7 +3044,7 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ViagemPublicId'
   /viagens/{viagemID}/iniciar:
     post:
       summary: Inicia viagem e registra inicio_real
@@ -3062,7 +3062,7 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ViagemPublicId'
   /viagens/{viagemID}/concluir:
     post:
       summary: Conclui viagem e registra fim_real
@@ -3080,7 +3080,7 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ViagemPublicId'
   /viagens/{viagemID}/cancelar:
     post:
       summary: Cancela viagem
@@ -3098,7 +3098,7 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ViagemPublicId'
   /viagens/{viagemID}/horarios:
     get:
       summary: Lista horarios da viagem
@@ -3118,7 +3118,7 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ViagemPublicId'
   /viagens/{viagemID}/reservas/:
     get:
       summary: Lista reservas alocadas na viagem
@@ -3138,7 +3138,7 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ViagemPublicId'
   /viagens/{viagemID}/reservas/{reservaID}/presenca:
     put:
       summary: Atualiza presenca do aluno na viagem
@@ -3156,12 +3156,12 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ViagemPublicId'
       - name: reservaID
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ReservaPublicId'
       requestBody:
         required: true
         content:
@@ -3185,7 +3185,7 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ViagemPublicId'
       requestBody:
         required: true
         content:
@@ -3208,7 +3208,7 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ViagemPublicId'
   /viagens/{viagemID}/rota-dinamica/calcular:
     post:
       summary: Calcula e persiste rota automaticamente
@@ -3226,7 +3226,7 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ViagemPublicId'
   /viagens/{viagemID}/rota-dinamica:
     post:
       summary: Cria rota dinamica manualmente
@@ -3244,7 +3244,7 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ViagemPublicId'
       requestBody:
         required: true
         content:
@@ -3267,7 +3267,7 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ViagemPublicId'
     delete:
       summary: Remove rota dinamica da viagem
       tags:
@@ -3280,7 +3280,7 @@ paths:
         in: path
         required: true
         schema:
-          type: integer
+          $ref: '#/components/schemas/ViagemPublicId'
   /storage/signed-upload-url:
     post:
       summary: Gera URL assinada para upload direto no Supabase

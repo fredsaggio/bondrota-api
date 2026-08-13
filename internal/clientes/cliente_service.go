@@ -32,7 +32,7 @@ func (s *clienteService) Login(ctx context.Context, cpf, senha string) (string, 
 		return "", auth.ErrInvalidCredentials
 	}
 
-	token, err := s.authSvc.GenerateToken(cliente.ID, auth.RoleCliente)
+	token, err := s.authSvc.GenerateToken(cliente.PublicID, auth.RoleCliente)
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", op, err)
 	}

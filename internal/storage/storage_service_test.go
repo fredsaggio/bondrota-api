@@ -48,25 +48,27 @@ func TestService_CreateSignedUploadURLClienteOwnPath(t *testing.T) {
 	svc := storage.NewService(client)
 
 	resp, err := svc.CreateSignedUploadURL(context.Background(), storage.Actor{
-		UserID: 10,
-		Role:   auth.RoleCliente,
+		UserID:   10,
+		PublicID: "cli_012345678901234567890",
+		Role:     auth.RoleCliente,
 	}, storage.SignedUploadURLInput{
 		Bucket:      "documentos",
-		Path:        "clientes/10/documento-identificacao.pdf",
+		Path:        "clientes/cli_012345678901234567890/documento-identificacao.pdf",
 		ContentType: "application/pdf",
 	})
 
 	require.NoError(t, err)
 	require.Equal(t, "https://example.com/upload", resp.SignedURL)
-	require.Equal(t, "clientes/10/documento-identificacao.pdf", client.uploadInput.Path)
+	require.Equal(t, "clientes/cli_012345678901234567890/documento-identificacao.pdf", client.uploadInput.Path)
 }
 
 func TestService_CreateSignedUploadURLClienteCannotUseFotos(t *testing.T) {
 	svc := storage.NewService(&fakeSupabaseClient{})
 
 	_, err := svc.CreateSignedUploadURL(context.Background(), storage.Actor{
-		UserID: 10,
-		Role:   auth.RoleCliente,
+		UserID:   10,
+		PublicID: "cli_012345678901234567890",
+		Role:     auth.RoleCliente,
 	}, storage.SignedUploadURLInput{
 		Bucket:      "fotos",
 		Path:        "clientes/10/foto.png",
@@ -80,8 +82,9 @@ func TestService_CreateSignedUploadURLClienteOtherPathForbidden(t *testing.T) {
 	svc := storage.NewService(&fakeSupabaseClient{})
 
 	_, err := svc.CreateSignedUploadURL(context.Background(), storage.Actor{
-		UserID: 10,
-		Role:   auth.RoleCliente,
+		UserID:   10,
+		PublicID: "cli_012345678901234567890",
+		Role:     auth.RoleCliente,
 	}, storage.SignedUploadURLInput{
 		Bucket:      "documentos",
 		Path:        "clientes/11/documento-identificacao.pdf",
@@ -95,8 +98,9 @@ func TestService_CreateSignedUploadURLMotoristaCannotUseDocumentos(t *testing.T)
 	svc := storage.NewService(&fakeSupabaseClient{})
 
 	_, err := svc.CreateSignedUploadURL(context.Background(), storage.Actor{
-		UserID: 5,
-		Role:   auth.RoleMotorista,
+		UserID:   5,
+		PublicID: "mot_012345678901234567890",
+		Role:     auth.RoleMotorista,
 	}, storage.SignedUploadURLInput{
 		Bucket:      "documentos",
 		Path:        "motoristas/5/cnh.pdf",
@@ -111,8 +115,9 @@ func TestService_CreateSignedDownloadURLDefaultsExpiration(t *testing.T) {
 	svc := storage.NewService(client)
 
 	resp, err := svc.CreateSignedDownloadURL(context.Background(), storage.Actor{
-		UserID: 1,
-		Role:   auth.RoleAdmin,
+		UserID:   1,
+		PublicID: "adm_012345678901234567890",
+		Role:     auth.RoleAdmin,
 	}, storage.SignedDownloadURLInput{
 		Bucket: "documentos",
 		Path:   "clientes/10/vinculos/20/comprovante.pdf",
@@ -127,8 +132,9 @@ func TestService_CreateSignedUploadURLInvalidContentType(t *testing.T) {
 	svc := storage.NewService(&fakeSupabaseClient{})
 
 	_, err := svc.CreateSignedUploadURL(context.Background(), storage.Actor{
-		UserID: 1,
-		Role:   auth.RoleAdmin,
+		UserID:   1,
+		PublicID: "adm_012345678901234567890",
+		Role:     auth.RoleAdmin,
 	}, storage.SignedUploadURLInput{
 		Bucket:      "fotos",
 		Path:        "clientes/10/foto.exe",
@@ -161,8 +167,9 @@ func TestService_CreateSignedUploadURLRejectsDotDotPath(t *testing.T) {
 	svc := storage.NewService(&fakeSupabaseClient{})
 
 	_, err := svc.CreateSignedUploadURL(context.Background(), storage.Actor{
-		UserID: 10,
-		Role:   auth.RoleCliente,
+		UserID:   10,
+		PublicID: "cli_012345678901234567890",
+		Role:     auth.RoleCliente,
 	}, storage.SignedUploadURLInput{
 		Bucket:      "documentos",
 		Path:        "clientes/10/../documento.pdf",

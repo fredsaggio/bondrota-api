@@ -17,6 +17,7 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/db"
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
 	"github.com/fredsaggio/bondrota-api/internal/validation"
+	"github.com/go-chi/chi/v5"
 )
 
 type VinculoHandler struct {
@@ -50,13 +51,13 @@ type VinculoRequest struct {
 
 type HorarioFixoResponse struct {
 	ID        int64     `json:"id"`
-	VinculoID int64     `json:"vinculo_id"`
+	VinculoID string    `json:"vinculo_id"`
 	DiaSemana DiaSemana `json:"dia_semana"`
 }
 
 type VinculoResponse struct {
-	ID            int64                 `json:"id"`
-	ClienteID     int64                 `json:"cliente_id"`
+	ID            string                `json:"id"`
+	ClienteID     string                `json:"cliente_id"`
 	Tipo          TipoConta             `json:"tipo"`
 	Turno         TurnoCliente          `json:"turno"`
 	DestinoID     int64                 `json:"destino_id"`
@@ -108,9 +109,10 @@ func (h *VinculoHandler) Create(w http.ResponseWriter, r *http.Request) {
 		h.handleError(w, err, "failed to create vinculo")
 		return
 	}
+	vinculo.ClientePublicID = chi.URLParam(r, "clienteID")
 
 	if input.Comprovante != "" {
-		vinculo = h.organizarComprovante(ctx, vinculo, input)
+		vinculo = h.organizarComprovante(ctx, vinculo, input, vinculo.ClientePublicID)
 	}
 
 	httputils.Respond(w, http.StatusCreated, toVinculoResponse(vinculo))
@@ -129,14 +131,14 @@ func (h *VinculoHandler) Create(w http.ResponseWriter, r *http.Request) {
 // pra montar o update com os valores que acabaram de criar o vinculo, so
 // trocando o Comprovante — sem precisar de um metodo novo no Store nem mexer
 // nos mocks gerados.
-func (h *VinculoHandler) organizarComprovante(ctx context.Context, vinculo *Vinculo, input VinculoInput) *Vinculo {
+func (h *VinculoHandler) organizarComprovante(ctx context.Context, vinculo *Vinculo, input VinculoInput, clientePublicID string) *Vinculo {
 	if h.arquivos == nil {
 		return vinculo
 	}
 	destino := fmt.Sprintf(
 		"clientes/%s/vinculos/%s/comprovante-%s%s",
-		strconv.FormatInt(input.ClienteID, 10),
-		strconv.FormatInt(vinculo.ID, 10),
+		clientePublicID,
+		vinculo.PublicID,
 		input.Tipo,
 		path.Ext(input.Comprovante),
 	)
@@ -491,14 +493,14 @@ func toVinculoResponse(v *Vinculo) VinculoResponse {
 	for _, h := range v.HorariosFixos {
 		horarios = append(horarios, HorarioFixoResponse{
 			ID:        h.ID,
-			VinculoID: h.VinculoID,
+			VinculoID: v.PublicID,
 			DiaSemana: h.DiaSemana,
 		})
 	}
 
 	return VinculoResponse{
-		ID:            v.ID,
-		ClienteID:     v.ClienteID,
+		ID:            v.PublicID,
+		ClienteID:     v.ClientePublicID,
 		Tipo:          v.Tipo,
 		Turno:         v.Turno,
 		DestinoID:     v.DestinoID,

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"path"
-	"strconv"
 	"strings"
 
 	"github.com/fredsaggio/bondrota-api/internal/auth"
@@ -89,7 +88,7 @@ func (s *service) CreateSignedDownloadURL(ctx context.Context, actor Actor, inpu
 }
 
 func validateActor(actor Actor) error {
-	if actor.UserID <= 0 {
+	if actor.UserID <= 0 || strings.TrimSpace(actor.PublicID) == "" {
 		return brerror.ErrUnauthenticated
 	}
 	switch actor.Role {
@@ -192,7 +191,7 @@ func validateBucketAccess(actor Actor, bucket, objectPath string) error {
 		if bucket != BucketDocumentos {
 			return brerror.ErrForbidden
 		}
-		prefix := "clientes/" + strconv.FormatInt(actor.UserID, 10) + "/"
+		prefix := "clientes/" + actor.PublicID + "/"
 		if !strings.HasPrefix(objectPath, prefix) {
 			return brerror.ErrForbidden
 		}
@@ -201,7 +200,7 @@ func validateBucketAccess(actor Actor, bucket, objectPath string) error {
 		if bucket != BucketFotos {
 			return brerror.ErrForbidden
 		}
-		prefix := "motoristas/" + strconv.FormatInt(actor.UserID, 10) + "/"
+		prefix := "motoristas/" + actor.PublicID + "/"
 		if !strings.HasPrefix(objectPath, prefix) {
 			return brerror.ErrForbidden
 		}

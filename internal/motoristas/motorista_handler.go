@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"net/http"
 	"path"
-	"strconv"
 	"strings"
 	"time"
 
@@ -49,7 +48,7 @@ type LoginRequest struct {
 }
 
 type MotoristaResponse struct {
-	ID                  int64  `json:"id"`
+	ID                  string `json:"id"`
 	Nome                string `json:"nome"`
 	CPF                 string `json:"cpf"`
 	Telefone            string `json:"telefone"`
@@ -226,7 +225,7 @@ func (h *MotoristaHandler) organizarFoto(ctx context.Context, motorista *Motoris
 	if h.arquivos == nil {
 		return motorista
 	}
-	destino := fmt.Sprintf("motoristas/%s/foto%s", strconv.FormatInt(motorista.ID, 10), path.Ext(caminhoEnviado))
+	destino := fmt.Sprintf("motoristas/%s/foto%s", motorista.PublicID, path.Ext(caminhoEnviado))
 	if err := h.arquivos.MoveObject(ctx, "fotos", caminhoEnviado, destino); err != nil {
 		slog.Error("failed to organize motorista foto", "error", err, "motoristaID", motorista.ID)
 		return motorista
@@ -413,7 +412,7 @@ func (h *MotoristaHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 func toMotoristaResponse(m *Motorista) MotoristaResponse {
 	return MotoristaResponse{
-		ID:                  m.ID,
+		ID:                  m.PublicID,
 		Nome:                m.Nome,
 		CPF:                 m.CPF,
 		Telefone:            m.Telefone,

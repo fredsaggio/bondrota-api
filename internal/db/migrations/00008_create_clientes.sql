@@ -5,6 +5,7 @@ CREATE TYPE tipo_conta AS ENUM ('estudante', 'estagio');
 
 CREATE TABLE clientes (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    public_id TEXT COLLATE "C" NOT NULL UNIQUE,
     nome TEXT NOT NULL,
     cpf TEXT NOT NULL UNIQUE,
     senha TEXT NOT NULL,
@@ -13,7 +14,8 @@ CREATE TABLE clientes (
     documento_identificacao TEXT NOT NULL CHECK (btrim(documento_identificacao) <> ''),
     comprovante_residencia TEXT NOT NULL CHECK (btrim(comprovante_residencia) <> ''),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_clientes_public_id CHECK (public_id ~ '^cli_[A-Za-z0-9_-]{21}$')
 );
 
 CREATE TRIGGER set_updated_at_clientes
@@ -26,6 +28,7 @@ CREATE TRIGGER set_updated_at_clientes
 
 CREATE TABLE cliente_vinculos (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    public_id TEXT COLLATE "C" NOT NULL UNIQUE,
     cliente_id BIGINT NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
     tipo tipo_conta NOT NULL,
     turno turno_cliente NOT NULL,
@@ -35,7 +38,8 @@ CREATE TABLE cliente_vinculos (
     comprovante TEXT NOT NULL DEFAULT '',
     validade DATE NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_cliente_vinculos_public_id CHECK (public_id ~ '^vin_[A-Za-z0-9_-]{21}$')
 );
 
 CREATE TRIGGER set_updated_at_cliente_vinculos

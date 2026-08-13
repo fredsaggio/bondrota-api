@@ -61,6 +61,9 @@ func (s *viagemLocalizacaoStore) Upsert(ctx context.Context, input ViagemLocaliz
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
+	if err := hydrateLocalizacaoPublicIDs(ctx, s.db, &localizacao); err != nil {
+		return nil, fmt.Errorf("%s: hydrate public ids: %w", op, err)
+	}
 
 	return &localizacao, nil
 }
@@ -70,10 +73,13 @@ func (s *viagemLocalizacaoStore) GetByViagem(ctx context.Context, viagemID int64
 
 	const q = `
 		SELECT
-			viagem_id, motorista_id, latitude, longitude, velocidade_kmh,
-			direcao_graus, precisao_metros, registrada_em, created_at, updated_at
-		FROM viagem_localizacoes
-		WHERE viagem_id = @viagem_id
+			l.viagem_id, v.public_id, l.motorista_id, m.public_id,
+			l.latitude, l.longitude, l.velocidade_kmh, l.direcao_graus,
+			l.precisao_metros, l.registrada_em, l.created_at, l.updated_at
+		FROM viagem_localizacoes l
+		JOIN viagens v ON v.id = l.viagem_id
+		JOIN motoristas m ON m.id = l.motorista_id
+		WHERE l.viagem_id = @viagem_id
 	`
 
 	rows, err := s.db.Query(ctx, q, pgx.StrictNamedArgs{"viagem_id": viagemID})
@@ -81,7 +87,7 @@ func (s *viagemLocalizacaoStore) GetByViagem(ctx context.Context, viagemID int64
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	localizacao, err := pgx.CollectExactlyOneRow(rows, scanViagemLocalizacao)
+	localizacao, err := pgx.CollectExactlyOneRow(rows, scanViagemLocalizacaoPublic)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, brerror.ErrNotFound
@@ -159,4 +165,36 @@ func scanViagemLocalizacao(row pgx.CollectableRow) (ViagemLocalizacao, error) {
 		&localizacao.UpdatedAt,
 	)
 	return localizacao, err
+}
+
+func scanViagemLocalizacaoPublic(row pgx.CollectableRow) (ViagemLocalizacao, error) {
+	var localizacao ViagemLocalizacao
+	err := row.Scan(
+		&localizacao.ViagemID,
+		&localizacao.ViagemPublicID,
+		&localizacao.MotoristaID,
+		&localizacao.MotoristaPublicID,
+		&localizacao.Latitude,
+		&localizacao.Longitude,
+		&localizacao.VelocidadeKmh,
+		&localizacao.DirecaoGraus,
+		&localizacao.PrecisaoMetros,
+		&localizacao.RegistradaEm,
+		&localizacao.CreatedAt,
+		&localizacao.UpdatedAt,
+	)
+	return localizacao, err
+}
+
+func hydrateLocalizacaoPublicIDs(ctx context.Context, querier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}, localizacao *ViagemLocalizacao) error {
+	return querier.QueryRow(ctx, `
+		SELECT v.public_id, m.public_id
+		FROM viagens v, motoristas m
+		WHERE v.id = @viagem_id AND m.id = @motorista_id
+	`, pgx.StrictNamedArgs{
+		"viagem_id":    localizacao.ViagemID,
+		"motorista_id": localizacao.MotoristaID,
+	}).Scan(&localizacao.ViagemPublicID, &localizacao.MotoristaPublicID)
 }

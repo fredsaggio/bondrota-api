@@ -68,7 +68,7 @@ type UpdateClienteRequest struct {
 }
 
 type ClienteResponse struct {
-	ID                     int64  `json:"id"`
+	ID                     string `json:"id"`
 	Nome                   string `json:"nome"`
 	CPF                    string `json:"cpf"`
 	Telefone               string `json:"telefone"`
@@ -88,7 +88,7 @@ type ClienteResumoResponse struct {
 }
 
 type ClienteComVinculosResponse struct {
-	ID                     int64             `json:"id"`
+	ID                     string            `json:"id"`
 	Nome                   string            `json:"nome"`
 	CPF                    string            `json:"cpf"`
 	Telefone               string            `json:"telefone"`
@@ -178,7 +178,7 @@ func (h *ClienteHandler) organizarDocumentos(ctx context.Context, cliente *Clien
 	if h.arquivos == nil {
 		return cliente
 	}
-	prefixo := "clientes/" + strconv.FormatInt(cliente.ID, 10) + "/"
+	prefixo := "clientes/" + cliente.PublicID + "/"
 	documentoIdentificacao := input.DocumentoIdentificacao
 	comprovanteResidencia := input.ComprovanteResidencia
 	moveu := false
@@ -519,7 +519,7 @@ func parseDate(value string) (time.Time, error) {
 
 func toClienteResponse(c *Cliente) ClienteResponse {
 	return ClienteResponse{
-		ID:                     c.ID,
+		ID:                     c.PublicID,
 		Nome:                   c.Nome,
 		CPF:                    c.CPF,
 		Telefone:               c.Telefone,
@@ -536,7 +536,7 @@ func toClienteComVinculosResponse(c *ClienteComVinculos) ClienteComVinculosRespo
 	}
 
 	return ClienteComVinculosResponse{
-		ID:                     c.ID,
+		ID:                     c.PublicID,
 		Nome:                   c.Nome,
 		CPF:                    c.CPF,
 		Telefone:               c.Telefone,

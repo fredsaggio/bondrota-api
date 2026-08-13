@@ -1,14 +1,24 @@
 package auth
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/fredsaggio/bondrota-api/internal/publicid"
 )
+
+type staticIdentityResolver struct{}
+
+func (staticIdentityResolver) Resolve(_ context.Context, _ publicid.Prefix, _ string) (int64, error) {
+	return 42, nil
+}
 
 func TestAuthenticateWithCookie(t *testing.T) {
 	svc := NewAuthService(nil, "test-secret")
-	token, err := svc.GenerateToken(42, RoleAdmin)
+	svc.SetIdentityResolver(staticIdentityResolver{})
+	token, err := svc.GenerateToken("adm_012345678901234567890", RoleAdmin)
 	if err != nil {
 		t.Fatal(err)
 	}

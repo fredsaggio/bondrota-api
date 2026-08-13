@@ -54,11 +54,15 @@ func (s *viagemReservaStore) ListReservasByViagem(ctx context.Context, viagemID 
 
 	const q = `
 		SELECT
-			vr.id, vr.viagem_id, vr.reserva_id, vr.status_presenca, vr.created_at, vr.updated_at,
-			r.cliente_id, r.vinculo_id, r.data_viagem, r.turno, r.destino_id,
+			vr.id, vr.viagem_id, v.public_id, vr.reserva_id, r.public_id,
+			vr.status_presenca, vr.created_at, vr.updated_at,
+			r.cliente_id, c.public_id, r.vinculo_id, cv.public_id, r.data_viagem, r.turno, r.destino_id,
 			r.rota_interna_id, r.sentido
 		FROM viagem_reservas vr
+		JOIN viagens v ON v.id = vr.viagem_id
 		JOIN reservas r ON r.id = vr.reserva_id
+		JOIN clientes c ON c.id = r.cliente_id
+		JOIN cliente_vinculos cv ON cv.id = r.vinculo_id
 		WHERE vr.viagem_id = @viagem_id
 		ORDER BY r.destino_id ASC, r.cliente_id ASC, vr.id ASC
 	`
@@ -199,12 +203,16 @@ func scanViagemReservaComReserva(row pgx.CollectableRow) (ViagemReservaComReserv
 	err := row.Scan(
 		&data.ID,
 		&data.ViagemID,
+		&data.ViagemPublicID,
 		&data.ReservaID,
+		&data.ReservaPublicID,
 		&data.StatusPresenca,
 		&data.CreatedAt,
 		&data.UpdatedAt,
 		&data.ClienteID,
+		&data.ClientePublicID,
 		&data.VinculoID,
+		&data.VinculoPublicID,
 		&data.DataViagem,
 		&data.Turno,
 		&data.DestinoID,

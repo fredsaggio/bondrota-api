@@ -41,6 +41,7 @@ func jsonBuf(v any) *bytes.Buffer {
 func sampleMotorista() *motoristas.Motorista {
 	return &motoristas.Motorista{
 		ID:                  1,
+		PublicID:            "mot_012345678901234567890",
 		Nome:                "João Silva",
 		CPF:                 "123.456.789-00",
 		Telefone:            "81999990000",
@@ -325,12 +326,12 @@ func TestMotoristaHandler_Create_OrganizaFoto(t *testing.T) {
 	svc := mocks.NewMockMotoristaService(t)
 	svc.EXPECT().Create(mock.Anything, mock.MatchedBy(func(in motoristas.MotoristaInput) bool {
 		return in.Foto == "motoristas/_novo/abc123/foto.jpg"
-	})).Return(&motoristas.Motorista{ID: 1, Foto: "motoristas/_novo/abc123/foto.jpg"}, nil)
+	})).Return(&motoristas.Motorista{ID: 1, PublicID: "mot_012345678901234567890", Foto: "motoristas/_novo/abc123/foto.jpg"}, nil)
 	svc.EXPECT().Update(mock.Anything, int64(1), mock.MatchedBy(func(fn func(*motoristas.Motorista) (bool, error)) bool {
-		m := &motoristas.Motorista{ID: 1, Foto: "motoristas/_novo/abc123/foto.jpg"}
+		m := &motoristas.Motorista{ID: 1, PublicID: "mot_012345678901234567890", Foto: "motoristas/_novo/abc123/foto.jpg"}
 		changed, err := fn(m)
-		return err == nil && changed && m.Foto == "motoristas/1/foto.jpg"
-	})).Return(&motoristas.Motorista{ID: 1, Foto: "motoristas/1/foto.jpg"}, nil)
+		return err == nil && changed && m.Foto == "motoristas/mot_012345678901234567890/foto.jpg"
+	})).Return(&motoristas.Motorista{ID: 1, PublicID: "mot_012345678901234567890", Foto: "motoristas/mot_012345678901234567890/foto.jpg"}, nil)
 
 	mover := &fakeArquivoMovedor{}
 	h := motoristas.NewMotoristaHandler(svc, mover)
@@ -342,14 +343,14 @@ func TestMotoristaHandler_Create_OrganizaFoto(t *testing.T) {
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("want 201, got %d — %s", rr.Code, rr.Body.String())
 	}
-	if mover.bucket != "fotos" || mover.from != "motoristas/_novo/abc123/foto.jpg" || mover.to != "motoristas/1/foto.jpg" {
+	if mover.bucket != "fotos" || mover.from != "motoristas/_novo/abc123/foto.jpg" || mover.to != "motoristas/mot_012345678901234567890/foto.jpg" {
 		t.Fatalf("unexpected move: bucket=%q from=%q to=%q", mover.bucket, mover.from, mover.to)
 	}
 	var resp map[string]any
 	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
 		t.Fatal(err)
 	}
-	if resp["foto"] != "motoristas/1/foto.jpg" {
+	if resp["foto"] != "motoristas/mot_012345678901234567890/foto.jpg" {
 		t.Fatalf("want foto organizada na resposta, got %v", resp["foto"])
 	}
 }
@@ -367,7 +368,7 @@ func TestMotoristaHandler_Create_FalhaAoOrganizarFotoNaoDerrubaCriacao(t *testin
 
 	svc := mocks.NewMockMotoristaService(t)
 	svc.EXPECT().Create(mock.Anything, mock.Anything).
-		Return(&motoristas.Motorista{ID: 1, Foto: "motoristas/_novo/abc123/foto.jpg"}, nil)
+		Return(&motoristas.Motorista{ID: 1, PublicID: "mot_012345678901234567890", Foto: "motoristas/_novo/abc123/foto.jpg"}, nil)
 	// Update nao e chamado: sem organizar a foto com sucesso, nao ha nada novo
 	// para persistir.
 

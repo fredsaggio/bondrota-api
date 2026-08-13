@@ -4,6 +4,7 @@ CREATE TYPE turno_motorista AS ENUM ('MT', 'VT', 'NT', 'IN');
 
 CREATE TABLE motoristas (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    public_id TEXT COLLATE "C" NOT NULL UNIQUE,
     nome TEXT NOT NULL,
     cpf TEXT NOT NULL UNIQUE,
     senha TEXT NOT NULL,
@@ -13,7 +14,8 @@ CREATE TABLE motoristas (
     municipio_trabalho_id BIGINT NOT NULL REFERENCES municipios(codigo_ibge) ON DELETE RESTRICT,
     foto TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_motoristas_public_id CHECK (public_id ~ '^mot_[A-Za-z0-9_-]{21}$')
 );
 
 CREATE TRIGGER set_updated_at_motoristas

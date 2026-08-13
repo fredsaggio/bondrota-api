@@ -10,6 +10,7 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/brerror"
 	"github.com/fredsaggio/bondrota-api/internal/conv"
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
+	"github.com/go-chi/chi/v5"
 )
 
 type RotaDinamicaHandler struct {
@@ -53,7 +54,7 @@ type PontoRotaResponse struct {
 
 type RotaDinamicaResponse struct {
 	ID              int64             `json:"id"`
-	ViagemID        int64             `json:"viagem_id"`
+	ViagemID        string            `json:"viagem_id"`
 	Provider        string            `json:"provider"`
 	Origem          PontoRotaResponse `json:"origem"`
 	DestinoFinal    PontoRotaResponse `json:"destino_final"`
@@ -102,6 +103,7 @@ func (h *RotaDinamicaHandler) Create(w http.ResponseWriter, r *http.Request) {
 		h.handleError(w, err, "failed to create rota dinamica")
 		return
 	}
+	rota.Rota.ViagemPublicID = chi.URLParam(r, "viagemID")
 
 	httputils.Respond(w, http.StatusCreated, toRotaDinamicaComDestinosResponse(rota))
 }
@@ -118,6 +120,7 @@ func (h *RotaDinamicaHandler) GetByViagem(w http.ResponseWriter, r *http.Request
 		h.handleError(w, err, "failed to get rota dinamica")
 		return
 	}
+	rota.Rota.ViagemPublicID = chi.URLParam(r, "viagemID")
 
 	httputils.Respond(w, http.StatusOK, toRotaDinamicaComDestinosResponse(rota))
 }
@@ -138,6 +141,7 @@ func (h *RotaDinamicaHandler) Calcular(w http.ResponseWriter, r *http.Request) {
 		h.handleError(w, err, "failed to calculate rota dinamica")
 		return
 	}
+	rota.Rota.ViagemPublicID = chi.URLParam(r, "viagemID")
 
 	httputils.Respond(w, http.StatusCreated, toRotaDinamicaComDestinosResponse(rota))
 }
@@ -213,7 +217,7 @@ func toRotaDinamicaComDestinosResponse(data *RotaDinamicaComDestinos) RotaDinami
 func toRotaDinamicaResponse(rota *RotaDinamica) RotaDinamicaResponse {
 	return RotaDinamicaResponse{
 		ID:       rota.ID,
-		ViagemID: rota.ViagemID,
+		ViagemID: rota.ViagemPublicID,
 		Provider: rota.Provider,
 		Origem: PontoRotaResponse{
 			Nome:      rota.OrigemNome,

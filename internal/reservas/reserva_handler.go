@@ -75,9 +75,9 @@ type UpdateReservaRequest struct {
 }
 
 type ReservaResponse struct {
-	ID            int64          `json:"id"`
-	ClienteID     int64          `json:"cliente_id"`
-	VinculoID     int64          `json:"vinculo_id"`
+	ID            string         `json:"id"`
+	ClienteID     string         `json:"cliente_id"`
+	VinculoID     string         `json:"vinculo_id"`
 	DataViagem    string         `json:"data_viagem"`
 	Turno         TurnoReserva   `json:"turno"`
 	DestinoID     int64          `json:"destino_id"`
@@ -569,9 +569,9 @@ func toReservaResponses(reservas []Reserva) []ReservaResponse {
 
 func toReservaResponse(r *Reserva) ReservaResponse {
 	return ReservaResponse{
-		ID:            r.ID,
-		ClienteID:     r.ClienteID,
-		VinculoID:     r.VinculoID,
+		ID:            r.PublicID,
+		ClienteID:     r.ClientePublicID,
+		VinculoID:     r.VinculoPublicID,
 		DataViagem:    r.DataViagem.Format("2006-01-02"),
 		Turno:         r.Turno,
 		DestinoID:     r.DestinoID,

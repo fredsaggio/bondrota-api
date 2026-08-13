@@ -51,6 +51,7 @@ type CicloViagem struct {
 	RotaInternaID      int64
 	VeiculoID          int64
 	MotoristaID        int64
+	MotoristaPublicID  string
 	Status             StatusCicloViagem
 	ExpiresAt          time.Time
 	CreatedAt          time.Time
@@ -59,6 +60,7 @@ type CicloViagem struct {
 
 type Viagem struct {
 	ID            int64
+	PublicID      string
 	CicloViagemID int64
 	Sentido       SentidoViagem
 	Status        StatusViagem
@@ -67,21 +69,24 @@ type Viagem struct {
 }
 
 type ViagemHorario struct {
-	ID        int64
-	ViagemID  int64
-	Tipo      TipoHorarioViagem
-	Horario   time.Time
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID             int64
+	ViagemID       int64
+	ViagemPublicID string
+	Tipo           TipoHorarioViagem
+	Horario        time.Time
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 type ViagemReserva struct {
-	ID             int64
-	ViagemID       int64
-	ReservaID      int64
-	StatusPresenca StatusPresencaViagem
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID              int64
+	ViagemID        int64
+	ViagemPublicID  string
+	ReservaID       int64
+	ReservaPublicID string
+	StatusPresenca  StatusPresencaViagem
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 type ViagemReservaConfirmacao struct {
@@ -92,16 +97,18 @@ type ViagemReservaConfirmacao struct {
 }
 
 type ViagemLocalizacao struct {
-	ViagemID       int64
-	MotoristaID    int64
-	Latitude       float64
-	Longitude      float64
-	VelocidadeKmh  float64
-	DirecaoGraus   float64
-	PrecisaoMetros float64
-	RegistradaEm   time.Time
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ViagemID          int64
+	ViagemPublicID    string
+	MotoristaID       int64
+	MotoristaPublicID string
+	Latitude          float64
+	Longitude         float64
+	VelocidadeKmh     float64
+	DirecaoGraus      float64
+	PrecisaoMetros    float64
+	RegistradaEm      time.Time
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 type ViagemLocalizacaoInput struct {
@@ -116,8 +123,9 @@ type ViagemLocalizacaoInput struct {
 }
 
 type ViagemLocalizacaoActor struct {
-	UserID int64
-	Role   string
+	UserID   int64
+	PublicID string
+	Role     string
 }
 
 type HorarioTurnoViagem struct {
@@ -144,6 +152,7 @@ type CicloViagemInput struct {
 	RotaInternaID      int64
 	VeiculoID          int64
 	MotoristaID        int64
+	MotoristaPublicID  string
 	ExpiresAt          time.Time
 }
 
@@ -273,13 +282,15 @@ type ViagemServiceConfig struct {
 
 type ViagemReservaComReserva struct {
 	ViagemReserva
-	ClienteID     int64
-	VinculoID     int64
-	DataViagem    time.Time
-	Turno         TurnoViagem
-	DestinoID     int64
-	RotaInternaID int64
-	Sentido       SentidoViagem
+	ClienteID       int64
+	ClientePublicID string
+	VinculoID       int64
+	VinculoPublicID string
+	DataViagem      time.Time
+	Turno           TurnoViagem
+	DestinoID       int64
+	RotaInternaID   int64
+	Sentido         SentidoViagem
 }
 
 type CicloViagemStore interface {

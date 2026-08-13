@@ -188,7 +188,7 @@ func TestVinculoHandler_Create_OrganizaComprovante(t *testing.T) {
 			// O caminho final carrega o tipo do vinculo, para dar pra saber pelo
 			// nome do arquivo no Supabase se e comprovante de estagio ou de
 			// faculdade sem precisar abrir o banco.
-			if input.Comprovante != "clientes/1/vinculos/9/comprovante-estagio.pdf" {
+			if input.Comprovante != "clientes/1/vinculos/vin_012345678901234567890/comprovante-estagio.pdf" {
 				t.Fatalf("update nao organizou o comprovante corretamente: %q", input.Comprovante)
 			}
 			v := sampleVinculo()
@@ -208,7 +208,7 @@ func TestVinculoHandler_Create_OrganizaComprovante(t *testing.T) {
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("want 201, got %d — %s", rr.Code, rr.Body.String())
 	}
-	wantTo := "clientes/1/vinculos/9/comprovante-estagio.pdf"
+	wantTo := "clientes/1/vinculos/vin_012345678901234567890/comprovante-estagio.pdf"
 	if mover.bucket != "documentos" || mover.from != "clientes/1/vinculos/_novo/xyz/comprovante-estagio.pdf" || mover.to != wantTo {
 		t.Fatalf("unexpected move: bucket=%q from=%q to=%q", mover.bucket, mover.from, mover.to)
 	}
@@ -302,7 +302,7 @@ func TestVinculoHandler_List(t *testing.T) {
 			t.Fatalf("nomes resolvidos nao vieram: %v", got[0])
 		}
 		// O painel espera os campos do vinculo no mesmo nivel de cliente_nome.
-		if got[0]["id"] != float64(10) || got[0]["cliente_id"] != float64(1) {
+		if got[0]["id"] != "vin_012345678901234567890" || got[0]["cliente_id"] != "cli_012345678901234567890" {
 			t.Fatalf("vinculo fields not flattened: %v", got[0])
 		}
 		if got[0]["validade"] != "2026-07-01" {

@@ -32,7 +32,7 @@ func (s *motoristaService) Login(ctx context.Context, cpf, senha string) (string
 		return "", auth.ErrInvalidCredentials
 	}
 
-	token, err := s.authSvc.GenerateToken(motorista.ID, auth.RoleMotorista)
+	token, err := s.authSvc.GenerateToken(motorista.PublicID, auth.RoleMotorista)
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", op, err)
 	}

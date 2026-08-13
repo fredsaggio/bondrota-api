@@ -37,6 +37,7 @@ func newTestAuth(ok bool) *auth.AuthService {
 func sampleCliente() *clientes.Cliente {
 	return &clientes.Cliente{
 		ID:                     1,
+		PublicID:               "cli_012345678901234567890",
 		Nome:                   "Maria",
 		CPF:                    "12345678900",
 		Senha:                  "hashed:secret",
@@ -49,16 +50,18 @@ func sampleCliente() *clientes.Cliente {
 
 func sampleVinculo() *clientes.Vinculo {
 	return &clientes.Vinculo{
-		ID:            10,
-		ClienteID:     1,
-		Tipo:          clientes.TipoEstudante,
-		Turno:         clientes.TurnoNoturno,
-		DestinoID:     2,
-		RotaInternaID: 3,
-		Curso:         "Computacao",
-		Comprovante:   "doc.pdf",
-		Validade:      time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
-		HorariosFixos: []clientes.HorarioFixo{{ID: 1, VinculoID: 10, DiaSemana: clientes.Segunda}},
+		ID:              10,
+		PublicID:        "vin_012345678901234567890",
+		ClienteID:       1,
+		ClientePublicID: "cli_012345678901234567890",
+		Tipo:            clientes.TipoEstudante,
+		Turno:           clientes.TurnoNoturno,
+		DestinoID:       2,
+		RotaInternaID:   3,
+		Curso:           "Computacao",
+		Comprovante:     "doc.pdf",
+		Validade:        time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
+		HorariosFixos:   []clientes.HorarioFixo{{ID: 1, VinculoID: 10, DiaSemana: clientes.Segunda}},
 	}
 }
 
@@ -109,7 +112,7 @@ func TestClienteService_Login(t *testing.T) {
 		assert.NotEmpty(t, token)
 		claims, err := authSvc.ValidateToken(token)
 		assert.NoError(t, err)
-		assert.Equal(t, int64(1), claims.UserID)
+		assert.Equal(t, "cli_012345678901234567890", claims.Subject)
 		assert.Equal(t, "cliente", claims.Role)
 	})
 

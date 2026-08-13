@@ -15,6 +15,7 @@ type PontoRota struct {
 type RotaDinamica struct {
 	ID                    int64
 	ViagemID              int64
+	ViagemPublicID        string
 	Provider              string
 	OrigemNome            string
 	OrigemLatitude        float64

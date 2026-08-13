@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/fredsaggio/bondrota-api/internal/db"
+	"github.com/fredsaggio/bondrota-api/internal/publicid"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -21,27 +22,27 @@ func NewAdminStore(db db.DB) AdminStore {
 
 func (s *adminStore) Create(ctx context.Context, input AdminInput) (*Admin, error) {
 	const op = "db/adminStore.Create"
-	var adminID int64
-
 	const q = `
-		INSERT INTO administrador (email, senha)
-		VALUES (@email, @senha)
-		RETURNING id
+		INSERT INTO administrador (public_id, email, senha)
+		VALUES (@public_id, @email, @senha)
+		RETURNING id, public_id
 	`
-	args := pgx.StrictNamedArgs{
-		"email": input.Email,
-		"senha": input.Senha,
-	}
 
-	err := s.db.QueryRow(ctx, q, args).Scan(&adminID)
+	admin, err := publicid.Insert(publicid.Admin, func(publicID string) (*Admin, error) {
+		created := &Admin{Email: input.Email}
+		err := s.db.QueryRow(ctx, q, pgx.StrictNamedArgs{
+			"public_id": publicID,
+			"email":     input.Email,
+			"senha":     input.Senha,
+		}).Scan(&created.ID, &created.PublicID)
+		return created, err
+	}, func(err error) bool {
+		return db.IsUniqueViolation(err, "administrador_public_id_key")
+	})
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
-
-	return &Admin{
-		ID:    adminID,
-		Email: input.Email,
-	}, nil
+	return admin, nil
 }
 
 func (s *adminStore) Update(ctx context.Context, adminID int64, updateFunc func(*Admin) (bool, error)) (*Admin, error) {
@@ -93,7 +94,7 @@ func (s *adminStore) Update(ctx context.Context, adminID int64, updateFunc func(
 
 func getAdminByIDForUpdate(ctx context.Context, tx pgx.Tx, id int64) (*Admin, error) {
 	const q = `
-		SELECT id, email, senha
+		SELECT id, public_id, email, senha
         FROM administrador
         WHERE id = @id
         FOR UPDATE
@@ -131,7 +132,7 @@ func getAdminByID(ctx context.Context, querier interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 }, adminID int64) (*Admin, error) {
 	const q = `
-		SELECT id, email
+		SELECT id, public_id, email
 		FROM administrador
 		WHERE id = @id
 	`
@@ -167,7 +168,7 @@ func getAdminByEmail(ctx context.Context, querier interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 }, email string) (*Admin, error) {
 	const q = `
-		SELECT id, email, senha
+		SELECT id, public_id, email, senha
 		FROM administrador
 		WHERE email = @email
 	`
@@ -211,7 +212,7 @@ func (s *adminStore) List(ctx context.Context) ([]Admin, error) {
 	const op = "db/adminStore.List"
 
 	const q = `
-		SELECT id, email
+		SELECT id, public_id, email
 		FROM administrador
 		ORDER BY id DESC
 	`
@@ -230,12 +231,12 @@ func (s *adminStore) List(ctx context.Context) ([]Admin, error) {
 
 func scanAdmin(row pgx.CollectableRow) (Admin, error) {
 	var a Admin
-	err := row.Scan(&a.ID, &a.Email)
+	err := row.Scan(&a.ID, &a.PublicID, &a.Email)
 	return a, err
 }
 
 func scanAdminWithPassword(row pgx.CollectableRow) (Admin, error) {
 	var a Admin
-	err := row.Scan(&a.ID, &a.Email, &a.Senha)
+	err := row.Scan(&a.ID, &a.PublicID, &a.Email, &a.Senha)
 	return a, err
 }

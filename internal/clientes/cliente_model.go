@@ -44,6 +44,7 @@ const (
 
 type Cliente struct {
 	ID                     int64
+	PublicID               string
 	Nome                   string
 	CPF                    string
 	Senha                  string
@@ -90,16 +91,18 @@ type ClienteInput struct {
 }
 
 type Vinculo struct {
-	ID            int64
-	ClienteID     int64
-	Tipo          TipoConta
-	Turno         TurnoCliente
-	DestinoID     int64
-	RotaInternaID int64
-	Curso         string
-	Comprovante   string
-	Validade      time.Time
-	HorariosFixos []HorarioFixo
+	ID              int64
+	PublicID        string
+	ClienteID       int64
+	ClientePublicID string
+	Tipo            TipoConta
+	Turno           TurnoCliente
+	DestinoID       int64
+	RotaInternaID   int64
+	Curso           string
+	Comprovante     string
+	Validade        time.Time
+	HorariosFixos   []HorarioFixo
 }
 
 // VinculoComCliente carrega o nome do cliente dono do vinculo. Ele existe para a

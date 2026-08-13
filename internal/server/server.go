@@ -11,6 +11,7 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/motoristas"
 	"github.com/fredsaggio/bondrota-api/internal/municipios"
 	"github.com/fredsaggio/bondrota-api/internal/paradas"
+	"github.com/fredsaggio/bondrota-api/internal/publicid"
 	"github.com/fredsaggio/bondrota-api/internal/reservas"
 	"github.com/fredsaggio/bondrota-api/internal/retencao"
 	"github.com/fredsaggio/bondrota-api/internal/rotasdinamicas"
@@ -57,6 +58,7 @@ type Config struct {
 	PlanningCronSecret string               `json:"-"`
 	AdminCookieName    string               `json:"-"`
 	LoginRateLimit     LoginRateLimitConfig `json:"-"`
+	PublicIDs          publicid.Resolver    `json:"-"`
 }
 
 func NewServer(handlers Handlers, authSvc *auth.AuthService, config Config) *Server {
@@ -73,6 +75,9 @@ func NewServer(handlers Handlers, authSvc *auth.AuthService, config Config) *Ser
 func (srv *Server) RegisterRoutes(r chi.Router) {
 	r.Use(limitRequestBody(reqBodyLimitBytes))
 	loginLimiter := newLoginRateLimiter(srv.config.LoginRateLimit)
+	resolve := func(prefix publicid.Prefix, param string) func(http.Handler) http.Handler {
+		return publicid.ResolveParam(srv.config.PublicIDs, prefix, param)
+	}
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -105,7 +110,7 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 			// Age so sobre quem faz a requisicao: o ID sai do JWT, nao do path.
 			r.With(loginLimiter.authenticatedMiddleware("admin-senha")).Put("/senha", srv.handlers.AdminHandler.ChangePassword)
 			r.Get("/", srv.handlers.AdminHandler.List)
-			r.Get("/{adminID}", srv.handlers.AdminHandler.GetByID)
+			r.With(resolve(publicid.Admin, "adminID")).Get("/{adminID}", srv.handlers.AdminHandler.GetByID)
 		})
 
 		r.Route("/veiculos", func(r chi.Router) {
@@ -155,9 +160,9 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin))
 			r.Post("/", srv.handlers.MotoristaHandler.Create)
 			r.Get("/", srv.handlers.MotoristaHandler.List)
-			r.Get("/{id}", srv.handlers.MotoristaHandler.GetByID)
-			r.Put("/{id}", srv.handlers.MotoristaHandler.Update)
-			r.Delete("/{id}", srv.handlers.MotoristaHandler.Delete)
+			r.With(resolve(publicid.Motorista, "id")).Get("/{id}", srv.handlers.MotoristaHandler.GetByID)
+			r.With(resolve(publicid.Motorista, "id")).Put("/{id}", srv.handlers.MotoristaHandler.Update)
+			r.With(resolve(publicid.Motorista, "id")).Delete("/{id}", srv.handlers.MotoristaHandler.Delete)
 		})
 
 		r.Route("/clientes", func(r chi.Router) {
@@ -169,6 +174,7 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 			r.With(srv.authSvc.RequireRole(auth.RoleAdmin)).Get("/resumo", srv.handlers.ClienteHandler.Resumo)
 
 			r.Group(func(r chi.Router) {
+				r.Use(resolve(publicid.Cliente, "clienteID"))
 				r.Use(auth.RequireUserIDOrRole("clienteID", auth.RoleCliente, auth.RoleAdmin))
 				r.Get("/{clienteID}", srv.handlers.ClienteHandler.GetByID)
 				r.Put("/{clienteID}", srv.handlers.ClienteHandler.Update)
@@ -178,12 +184,12 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 				r.Route("/{clienteID}/vinculos", func(r chi.Router) {
 					r.Post("/", srv.handlers.VinculoHandler.Create)
 					r.Get("/", srv.handlers.VinculoHandler.ListByCliente)
-					r.Get("/{vinculoID}", srv.handlers.VinculoHandler.GetByID)
-					r.Put("/{vinculoID}", srv.handlers.VinculoHandler.Update)
-					r.Delete("/{vinculoID}", srv.handlers.VinculoHandler.Delete)
-					r.Get("/{vinculoID}/reservas/disponibilidade", srv.handlers.ReservaHandler.ConsultarDisponibilidade)
-					r.Post("/{vinculoID}/reservas/", srv.handlers.ReservaHandler.CreateByVinculo)
-					r.Get("/{vinculoID}/reservas/", srv.handlers.ReservaHandler.ListByVinculo)
+					r.With(resolve(publicid.Vinculo, "vinculoID")).Get("/{vinculoID}", srv.handlers.VinculoHandler.GetByID)
+					r.With(resolve(publicid.Vinculo, "vinculoID")).Put("/{vinculoID}", srv.handlers.VinculoHandler.Update)
+					r.With(resolve(publicid.Vinculo, "vinculoID")).Delete("/{vinculoID}", srv.handlers.VinculoHandler.Delete)
+					r.With(resolve(publicid.Vinculo, "vinculoID")).Get("/{vinculoID}/reservas/disponibilidade", srv.handlers.ReservaHandler.ConsultarDisponibilidade)
+					r.With(resolve(publicid.Vinculo, "vinculoID")).Post("/{vinculoID}/reservas/", srv.handlers.ReservaHandler.CreateByVinculo)
+					r.With(resolve(publicid.Vinculo, "vinculoID")).Get("/{vinculoID}/reservas/", srv.handlers.ReservaHandler.ListByVinculo)
 				})
 			})
 		})
@@ -199,20 +205,20 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 			// Contagens agregadas para o painel. Rota estatica: o chi resolve ela
 			// antes de /{reservaID}, entao "resumo" nunca cai no parse de id.
 			r.With(srv.authSvc.RequireRole(auth.RoleAdmin)).Get("/resumo", srv.handlers.ReservaHandler.Resumo)
-			r.With(srv.handlers.ReservaHandler.RequireOwnerOrAdmin).Get("/{reservaID}", srv.handlers.ReservaHandler.GetByID)
-			r.With(srv.handlers.ReservaHandler.RequireOwnerOrAdmin).Put("/{reservaID}", srv.handlers.ReservaHandler.Update)
-			r.With(srv.handlers.ReservaHandler.RequireOwnerOrAdmin).Post("/{reservaID}/cancelar", srv.handlers.ReservaHandler.Cancel)
-			r.With(srv.handlers.ReservaHandler.RequireOwnerOrAdmin).Delete("/{reservaID}", srv.handlers.ReservaHandler.Delete)
+			r.With(resolve(publicid.Reserva, "reservaID"), srv.handlers.ReservaHandler.RequireOwnerOrAdmin).Get("/{reservaID}", srv.handlers.ReservaHandler.GetByID)
+			r.With(resolve(publicid.Reserva, "reservaID"), srv.handlers.ReservaHandler.RequireOwnerOrAdmin).Put("/{reservaID}", srv.handlers.ReservaHandler.Update)
+			r.With(resolve(publicid.Reserva, "reservaID"), srv.handlers.ReservaHandler.RequireOwnerOrAdmin).Post("/{reservaID}/cancelar", srv.handlers.ReservaHandler.Cancel)
+			r.With(resolve(publicid.Reserva, "reservaID"), srv.handlers.ReservaHandler.RequireOwnerOrAdmin).Delete("/{reservaID}", srv.handlers.ReservaHandler.Delete)
 		})
 
 		r.Group(func(r chi.Router) {
 			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin, auth.RoleMotorista, auth.RoleCliente))
-			r.Get("/viagens/{viagemID}/localizacao", srv.handlers.ViagemHandler.GetLocalizacao)
+			r.With(resolve(publicid.Viagem, "viagemID")).Get("/viagens/{viagemID}/localizacao", srv.handlers.ViagemHandler.GetLocalizacao)
 		})
 
 		r.Group(func(r chi.Router) {
 			r.Use(srv.authSvc.RequireRole(auth.RoleAdmin, auth.RoleMotorista))
-			r.Put("/viagens/{viagemID}/localizacao", srv.handlers.ViagemHandler.AtualizarLocalizacao)
+			r.With(resolve(publicid.Viagem, "viagemID")).Put("/viagens/{viagemID}/localizacao", srv.handlers.ViagemHandler.AtualizarLocalizacao)
 		})
 
 		r.Route("/viagens", func(r chi.Router) {
@@ -221,17 +227,18 @@ func (srv *Server) RegisterRoutes(r chi.Router) {
 			// Agregados do painel, so para admin: o resumo conta a operacao inteira,
 			// nao apenas as viagens do motorista autenticado.
 			r.With(srv.authSvc.RequireRole(auth.RoleAdmin)).Get("/resumo", srv.handlers.ViagemHandler.Resumo)
-			r.With(srv.handlers.ViagemHandler.RequireAssignedMotoristaOrAdmin).Get("/{viagemID}", srv.handlers.ViagemHandler.GetByID)
-			r.With(srv.handlers.ViagemHandler.RequireAssignedMotoristaOrAdmin).Post("/{viagemID}/iniciar", srv.handlers.ViagemHandler.Iniciar)
-			r.With(srv.handlers.ViagemHandler.RequireAssignedMotoristaOrAdmin).Post("/{viagemID}/concluir", srv.handlers.ViagemHandler.Concluir)
-			r.With(srv.handlers.ViagemHandler.RequireAssignedMotoristaOrAdmin).Post("/{viagemID}/cancelar", srv.handlers.ViagemHandler.Cancelar)
-			r.With(srv.handlers.ViagemHandler.RequireAssignedMotoristaOrAdmin).Get("/{viagemID}/horarios", srv.handlers.ViagemHandler.ListHorarios)
-			r.With(srv.handlers.ViagemHandler.RequireAssignedMotoristaOrAdmin).Get("/{viagemID}/reservas/", srv.handlers.ViagemHandler.ListReservas)
-			r.With(srv.handlers.ViagemHandler.RequireAssignedMotoristaOrAdmin).Put("/{viagemID}/reservas/{reservaID}/presenca", srv.handlers.ViagemHandler.AtualizarPresenca)
-			r.With(srv.handlers.ViagemHandler.RequireAssignedMotoristaOrAdmin).Post("/{viagemID}/rota-dinamica/calcular", srv.handlers.RotaDinamicaHandler.Calcular)
-			r.With(srv.handlers.ViagemHandler.RequireAssignedMotoristaOrAdmin).Post("/{viagemID}/rota-dinamica", srv.handlers.RotaDinamicaHandler.Create)
-			r.With(srv.handlers.ViagemHandler.RequireAssignedMotoristaOrAdmin).Get("/{viagemID}/rota-dinamica", srv.handlers.RotaDinamicaHandler.GetByViagem)
-			r.With(srv.handlers.ViagemHandler.RequireAssignedMotoristaOrAdmin).Delete("/{viagemID}/rota-dinamica", srv.handlers.RotaDinamicaHandler.DeleteByViagem)
+			trip := []func(http.Handler) http.Handler{resolve(publicid.Viagem, "viagemID"), srv.handlers.ViagemHandler.RequireAssignedMotoristaOrAdmin}
+			r.With(trip...).Get("/{viagemID}", srv.handlers.ViagemHandler.GetByID)
+			r.With(trip...).Post("/{viagemID}/iniciar", srv.handlers.ViagemHandler.Iniciar)
+			r.With(trip...).Post("/{viagemID}/concluir", srv.handlers.ViagemHandler.Concluir)
+			r.With(trip...).Post("/{viagemID}/cancelar", srv.handlers.ViagemHandler.Cancelar)
+			r.With(trip...).Get("/{viagemID}/horarios", srv.handlers.ViagemHandler.ListHorarios)
+			r.With(trip...).Get("/{viagemID}/reservas/", srv.handlers.ViagemHandler.ListReservas)
+			r.With(resolve(publicid.Viagem, "viagemID"), resolve(publicid.Reserva, "reservaID"), srv.handlers.ViagemHandler.RequireAssignedMotoristaOrAdmin).Put("/{viagemID}/reservas/{reservaID}/presenca", srv.handlers.ViagemHandler.AtualizarPresenca)
+			r.With(trip...).Post("/{viagemID}/rota-dinamica/calcular", srv.handlers.RotaDinamicaHandler.Calcular)
+			r.With(trip...).Post("/{viagemID}/rota-dinamica", srv.handlers.RotaDinamicaHandler.Create)
+			r.With(trip...).Get("/{viagemID}/rota-dinamica", srv.handlers.RotaDinamicaHandler.GetByViagem)
+			r.With(trip...).Delete("/{viagemID}/rota-dinamica", srv.handlers.RotaDinamicaHandler.DeleteByViagem)
 		})
 
 		r.Route("/planejamentos", func(r chi.Router) {

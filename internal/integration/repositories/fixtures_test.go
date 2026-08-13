@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fredsaggio/bondrota-api/internal/publicid"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
 )
@@ -22,6 +23,13 @@ type baseFixture struct {
 	MotoristaID   int64
 	ClienteID     int64
 	VinculoID     int64
+}
+
+func newPublicID(t *testing.T, prefix publicid.Prefix) string {
+	t.Helper()
+	id, err := publicid.New(prefix)
+	require.NoError(t, err)
+	return id
 }
 
 func beginTestTx(t *testing.T) (context.Context, pgx.Tx) {
@@ -115,9 +123,9 @@ func seedMotorista(t *testing.T, ctx context.Context, tx pgx.Tx, cpf string, mun
 	var id int64
 	err := tx.QueryRow(ctx, `
 		INSERT INTO motoristas (
-			nome, cpf, senha, telefone, data_nasc, turno, municipio_trabalho_id, foto
-		) VALUES ('Motorista Teste', $1, 'hash', $2, '1985-05-20', $3, $4, '')
-		RETURNING id`, cpf, telefone, turno, municipioTrabalhoID).Scan(&id)
+			public_id, nome, cpf, senha, telefone, data_nasc, turno, municipio_trabalho_id, foto
+		) VALUES ($1, 'Motorista Teste', $2, 'hash', $3, '1985-05-20', $4, $5, '')
+		RETURNING id`, newPublicID(t, publicid.Motorista), cpf, telefone, turno, municipioTrabalhoID).Scan(&id)
 	require.NoError(t, err)
 	return id
 }
@@ -133,11 +141,11 @@ func seedClienteComNome(t *testing.T, ctx context.Context, tx pgx.Tx, cpf, nome 
 	var id int64
 	err := tx.QueryRow(ctx, `
 		INSERT INTO clientes (
-			nome, cpf, senha, telefone, data_nasc,
+			public_id, nome, cpf, senha, telefone, data_nasc,
 			documento_identificacao, comprovante_residencia
 		)
-		VALUES ($1, $2, 'hash', $3, '2002-08-10', 'identidade.pdf', 'residencia.pdf')
-		RETURNING id`, nome, cpf, telefone).Scan(&id)
+		VALUES ($1, $2, $3, 'hash', $4, '2002-08-10', 'identidade.pdf', 'residencia.pdf')
+		RETURNING id`, newPublicID(t, publicid.Cliente), nome, cpf, telefone).Scan(&id)
 	require.NoError(t, err)
 	return id
 }
@@ -147,9 +155,9 @@ func seedVinculo(t *testing.T, ctx context.Context, tx pgx.Tx, clienteID, destin
 	var id int64
 	err := tx.QueryRow(ctx, `
 		INSERT INTO cliente_vinculos (
-			cliente_id, tipo, turno, destino_id, rota_interna_id, curso, comprovante, validade
-		) VALUES ($1, 'estudante', 'NT', $2, $3, 'Computacao', 'comprovante.pdf', '2030-12-31')
-		RETURNING id`, clienteID, destinoID, rotaID).Scan(&id)
+			public_id, cliente_id, tipo, turno, destino_id, rota_interna_id, curso, comprovante, validade
+		) VALUES ($1, $2, 'estudante', 'NT', $3, $4, 'Computacao', 'comprovante.pdf', '2030-12-31')
+		RETURNING id`, newPublicID(t, publicid.Vinculo), clienteID, destinoID, rotaID).Scan(&id)
 	require.NoError(t, err)
 	return id
 }
@@ -159,9 +167,9 @@ func seedReserva(t *testing.T, ctx context.Context, tx pgx.Tx, fixture baseFixtu
 	var id int64
 	err := tx.QueryRow(ctx, `
 		INSERT INTO reservas (
-			cliente_id, vinculo_id, data_viagem, turno, destino_id, rota_interna_id, sentido
-		) VALUES ($1, $2, $3, 'NT', $4, $5, $6)
-		RETURNING id`, fixture.ClienteID, fixture.VinculoID, data, fixture.DestinoID,
+			public_id, cliente_id, vinculo_id, data_viagem, turno, destino_id, rota_interna_id, sentido
+		) VALUES ($1, $2, $3, $4, 'NT', $5, $6, $7)
+		RETURNING id`, newPublicID(t, publicid.Reserva), fixture.ClienteID, fixture.VinculoID, data, fixture.DestinoID,
 		fixture.RotaInternaID, sentido).Scan(&id)
 	require.NoError(t, err)
 	return id
@@ -185,9 +193,9 @@ func seedViagem(t *testing.T, ctx context.Context, tx pgx.Tx, cicloID int64, sen
 	t.Helper()
 	var id int64
 	require.NoError(t, tx.QueryRow(ctx, `
-		INSERT INTO viagens (ciclo_viagem_id, sentido)
-		VALUES ($1, $2)
-		RETURNING id`, cicloID, sentido).Scan(&id))
+		INSERT INTO viagens (public_id, ciclo_viagem_id, sentido)
+		VALUES ($1, $2, $3)
+		RETURNING id`, newPublicID(t, publicid.Viagem), cicloID, sentido).Scan(&id))
 	return id
 }
 

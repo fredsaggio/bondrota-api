@@ -17,6 +17,7 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/auth"
 	"github.com/fredsaggio/bondrota-api/internal/crypto"
 	"github.com/fredsaggio/bondrota-api/internal/db"
+	"github.com/fredsaggio/bondrota-api/internal/publicid"
 	"github.com/fredsaggio/bondrota-api/internal/retencao"
 	"github.com/fredsaggio/bondrota-api/internal/server"
 	"github.com/fredsaggio/bondrota-api/internal/storage"
@@ -119,6 +120,8 @@ func Run(ctx context.Context, getEnv func(string) string) error {
 	defer pool.Close()
 
 	slog.Info("database connected")
+	publicIDs := publicid.NewResolver(pool)
+	authSvc.SetIdentityResolver(publicIDs)
 
 	storageConfig := storage.SupabaseConfig{
 		URL:        getEnv("SUPABASE_URL"),
@@ -148,6 +151,7 @@ func Run(ctx context.Context, getEnv func(string) string) error {
 		PlanningCronSecret: planningCronSecret,
 		AdminCookieName:    adminCookieConfig.Name,
 		LoginRateLimit:     loginRateLimitConfig,
+		PublicIDs:          publicIDs,
 	})
 	apiRouter := chi.NewRouter()
 	srv.RegisterRoutes(apiRouter)
