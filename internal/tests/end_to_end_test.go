@@ -452,7 +452,7 @@ func TestEndToEndPlanejamentoMultiplosVeiculosPorCapacidade(t *testing.T) {
 			"nome":                  "Motorista Capacidade Teste",
 			"cpf":                   e2eCPF(fmt.Sprintf("91%s%02d", suffix[len(suffix)-5:], i)),
 			"senha":                 "senha123",
-			"telefone":              "82999990000",
+			"telefone":              fmt.Sprintf("8299999%04d", i),
 			"data_nasc":             "1980-05-20",
 			"turno":                 "NT",
 			"municipio_trabalho_id": e2eMunicipioID,
@@ -472,7 +472,7 @@ func TestEndToEndPlanejamentoMultiplosVeiculosPorCapacidade(t *testing.T) {
 			"nome":      "Cliente Capacidade Teste",
 			"cpf":       e2eCPF(fmt.Sprintf("81%s%02d", suffix[len(suffix)-5:], i)),
 			"senha":     "senha123",
-			"telefone":  "82999991111",
+			"telefone":  fmt.Sprintf("8298888%04d", i),
 			"data_nasc": "2002-08-10",
 			"foto":      "",
 		})
@@ -691,7 +691,7 @@ func TestEndToEndPlanejamentoNaoReutilizaRecursosJaAlocados(t *testing.T) {
 			"nome":      "Cliente Reuso Teste",
 			"cpf":       e2eCPF(fmt.Sprintf("76%s%02d", suffix[len(suffix)-5:], i+1)),
 			"senha":     "senha123",
-			"telefone":  "82999991111",
+			"telefone":  fmt.Sprintf("8297777%04d", i),
 			"data_nasc": "2002-08-10",
 			"foto":      "",
 		})
@@ -809,7 +809,7 @@ func TestEndToEndRotaDinamicaMultiplosDestinos(t *testing.T) {
 			"nome":      "Cliente Multi Teste",
 			"cpf":       e2eCPF(fmt.Sprintf("82%s%02d", suffix[len(suffix)-5:], i)),
 			"senha":     "senha123",
-			"telefone":  "82999991111",
+			"telefone":  fmt.Sprintf("8296666%04d", i),
 			"data_nasc": "2002-08-10",
 			"foto":      "",
 		})
@@ -1022,7 +1022,7 @@ func TestEndToEndReservaCanceladaAntesDoPlanejamentoNaoEntraNaViagem(t *testing.
 			"nome":      "Cliente Reserva Cancelada Teste",
 			"cpf":       e2eCPF(fmt.Sprintf("78%s%02d", suffix[len(suffix)-5:], i+1)),
 			"senha":     "senha123",
-			"telefone":  "82999991111",
+			"telefone":  fmt.Sprintf("8295555%04d", i),
 			"data_nasc": "2002-08-10",
 			"foto":      "",
 		})
