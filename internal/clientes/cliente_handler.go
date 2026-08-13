@@ -152,6 +152,10 @@ func (h *ClienteHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	cliente, err := h.clienteSvc.Create(ctx, input)
 	if err != nil {
+		if db.IsUniqueViolation(err, "telefones_cadastrados_pkey") {
+			http.Error(w, "Já existe outro cadastro com este telefone.", http.StatusConflict)
+			return
+		}
 		if db.IsUniqueViolation(err, "clientes_cpf_key") {
 			http.Error(w, "Já existe um cadastro com este CPF.", http.StatusConflict)
 			return
@@ -396,6 +400,10 @@ func (h *ClienteHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			http.Error(w, "Cliente não encontrado.", http.StatusNotFound)
+			return
+		}
+		if db.IsUniqueViolation(err, "telefones_cadastrados_pkey") {
+			http.Error(w, "Já existe outro cadastro com este telefone.", http.StatusConflict)
 			return
 		}
 		if errors.Is(err, ErrNomeObrigatorio) ||

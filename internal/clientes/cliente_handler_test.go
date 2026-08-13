@@ -225,6 +225,53 @@ func TestClienteHandler_Create(t *testing.T) {
 	}
 }
 
+func TestClienteHandler_TelefoneDuplicado(t *testing.T) {
+	duplicateError := fmt.Errorf("db/clienteStore: %w", &pgconn.PgError{
+		Code:           "23505",
+		ConstraintName: "telefones_cadastrados_pkey",
+	})
+	const wantMessage = "Já existe outro cadastro com este telefone.\n"
+
+	t.Run("create retorna conflito claro", func(t *testing.T) {
+		h := clientes.NewClienteHandler(fakeClienteService{
+			createFn: func(_ context.Context, _ clientes.ClienteInput) (*clientes.Cliente, error) {
+				return nil, duplicateError
+			},
+		})
+		req := httptest.NewRequest(http.MethodPost, "/clientes", body(map[string]any{
+			"nome": "Maria Souza", "cpf": "12345678909", "senha": "secret",
+			"telefone": "82999990000", "data_nasc": "2000-01-02",
+			"documento_identificacao": "clientes/_novo/teste/documento-identificacao.pdf",
+			"comprovante_residencia":  "clientes/_novo/teste/comprovante-residencia.pdf",
+		}))
+		rr := httptest.NewRecorder()
+
+		newClienteRouter(h).ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusConflict || rr.Body.String() != wantMessage {
+			t.Fatalf("want 409 with clear message, got %d: %q", rr.Code, rr.Body.String())
+		}
+	})
+
+	t.Run("update retorna conflito claro", func(t *testing.T) {
+		h := clientes.NewClienteHandler(fakeClienteService{
+			updateFn: func(_ context.Context, _ int64, _ func(*clientes.Cliente) (bool, error)) (*clientes.Cliente, error) {
+				return nil, duplicateError
+			},
+		})
+		req := httptest.NewRequest(http.MethodPut, "/clientes/1", body(map[string]any{
+			"telefone": "82999990000",
+		}))
+		rr := httptest.NewRecorder()
+
+		newClienteRouter(h).ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusConflict || rr.Body.String() != wantMessage {
+			t.Fatalf("want 409 with clear message, got %d: %q", rr.Code, rr.Body.String())
+		}
+	})
+}
+
 // fakeArquivoMovedor grava a ultima chamada de MoveObject, para os testes
 // afirmarem de onde para onde o arquivo foi movido.
 type fakeArquivoMovedor struct {

@@ -512,13 +512,16 @@ Turnos validos: `MT`, `VT`, `NT`, `IN`.
 Nos cadastros de motoristas e clientes, `cpf` aceita 11 digitos ou a mascara
 `000.000.000-00`; `telefone` aceita 11 digitos ou a mascara `(00) 00000-0000`.
 Letras, simbolos extras e pontuacao fora dessas posicoes retornam `400 Bad Request`.
+Quando informado, o telefone e unico em todo o sistema: nao pode se repetir entre
+clientes, entre motoristas, nem entre um cliente e um motorista. O conflito retorna
+`409 Conflict` com uma mensagem clara. O valor vazio continua podendo se repetir.
 
 | Metodo | Path completo | Descricao | Body | Sucesso | Erros |
 | --- | --- | --- | --- | --- | --- |
 | `POST` | `BASE_URL/motoristas/` | Cria motorista. | `CreateMotoristaRequest` | `201 MotoristaResponse` | `400`, `401`, `403`, `409`, `500` |
 | `GET` | `BASE_URL/motoristas/` | Lista motoristas. | nenhum | `200 MotoristaResponse[]` | `401`, `403`, `500` |
 | `GET` | `BASE_URL/motoristas/{id}` | Busca motorista. | nenhum | `200 MotoristaResponse` | `400`, `401`, `403`, `404`, `500` |
-| `PUT` | `BASE_URL/motoristas/{id}` | Atualiza motorista. | `UpdateMotoristaRequest` parcial | `200 MotoristaResponse` | `400`, `401`, `403`, `404`, `500` |
+| `PUT` | `BASE_URL/motoristas/{id}` | Atualiza motorista. | `UpdateMotoristaRequest` parcial | `200 MotoristaResponse` | `400`, `401`, `403`, `404`, `409`, `500` |
 | `DELETE` | `BASE_URL/motoristas/{id}` | Remove motorista. | nenhum | `204` | `400`, `401`, `403`, `404`, `409`, `500` |
 
 `telefone`, `residencia` e `foto` sao opcionais no update: omita a chave (ou envie
@@ -571,7 +574,7 @@ Permissoes:
 | `GET` | `BASE_URL/clientes/?cursor=&limit=50&q=` | Lista clientes, paginada por cursor. | nenhum | `200 ClienteListResponse` | `400`, `401`, `403`, `500` |
 | `GET` | `BASE_URL/clientes/resumo` | Total de clientes cadastrados. | nenhum | `200 ClienteResumoResponse` | `401`, `403`, `500` |
 | `GET` | `BASE_URL/clientes/{clienteID}` | Busca cliente com vinculos. | nenhum | `200 ClienteComVinculosResponse` | `400`, `401`, `403`, `404`, `500` |
-| `PUT` | `BASE_URL/clientes/{clienteID}` | Atualiza cliente. | `UpdateClienteRequest` parcial | `200 ClienteResponse` | `400`, `401`, `403`, `404`, `500` |
+| `PUT` | `BASE_URL/clientes/{clienteID}` | Atualiza cliente. | `UpdateClienteRequest` parcial | `200 ClienteResponse` | `400`, `401`, `403`, `404`, `409`, `500` |
 | `DELETE` | `BASE_URL/clientes/{clienteID}` | Remove cliente. | nenhum | `204` | `400`, `401`, `403`, `404`, `409`, `500` |
 | `GET` | `BASE_URL/clientes/{clienteID}/reservas/` | Lista reservas do cliente. | nenhum | `200 ReservaResponse[]` | `400`, `401`, `403`, `500` |
 

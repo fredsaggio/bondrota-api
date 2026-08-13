@@ -1822,8 +1822,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VeiculoResponse'
-        '409':
-          description: Já existe outro veículo cadastrado com esta placa
       parameters:
       - name: veiculoID
         in: path
@@ -1841,6 +1839,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VeiculoResponse'
+        '409':
+          description: Já existe outro veículo cadastrado com esta placa
       parameters:
       - name: veiculoID
         in: path
@@ -2206,6 +2206,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MotoristaResponse'
+        '409':
+          description: CPF ou telefone já pertence a outro cadastro
       requestBody:
         required: true
         content:
@@ -2254,6 +2256,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MotoristaResponse'
+        '409':
+          description: Telefone já pertence a outro cadastro
       parameters:
       - name: id
         in: path
@@ -2293,6 +2297,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ClienteResponse'
+        '409':
+          description: CPF ou telefone já pertence a outro cadastro
       requestBody:
         required: true
         content:
@@ -2375,6 +2381,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ClienteResponse'
+        '409':
+          description: Telefone já pertence a outro cadastro
       parameters:
       - name: clienteID
         in: path

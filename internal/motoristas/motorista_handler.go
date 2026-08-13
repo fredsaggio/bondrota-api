@@ -200,6 +200,10 @@ func (h *MotoristaHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	motorista, err := h.svc.Create(ctx, input)
 	if err != nil {
+		if db.IsUniqueViolation(err, "telefones_cadastrados_pkey") {
+			http.Error(w, "Já existe outro cadastro com este telefone.", http.StatusConflict)
+			return
+		}
 		if db.IsUniqueViolation(err, "motoristas_cpf_key") {
 			http.Error(w, "Já existe um cadastro com este CPF.", http.StatusConflict)
 			return
@@ -370,6 +374,10 @@ func (h *MotoristaHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			http.Error(w, "Motorista não encontrado.", http.StatusNotFound)
+			return
+		}
+		if db.IsUniqueViolation(err, "telefones_cadastrados_pkey") {
+			http.Error(w, "Já existe outro cadastro com este telefone.", http.StatusConflict)
 			return
 		}
 		if errors.Is(err, ErrNomeObrigatorio) ||

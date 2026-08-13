@@ -258,6 +258,48 @@ func TestMotoristaHandler_Create(t *testing.T) {
 	}
 }
 
+func TestMotoristaHandler_TelefoneDuplicado(t *testing.T) {
+	duplicateError := fmt.Errorf("db/motoristaStore: %w", &pgconn.PgError{
+		Code:           "23505",
+		ConstraintName: "telefones_cadastrados_pkey",
+	})
+	const wantMessage = "Já existe outro cadastro com este telefone.\n"
+
+	t.Run("create retorna conflito claro", func(t *testing.T) {
+		svc := mocks.NewMockMotoristaService(t)
+		svc.EXPECT().Create(mock.Anything, mock.Anything).Return(nil, duplicateError)
+		h := motoristas.NewMotoristaHandler(svc)
+		req := httptest.NewRequest(http.MethodPost, "/motoristas", jsonBuf(map[string]any{
+			"nome": "João Silva", "cpf": "12345678909", "senha": "secret",
+			"telefone": "82999990000", "turno": "MT", "data_nasc": "1990-01-01",
+			"municipio_trabalho_id": int64(2611606),
+		}))
+		rr := httptest.NewRecorder()
+
+		newMotoristaRouter(h).ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusConflict || rr.Body.String() != wantMessage {
+			t.Fatalf("want 409 with clear message, got %d: %q", rr.Code, rr.Body.String())
+		}
+	})
+
+	t.Run("update retorna conflito claro", func(t *testing.T) {
+		svc := mocks.NewMockMotoristaService(t)
+		svc.EXPECT().Update(mock.Anything, int64(1), anyUpdateFunc).Return(nil, duplicateError)
+		h := motoristas.NewMotoristaHandler(svc)
+		req := httptest.NewRequest(http.MethodPatch, "/motoristas/1", jsonBuf(map[string]any{
+			"telefone": "82999990000",
+		}))
+		rr := httptest.NewRecorder()
+
+		newMotoristaRouter(h).ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusConflict || rr.Body.String() != wantMessage {
+			t.Fatalf("want 409 with clear message, got %d: %q", rr.Code, rr.Body.String())
+		}
+	})
+}
+
 // fakeArquivoMovedor grava a ultima chamada de MoveObject, para os testes
 // afirmarem de onde para onde o arquivo foi movido.
 type fakeArquivoMovedor struct {

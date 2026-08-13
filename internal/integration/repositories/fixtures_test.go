@@ -111,12 +111,13 @@ func seedVeiculo(t *testing.T, ctx context.Context, tx pgx.Tx, placa, status str
 
 func seedMotorista(t *testing.T, ctx context.Context, tx pgx.Tx, cpf string, municipioTrabalhoID int64, turno string) int64 {
 	t.Helper()
+	telefone := "819" + cpf[:1] + cpf[len(cpf)-7:]
 	var id int64
 	err := tx.QueryRow(ctx, `
 		INSERT INTO motoristas (
 			nome, cpf, senha, telefone, data_nasc, turno, municipio_trabalho_id, residencia, foto
-		) VALUES ('Motorista Teste', $1, 'hash', '82999990000', '1985-05-20', $2, $3, $4, '')
-		RETURNING id`, cpf, turno, municipioTrabalhoID, testCity).Scan(&id)
+		) VALUES ('Motorista Teste', $1, 'hash', $2, '1985-05-20', $3, $4, $5, '')
+		RETURNING id`, cpf, telefone, turno, municipioTrabalhoID, testCity).Scan(&id)
 	require.NoError(t, err)
 	return id
 }
@@ -128,14 +129,15 @@ func seedCliente(t *testing.T, ctx context.Context, tx pgx.Tx, cpf string) int64
 
 func seedClienteComNome(t *testing.T, ctx context.Context, tx pgx.Tx, cpf, nome string) int64 {
 	t.Helper()
+	telefone := "829" + cpf[:1] + cpf[len(cpf)-7:]
 	var id int64
 	err := tx.QueryRow(ctx, `
 		INSERT INTO clientes (
 			nome, cpf, senha, telefone, data_nasc,
 			documento_identificacao, comprovante_residencia
 		)
-		VALUES ($1, $2, 'hash', '82999991111', '2002-08-10', 'identidade.pdf', 'residencia.pdf')
-		RETURNING id`, nome, cpf).Scan(&id)
+		VALUES ($1, $2, 'hash', $3, '2002-08-10', 'identidade.pdf', 'residencia.pdf')
+		RETURNING id`, nome, cpf, telefone).Scan(&id)
 	require.NoError(t, err)
 	return id
 }
