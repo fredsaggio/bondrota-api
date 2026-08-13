@@ -295,14 +295,16 @@ Status validos: `ativo`, `inativo`, `manutencao`.
 `placa` aceita a forma limpa (`ABC1234` ou `ABC1D23`) e a mascara canonica do
 padrao antigo (`ABC-1234`). Pontuacao fora de posicao e outros simbolos sao
 rejeitados. `modelo` aceita apenas letras, numeros e espacos. A API rejeita outros
-caracteres com `400 Bad Request`, tanto na criacao quanto na atualizacao.
+caracteres com `400 Bad Request`, tanto na criacao quanto na atualizacao. Se a
+placa ja pertencer a outro veiculo, criacao e atualizacao respondem `409 Conflict`
+com uma mensagem clara para o usuario.
 
 | Metodo | Path completo | Descricao | Body | Sucesso | Erros |
 | --- | --- | --- | --- | --- | --- |
-| `POST` | `BASE_URL/veiculos/` | Cria veiculo. | `VeiculoCreateRequest` | `201 { "id": number }` | `400`, `401`, `403`, `422`, `500` |
+| `POST` | `BASE_URL/veiculos/` | Cria veiculo. | `VeiculoCreateRequest` | `201 { "id": number }` | `400`, `401`, `403`, `409`, `422`, `500` |
 | `GET` | `BASE_URL/veiculos/` | Lista veiculos. | nenhum | `200 VeiculoResponse[]` | `401`, `403`, `500` |
 | `GET` | `BASE_URL/veiculos/{veiculoID}` | Busca veiculo por ID. | nenhum | `200 VeiculoResponse` | `400`, `401`, `403`, `404`, `500` |
-| `PUT` | `BASE_URL/veiculos/{veiculoID}` | Atualiza veiculo. | `VeiculoUpdateRequest` | `200 VeiculoResponse` | `400`, `401`, `403`, `404`, `422`, `500` |
+| `PUT` | `BASE_URL/veiculos/{veiculoID}` | Atualiza veiculo. | `VeiculoUpdateRequest` | `200 VeiculoResponse` | `400`, `401`, `403`, `404`, `409`, `422`, `500` |
 | `DELETE` | `BASE_URL/veiculos/{veiculoID}` | Remove veiculo. | nenhum | `204` | `400`, `401`, `403`, `404`, `409`, `500` |
 
 Create:

@@ -83,6 +83,45 @@ func TestVeiculoHandler_RejeitaPlacaComSimbolosMisturados(t *testing.T) {
 	}
 }
 
+func TestVeiculoHandler_PlacaDuplicada(t *testing.T) {
+	duplicateError := fmt.Errorf("db/veiculoStore: %w", &pgconn.PgError{
+		Code:           "23505",
+		ConstraintName: "veiculos_placa_key",
+	})
+	const wantMessage = "Já existe outro veículo cadastrado com esta placa.\n"
+
+	t.Run("create retorna conflito claro", func(t *testing.T) {
+		st := mocks.NewMockVeiculoStore(t)
+		st.EXPECT().Create(mock.Anything, mock.Anything).Return(nil, duplicateError)
+		h := veiculos.NewVeiculoHandler(st)
+		req := httptest.NewRequest(http.MethodPost, "/veiculos/", strings.NewReader(`{
+			"placa":"ABC1D23","modelo":"Onibus 1722","categoria":"escolar",
+			"capacidade":24,"status":"ativo"
+		}`))
+		rr := httptest.NewRecorder()
+
+		newVeiculoRouter(h).ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusConflict || rr.Body.String() != wantMessage {
+			t.Fatalf("want 409 with clear message, got %d: %q", rr.Code, rr.Body.String())
+		}
+	})
+
+	t.Run("update retorna conflito claro", func(t *testing.T) {
+		st := mocks.NewMockVeiculoStore(t)
+		st.EXPECT().Update(mock.Anything, int64(1), mock.Anything).Return(nil, duplicateError)
+		h := veiculos.NewVeiculoHandler(st)
+		req := httptest.NewRequest(http.MethodPut, "/veiculos/1", strings.NewReader(`{"placa":"ABC1D23"}`))
+		rr := httptest.NewRecorder()
+
+		newVeiculoRouter(h).ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusConflict || rr.Body.String() != wantMessage {
+			t.Fatalf("want 409 with clear message, got %d: %q", rr.Code, rr.Body.String())
+		}
+	})
+}
+
 func TestVeiculoHandler_Delete(t *testing.T) {
 	tests := []struct {
 		name       string

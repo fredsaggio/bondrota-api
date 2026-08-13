@@ -1789,6 +1789,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VeiculoIDResponse'
+        '409':
+          description: Já existe outro veículo cadastrado com esta placa
       requestBody:
         required: true
         content:
@@ -1820,6 +1822,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VeiculoResponse'
+        '409':
+          description: Já existe outro veículo cadastrado com esta placa
       parameters:
       - name: veiculoID
         in: path

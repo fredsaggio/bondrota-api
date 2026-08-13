@@ -102,6 +102,10 @@ func (h *VeiculoHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Tomada:         req.Tomada,
 	})
 	if err != nil {
+		if db.IsUniqueViolation(err, "veiculos_placa_key") {
+			http.Error(w, "Já existe outro veículo cadastrado com esta placa.", http.StatusConflict)
+			return
+		}
 		slog.Error("failed to create veiculo", "error", err)
 		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
@@ -226,6 +230,10 @@ func (h *VeiculoHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			http.Error(w, "Veículo não encontrado.", http.StatusNotFound)
+			return
+		}
+		if db.IsUniqueViolation(err, "veiculos_placa_key") {
+			http.Error(w, "Já existe outro veículo cadastrado com esta placa.", http.StatusConflict)
 			return
 		}
 		if errors.Is(err, validation.ErrPlacaInvalida) || errors.Is(err, validation.ErrModeloInvalido) {
