@@ -51,14 +51,29 @@ func TestService_CreateSignedUploadURLClienteOwnPath(t *testing.T) {
 		UserID: 10,
 		Role:   auth.RoleCliente,
 	}, storage.SignedUploadURLInput{
+		Bucket:      "documentos",
+		Path:        "clientes/10/documento-identificacao.pdf",
+		ContentType: "application/pdf",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, "https://example.com/upload", resp.SignedURL)
+	require.Equal(t, "clientes/10/documento-identificacao.pdf", client.uploadInput.Path)
+}
+
+func TestService_CreateSignedUploadURLClienteCannotUseFotos(t *testing.T) {
+	svc := storage.NewService(&fakeSupabaseClient{})
+
+	_, err := svc.CreateSignedUploadURL(context.Background(), storage.Actor{
+		UserID: 10,
+		Role:   auth.RoleCliente,
+	}, storage.SignedUploadURLInput{
 		Bucket:      "fotos",
 		Path:        "clientes/10/foto.png",
 		ContentType: "image/png",
 	})
 
-	require.NoError(t, err)
-	require.Equal(t, "https://example.com/upload", resp.SignedURL)
-	require.Equal(t, "clientes/10/foto.png", client.uploadInput.Path)
+	require.ErrorIs(t, err, brerror.ErrForbidden)
 }
 
 func TestService_CreateSignedUploadURLClienteOtherPathForbidden(t *testing.T) {
@@ -68,9 +83,9 @@ func TestService_CreateSignedUploadURLClienteOtherPathForbidden(t *testing.T) {
 		UserID: 10,
 		Role:   auth.RoleCliente,
 	}, storage.SignedUploadURLInput{
-		Bucket:      "fotos",
-		Path:        "clientes/11/foto.png",
-		ContentType: "image/png",
+		Bucket:      "documentos",
+		Path:        "clientes/11/documento-identificacao.pdf",
+		ContentType: "application/pdf",
 	})
 
 	require.ErrorIs(t, err, brerror.ErrForbidden)
@@ -149,9 +164,9 @@ func TestService_CreateSignedUploadURLRejectsDotDotPath(t *testing.T) {
 		UserID: 10,
 		Role:   auth.RoleCliente,
 	}, storage.SignedUploadURLInput{
-		Bucket:      "fotos",
-		Path:        "clientes/10/../foto.png",
-		ContentType: "image/png",
+		Bucket:      "documentos",
+		Path:        "clientes/10/../documento.pdf",
+		ContentType: "application/pdf",
 	})
 
 	require.ErrorIs(t, err, brerror.ErrInvalidInput)

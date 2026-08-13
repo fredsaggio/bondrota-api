@@ -92,7 +92,8 @@ erDiagram
         text senha
         text telefone
         date data_nasc
-        text foto
+        text documento_identificacao
+        text comprovante_residencia
         timestamptz created_at
         timestamptz updated_at
     }
@@ -127,7 +128,9 @@ erDiagram
 
 ## Como interpretar as tabelas atuais
 
-`clientes` guarda apenas a identidade do usuario: nome, CPF, senha, telefone, data de nascimento e foto.
+`clientes` guarda a identidade do usuario e os documentos gerais da conta: nome,
+CPF, senha, telefone, data de nascimento, documento de identificacao e comprovante
+de residencia. A foto permanece apenas no cadastro do motorista.
 
 `cliente_vinculos` guarda a parte operacional do cliente: tipo de conta (`estudante` ou `estagio`), turno (`MT`, `VT`, `NT`, `IN`), destino, rota interna, curso, comprovante e validade. Essa separacao e importante porque um mesmo cliente pode ter mais de um vinculo ao longo do tempo.
 
@@ -321,7 +324,8 @@ curl -i -X POST "$BASE/clientes/" \
     "senha":"senha123",
     "telefone":"82988880000",
     "data_nasc":"2001-08-20",
-    "foto":""
+    "documento_identificacao":"clientes/_novo/uuid/documento-identificacao.pdf",
+    "comprovante_residencia":"clientes/_novo/uuid/comprovante-residencia.pdf"
   }'
 ```
 

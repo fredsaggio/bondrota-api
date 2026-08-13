@@ -45,7 +45,7 @@ func buildHandlers(pool db.DB, authSvc *auth.AuthService, adminCookieConfig admi
 	rotaInternaHandler := rotasinternas.NewRotaInternaHandler(rotaInternaSvc)
 
 	// Construido antes dos handlers de motorista/cliente/vinculo, que usam o
-	// service para reorganizar foto/comprovante da pasta de espera para o
+	// service para reorganizar fotos e documentos da pasta de espera para o
 	// caminho definitivo assim que o registro ganha um ID.
 	storageClient := storage.NewSupabaseClient(storageConfig, nil)
 	storageSvc := storage.NewService(storageClient)

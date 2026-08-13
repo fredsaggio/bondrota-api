@@ -17,7 +17,7 @@ func TestClienteRepository_CRUD(t *testing.T) {
 
 	created, err := store.Create(ctx, clientes.ClienteInput{
 		Nome: "Ana", CPF: "30000000001", Senha: "hash", Telefone: "82999991111",
-		DataNasc: birthDate, Foto: "ana.jpg",
+		DataNasc: birthDate, DocumentoIdentificacao: "ana-identidade.pdf", ComprovanteResidencia: "ana-residencia.pdf",
 	})
 	require.NoError(t, err)
 
@@ -50,6 +50,7 @@ func TestClienteRepository_RejectsDuplicateCPF(t *testing.T) {
 	store := clientes.NewClienteStore(tx)
 	input := clientes.ClienteInput{
 		Nome: "Ana", CPF: "30000000002", Senha: "hash", DataNasc: time.Date(2001, 1, 10, 0, 0, 0, 0, time.UTC),
+		DocumentoIdentificacao: "identidade.pdf", ComprovanteResidencia: "residencia.pdf",
 	}
 
 	_, err := store.Create(ctx, input)
@@ -66,7 +67,7 @@ func TestClienteRepository_ListPaginaEBusca(t *testing.T) {
 	criar := func(nome, cpf, telefone string) int64 {
 		created, err := store.Create(ctx, clientes.ClienteInput{
 			Nome: nome, CPF: cpf, Senha: "hash", Telefone: telefone,
-			DataNasc: nascimento, Foto: "",
+			DataNasc: nascimento, DocumentoIdentificacao: "identidade.pdf", ComprovanteResidencia: "residencia.pdf",
 		})
 		require.NoError(t, err)
 		return created.ID
@@ -150,6 +151,7 @@ func TestClienteRepository_Resumo(t *testing.T) {
 	for _, cpf := range []string{"30000000001", "30000000002"} {
 		_, err := store.Create(ctx, clientes.ClienteInput{
 			Nome: "Cliente", CPF: cpf, Senha: "hash", Telefone: "", DataNasc: nascimento,
+			DocumentoIdentificacao: "identidade.pdf", ComprovanteResidencia: "residencia.pdf",
 		})
 		require.NoError(t, err)
 	}

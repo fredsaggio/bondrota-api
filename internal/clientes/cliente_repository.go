@@ -36,17 +36,25 @@ func (s *clienteStore) Create(ctx context.Context, input ClienteInput) (*Cliente
 	const op = "db/clienteStore.Create"
 
 	const q = `
-		INSERT INTO clientes (nome, cpf, senha, telefone, data_nasc, foto)
-		VALUES (@nome, @cpf, @senha, @telefone, @data_nasc, @foto)
-		RETURNING id, nome, cpf, telefone, data_nasc, foto
+		INSERT INTO clientes (
+			nome, cpf, senha, telefone, data_nasc,
+			documento_identificacao, comprovante_residencia
+		)
+		VALUES (
+			@nome, @cpf, @senha, @telefone, @data_nasc,
+			@documento_identificacao, @comprovante_residencia
+		)
+		RETURNING id, nome, cpf, telefone, data_nasc,
+			documento_identificacao, comprovante_residencia
 	`
 	args := pgx.StrictNamedArgs{
-		"nome":      input.Nome,
-		"cpf":       input.CPF,
-		"senha":     input.Senha,
-		"telefone":  input.Telefone,
-		"data_nasc": input.DataNasc,
-		"foto":      input.Foto,
+		"nome":                    input.Nome,
+		"cpf":                     input.CPF,
+		"senha":                   input.Senha,
+		"telefone":                input.Telefone,
+		"data_nasc":               input.DataNasc,
+		"documento_identificacao": input.DocumentoIdentificacao,
+		"comprovante_residencia":  input.ComprovanteResidencia,
 	}
 
 	rows, err := s.db.Query(ctx, q, args)
@@ -67,7 +75,8 @@ func (s *clienteStore) GetByID(ctx context.Context, clienteID int64) (*ClienteCo
 
 	const q = `
 		SELECT
-			c.id, c.nome, c.cpf, c.telefone, c.data_nasc, c.foto,
+			c.id, c.nome, c.cpf, c.telefone, c.data_nasc,
+			c.documento_identificacao, c.comprovante_residencia,
 			v.id, v.cliente_id, v.tipo, v.turno, v.destino_id, v.rota_interna_id,
 			v.curso, v.comprovante, v.validade,
 			h.id, h.vinculo_id, h.dia_semana
@@ -98,7 +107,8 @@ func (s *clienteStore) GetByCPF(ctx context.Context, cpf string) (*Cliente, erro
 	const op = "db/clienteStore.GetByCPF"
 
 	const q = `
-		SELECT id, nome, cpf, senha, telefone, data_nasc, foto
+		SELECT id, nome, cpf, senha, telefone, data_nasc,
+			documento_identificacao, comprovante_residencia
 		FROM clientes
 		WHERE cpf = @cpf
 	`
@@ -146,7 +156,8 @@ func (s *clienteStore) List(ctx context.Context, params ClienteListParams) (Clie
 	}
 
 	const q = `
-		SELECT id, nome, cpf, telefone, data_nasc, foto
+		SELECT id, nome, cpf, telefone, data_nasc,
+			documento_identificacao, comprovante_residencia
 		FROM clientes
 		WHERE (@cursor_id = 0 OR id < @cursor_id)
 		  AND (@busca = '' OR
@@ -198,7 +209,8 @@ func (s *clienteStore) Update(ctx context.Context, clienteID int64, updateFunc f
 
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		const selectQ = `
-			SELECT id, nome, cpf, telefone, data_nasc, foto
+			SELECT id, nome, cpf, telefone, data_nasc,
+				documento_identificacao, comprovante_residencia
 			FROM clientes
 			WHERE id = @id
 			FOR UPDATE
@@ -227,15 +239,20 @@ func (s *clienteStore) Update(ctx context.Context, clienteID int64, updateFunc f
 
 		const updateQ = `
 			UPDATE clientes
-			SET nome = @nome, telefone = @telefone, data_nasc = @data_nasc, foto = @foto
+			SET nome = @nome,
+				telefone = @telefone,
+				data_nasc = @data_nasc,
+				documento_identificacao = @documento_identificacao,
+				comprovante_residencia = @comprovante_residencia
 			WHERE id = @id
 		`
 		_, err = tx.Exec(ctx, updateQ, pgx.StrictNamedArgs{
-			"id":        cliente.ID,
-			"nome":      cliente.Nome,
-			"telefone":  cliente.Telefone,
-			"data_nasc": cliente.DataNasc,
-			"foto":      cliente.Foto,
+			"id":                      cliente.ID,
+			"nome":                    cliente.Nome,
+			"telefone":                cliente.Telefone,
+			"data_nasc":               cliente.DataNasc,
+			"documento_identificacao": cliente.DocumentoIdentificacao,
+			"comprovante_residencia":  cliente.ComprovanteResidencia,
 		})
 		if err != nil {
 			return fmt.Errorf("update: %w", err)
@@ -275,28 +292,30 @@ func collectClienteComVinculos(rows pgx.Rows) (*ClienteComVinculos, error) {
 
 	for rows.Next() {
 		var (
-			cID        int64
-			cNome      string
-			cCPF       string
-			cTelefone  string
-			cDataNasc  time.Time
-			cFoto      string
-			vID        *int64
-			vClienteID *int64
-			vTipo      *TipoConta
-			vTurno     *TurnoCliente
-			vDestinoID *int64
-			vRotaID    *int64
-			vCurso     *string
-			vComp      *string
-			vValidade  *time.Time
-			hID        *int64
-			hVinculoID *int64
-			hDia       *DiaSemana
+			cID                     int64
+			cNome                   string
+			cCPF                    string
+			cTelefone               string
+			cDataNasc               time.Time
+			cDocumentoIdentificacao string
+			cComprovanteResidencia  string
+			vID                     *int64
+			vClienteID              *int64
+			vTipo                   *TipoConta
+			vTurno                  *TurnoCliente
+			vDestinoID              *int64
+			vRotaID                 *int64
+			vCurso                  *string
+			vComp                   *string
+			vValidade               *time.Time
+			hID                     *int64
+			hVinculoID              *int64
+			hDia                    *DiaSemana
 		)
 
 		if err := rows.Scan(
-			&cID, &cNome, &cCPF, &cTelefone, &cDataNasc, &cFoto,
+			&cID, &cNome, &cCPF, &cTelefone, &cDataNasc,
+			&cDocumentoIdentificacao, &cComprovanteResidencia,
 			&vID, &vClienteID, &vTipo, &vTurno, &vDestinoID, &vRotaID,
 			&vCurso, &vComp, &vValidade,
 			&hID, &hVinculoID, &hDia,
@@ -307,12 +326,13 @@ func collectClienteComVinculos(rows pgx.Rows) (*ClienteComVinculos, error) {
 		if result == nil {
 			result = &ClienteComVinculos{
 				Cliente: Cliente{
-					ID:       cID,
-					Nome:     cNome,
-					CPF:      cCPF,
-					Telefone: cTelefone,
-					DataNasc: cDataNasc,
-					Foto:     cFoto,
+					ID:                     cID,
+					Nome:                   cNome,
+					CPF:                    cCPF,
+					Telefone:               cTelefone,
+					DataNasc:               cDataNasc,
+					DocumentoIdentificacao: cDocumentoIdentificacao,
+					ComprovanteResidencia:  cComprovanteResidencia,
 				},
 				Vinculos: []Vinculo{},
 			}
@@ -351,12 +371,18 @@ func collectClienteComVinculos(rows pgx.Rows) (*ClienteComVinculos, error) {
 
 func scanCliente(row pgx.CollectableRow) (Cliente, error) {
 	var c Cliente
-	err := row.Scan(&c.ID, &c.Nome, &c.CPF, &c.Telefone, &c.DataNasc, &c.Foto)
+	err := row.Scan(
+		&c.ID, &c.Nome, &c.CPF, &c.Telefone, &c.DataNasc,
+		&c.DocumentoIdentificacao, &c.ComprovanteResidencia,
+	)
 	return c, err
 }
 
 func scanClienteComSenha(row pgx.CollectableRow) (Cliente, error) {
 	var c Cliente
-	err := row.Scan(&c.ID, &c.Nome, &c.CPF, &c.Senha, &c.Telefone, &c.DataNasc, &c.Foto)
+	err := row.Scan(
+		&c.ID, &c.Nome, &c.CPF, &c.Senha, &c.Telefone, &c.DataNasc,
+		&c.DocumentoIdentificacao, &c.ComprovanteResidencia,
+	)
 	return c, err
 }

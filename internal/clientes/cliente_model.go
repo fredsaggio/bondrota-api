@@ -7,15 +7,17 @@ import (
 )
 
 var (
-	ErrNotFound         = errors.New("Cliente não encontrado.")
-	ErrVinculoNotFound  = errors.New("Vínculo não encontrado.")
-	ErrNomeObrigatorio  = errors.New("Informe o nome.")
-	ErrCursoObrigatorio = errors.New("Informe o curso para vínculo de estudante.")
-	ErrTipoInvalido     = errors.New("Selecione um tipo válido: estudante ou estágio.")
-	ErrTurnoInvalido    = errors.New("turno must be MT, VT, NT or IN")
-	ErrDiaInvalido      = errors.New("dia_semana must be between 1 and 5")
-	ErrDiaDuplicado     = errors.New("Não repita o mesmo dia da semana.")
-	ErrDataInvalida     = errors.New("date must be in format YYYY-MM-DD")
+	ErrNotFound                          = errors.New("Cliente não encontrado.")
+	ErrVinculoNotFound                   = errors.New("Vínculo não encontrado.")
+	ErrNomeObrigatorio                   = errors.New("Informe o nome.")
+	ErrCursoObrigatorio                  = errors.New("Informe o curso para vínculo de estudante.")
+	ErrTipoInvalido                      = errors.New("Selecione um tipo válido: estudante ou estágio.")
+	ErrTurnoInvalido                     = errors.New("turno must be MT, VT, NT or IN")
+	ErrDiaInvalido                       = errors.New("dia_semana must be between 1 and 5")
+	ErrDiaDuplicado                      = errors.New("Não repita o mesmo dia da semana.")
+	ErrDataInvalida                      = errors.New("date must be in format YYYY-MM-DD")
+	ErrDocumentoIdentificacaoObrigatorio = errors.New("Envie o documento de identificação.")
+	ErrComprovanteResidenciaObrigatorio  = errors.New("Envie o comprovante de residência.")
 )
 
 type TipoConta string
@@ -41,13 +43,14 @@ const (
 )
 
 type Cliente struct {
-	ID       int64
-	Nome     string
-	CPF      string
-	Senha    string
-	Telefone string
-	DataNasc time.Time
-	Foto     string
+	ID                     int64
+	Nome                   string
+	CPF                    string
+	Senha                  string
+	Telefone               string
+	DataNasc               time.Time
+	DocumentoIdentificacao string
+	ComprovanteResidencia  string
 }
 
 type ClienteComVinculos struct {
@@ -77,12 +80,13 @@ type ClienteResumo struct {
 }
 
 type ClienteInput struct {
-	Nome     string
-	CPF      string
-	Senha    string
-	Telefone string
-	DataNasc time.Time
-	Foto     string
+	Nome                   string
+	CPF                    string
+	Senha                  string
+	Telefone               string
+	DataNasc               time.Time
+	DocumentoIdentificacao string
+	ComprovanteResidencia  string
 }
 
 type Vinculo struct {

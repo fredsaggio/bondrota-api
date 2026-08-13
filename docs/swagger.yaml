@@ -490,6 +490,8 @@ components:
       - cpf
       - senha
       - data_nasc
+      - documento_identificacao
+      - comprovante_residencia
       properties:
         nome:
           type: string
@@ -509,21 +511,20 @@ components:
           type: string
           format: date
           example: '2002-08-10'
-        foto:
+        documento_identificacao:
           type: string
-          example: https://...
+          description: Path privado de PDF, JPG, JPEG, PNG ou WebP no bucket documentos.
+          example: clientes/_novo/uuid/documento-identificacao.pdf
+        comprovante_residencia:
+          type: string
+          description: Path privado de PDF, JPG, JPEG, PNG ou WebP no bucket documentos.
+          example: clientes/_novo/uuid/comprovante-residencia.pdf
     UpdateClienteRequest:
       type: object
       properties:
         nome:
           type: string
           example: Maria Cliente
-        cpf:
-          type: string
-          example: '11111111111'
-        senha:
-          type: string
-          example: senha123
         telefone:
           type: string
           nullable: true
@@ -533,11 +534,16 @@ components:
           type: string
           format: date
           example: '2002-08-10'
-        foto:
+        documento_identificacao:
           type: string
           nullable: true
-          description: Omitido/null preserva o valor atual; string vazia limpa o campo.
-          example: https://...
+          description: Omitido/null preserva o valor atual; string vazia e rejeitada.
+          example: clientes/1/documento-identificacao.pdf
+        comprovante_residencia:
+          type: string
+          nullable: true
+          description: Omitido/null preserva o valor atual; string vazia e rejeitada.
+          example: clientes/1/comprovante-residencia.pdf
     ClienteResponse:
       type: object
       properties:
@@ -557,9 +563,12 @@ components:
           type: string
           format: date
           example: '2002-08-10'
-        foto:
+        documento_identificacao:
           type: string
-          example: https://...
+          example: clientes/1/documento-identificacao.pdf
+        comprovante_residencia:
+          type: string
+          example: clientes/1/comprovante-residencia.pdf
     ClienteListResponse:
       type: object
       properties:
@@ -1540,13 +1549,13 @@ components:
           enum:
           - fotos
           - documentos
-          example: fotos
+          example: documentos
         path:
           type: string
-          example: clientes/1/foto.png
+          example: clientes/1/documento-identificacao.pdf
         content_type:
           type: string
-          example: image/png
+          example: application/pdf
         upsert:
           type: boolean
           example: true
@@ -1555,13 +1564,13 @@ components:
       properties:
         bucket:
           type: string
-          example: fotos
+          example: documentos
         path:
           type: string
-          example: clientes/1/foto.png
+          example: clientes/1/documento-identificacao.pdf
         signed_url:
           type: string
-          example: https://project.supabase.co/storage/v1/object/upload/sign/fotos/clientes/1/foto.png?token=...
+          example: https://project.supabase.co/storage/v1/object/upload/sign/documentos/clientes/1/documento-identificacao.pdf?token=...
         token:
           type: string
           example: token-opcional

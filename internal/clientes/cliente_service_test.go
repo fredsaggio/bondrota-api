@@ -36,13 +36,14 @@ func newTestAuth(ok bool) *auth.AuthService {
 
 func sampleCliente() *clientes.Cliente {
 	return &clientes.Cliente{
-		ID:       1,
-		Nome:     "Maria",
-		CPF:      "12345678900",
-		Senha:    "hashed:secret",
-		Telefone: "82999999999",
-		DataNasc: time.Date(2000, 1, 2, 0, 0, 0, 0, time.UTC),
-		Foto:     "foto.jpg",
+		ID:                     1,
+		Nome:                   "Maria",
+		CPF:                    "12345678900",
+		Senha:                  "hashed:secret",
+		Telefone:               "82999999999",
+		DataNasc:               time.Date(2000, 1, 2, 0, 0, 0, 0, time.UTC),
+		DocumentoIdentificacao: "identidade.pdf",
+		ComprovanteResidencia:  "residencia.pdf",
 	}
 }
 

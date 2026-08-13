@@ -62,6 +62,34 @@ func TestModelo(t *testing.T) {
 	}
 }
 
+func TestCaminhoDocumento(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		want    string
+		wantErr error
+	}{
+		{"pdf em pasta temporaria", " _novo/uuid/documento.pdf ", "_novo/uuid/documento.pdf", nil},
+		{"imagem em path definitivo", "clientes/10/documento.PNG", "clientes/10/documento.PNG", nil},
+		{"extensao executavel", "clientes/10/documento.exe", "", validation.ErrCaminhoDocumentoInvalido},
+		{"path com navegacao", "clientes/10/../documento.pdf", "", validation.ErrCaminhoDocumentoInvalido},
+		{"path com barra invertida", `clientes\\10\\documento.pdf`, "", validation.ErrCaminhoDocumentoInvalido},
+		{"path absoluto", "/clientes/10/documento.pdf", "", validation.ErrCaminhoDocumentoInvalido},
+		{"vazio", " ", "", validation.ErrCaminhoDocumentoInvalido},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := validation.CaminhoDocumento(tc.value)
+			if !errors.Is(err, tc.wantErr) {
+				t.Fatalf("CaminhoDocumento(%q) err = %v, want %v", tc.value, err, tc.wantErr)
+			}
+			if got != tc.want {
+				t.Fatalf("CaminhoDocumento(%q) = %q, want %q", tc.value, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestCurso(t *testing.T) {
 	tests := []struct {
 		name    string

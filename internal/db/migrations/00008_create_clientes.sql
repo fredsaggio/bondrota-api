@@ -10,7 +10,8 @@ CREATE TABLE clientes (
     senha TEXT NOT NULL,
     telefone TEXT NOT NULL DEFAULT '',
     data_nasc DATE NOT NULL,
-    foto TEXT NOT NULL DEFAULT '',
+    documento_identificacao TEXT NOT NULL CHECK (btrim(documento_identificacao) <> ''),
+    comprovante_residencia TEXT NOT NULL CHECK (btrim(comprovante_residencia) <> ''),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

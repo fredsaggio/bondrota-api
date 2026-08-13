@@ -597,9 +597,17 @@ nome digitado.
 `GET /clientes/resumo` responde `{"total": 137}`. Ele existe porque o painel
 precisa do numero de cadastros, e contar isso baixando a tabela nao escala.
 
-`telefone` e `foto` sao opcionais no update: omita a chave (ou envie `null`) para
-manter o valor atual, e envie `""` explicitamente para limpar o campo. `nome` e
-`data_nasc` continuam sendo ignorados quando enviados em branco.
+`telefone` e opcional no update: omita a chave (ou envie `null`) para manter o
+valor atual, e envie `""` explicitamente para limpar o campo. Os campos
+`documento_identificacao` e `comprovante_residencia` podem ser substituidos, mas
+nao podem ser apagados com string vazia. `nome` e `data_nasc` continuam sendo
+ignorados quando enviados em branco.
+
+Os dois documentos sao obrigatorios na criacao administrativa. Eles recebem o
+path privado devolvido pelo fluxo de URL assinada do bucket `documentos`. O
+comprovante especifico de faculdade ou estagio continua pertencendo ao vinculo,
+em `cliente_vinculos.comprovante`. Paths com navegacao ou extensao diferente de
+PDF, JPG, JPEG, PNG e WebP sao rejeitados pela API, mesmo fora do painel.
 
 Create:
 
@@ -610,7 +618,8 @@ Create:
   "senha": "senha123",
   "telefone": "82999991111",
   "data_nasc": "2002-08-10",
-  "foto": "https://..."
+  "documento_identificacao": "clientes/_novo/uuid/documento-identificacao.pdf",
+  "comprovante_residencia": "clientes/_novo/uuid/comprovante-residencia.pdf"
 }
 ```
 
@@ -623,7 +632,8 @@ Response:
   "cpf": "11111111111",
   "telefone": "82999991111",
   "data_nasc": "2002-08-10",
-  "foto": "https://..."
+  "documento_identificacao": "clientes/1/documento-identificacao.pdf",
+  "comprovante_residencia": "clientes/1/comprovante-residencia.pdf"
 }
 ```
 
@@ -636,7 +646,8 @@ Response de `GET /clientes/{clienteID}`:
   "cpf": "11111111111",
   "telefone": "82999991111",
   "data_nasc": "2002-08-10",
-  "foto": "https://...",
+  "documento_identificacao": "clientes/1/documento-identificacao.pdf",
+  "comprovante_residencia": "clientes/1/comprovante-residencia.pdf",
   "vinculos": [
     {
       "id": 10,
@@ -1385,7 +1396,8 @@ Usado para login e operacao administrativa.
 - `senha`
 - `telefone`
 - `data_nasc`
-- `foto`
+- `documento_identificacao`
+- `comprovante_residencia`
 - `created_at`
 - `updated_at`
 
@@ -1900,7 +1912,7 @@ Buckets aceitos:
 Regras de acesso por path:
 
 - `admin`: pode assinar paths permitidos em qualquer bucket.
-- `cliente`: pode assinar apenas paths iniciando com `clientes/{user_id}/`.
+- `cliente`: pode assinar apenas paths iniciando com `clientes/{user_id}/` e somente no bucket `documentos`.
 - `motorista`: pode assinar apenas paths iniciando com `motoristas/{user_id}/` e somente no bucket `fotos`.
 
 Content types aceitos:
@@ -1917,9 +1929,9 @@ Request de upload:
 
 ```json
 {
-  "bucket": "fotos",
-  "path": "clientes/1/foto.png",
-  "content_type": "image/png",
+  "bucket": "documentos",
+  "path": "clientes/1/documento-identificacao.pdf",
+  "content_type": "application/pdf",
   "upsert": true
 }
 ```
@@ -1928,9 +1940,9 @@ Response:
 
 ```json
 {
-  "bucket": "fotos",
-  "path": "clientes/1/foto.png",
-  "signed_url": "https://project.supabase.co/storage/v1/object/upload/sign/fotos/clientes/1/foto.png?token=...",
+  "bucket": "documentos",
+  "path": "clientes/1/documento-identificacao.pdf",
+  "signed_url": "https://project.supabase.co/storage/v1/object/upload/sign/documentos/clientes/1/documento-identificacao.pdf?token=...",
   "token": "token-opcional"
 }
 ```
@@ -1949,7 +1961,8 @@ await fetch(response.signed_url, {
 
 Depois do upload, salve o `path` no recurso correspondente da API, por exemplo:
 
-- `clientes.foto`
+- `clientes.documento_identificacao`
+- `clientes.comprovante_residencia`
 - `motoristas.foto`
 - `cliente_vinculos.comprovante`
 

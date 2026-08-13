@@ -130,8 +130,11 @@ func seedClienteComNome(t *testing.T, ctx context.Context, tx pgx.Tx, cpf, nome 
 	t.Helper()
 	var id int64
 	err := tx.QueryRow(ctx, `
-		INSERT INTO clientes (nome, cpf, senha, telefone, data_nasc, foto)
-		VALUES ($1, $2, 'hash', '82999991111', '2002-08-10', '')
+		INSERT INTO clientes (
+			nome, cpf, senha, telefone, data_nasc,
+			documento_identificacao, comprovante_residencia
+		)
+		VALUES ($1, $2, 'hash', '82999991111', '2002-08-10', 'identidade.pdf', 'residencia.pdf')
 		RETURNING id`, nome, cpf).Scan(&id)
 	require.NoError(t, err)
 	return id

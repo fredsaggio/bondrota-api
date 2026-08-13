@@ -299,12 +299,12 @@ func TestEndToEndSupabaseStorageSignedURLs(t *testing.T) {
 	}
 
 	upload := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/storage/signed-upload-url", clienteToken, map[string]any{
-		"bucket":       "fotos",
-		"path":         "clientes/1/foto.png",
-		"content_type": "image/png",
+		"bucket":       "documentos",
+		"path":         "clientes/1/documento-identificacao.pdf",
+		"content_type": "application/pdf",
 		"upsert":       true,
 	}, http.StatusCreated)
-	if upload["path"] != "clientes/1/foto.png" {
+	if upload["path"] != "clientes/1/documento-identificacao.pdf" {
 		t.Fatalf("unexpected signed upload path: %v", upload["path"])
 	}
 
@@ -312,7 +312,7 @@ func TestEndToEndSupabaseStorageSignedURLs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create fake upload request: %v", err)
 	}
-	req.Header.Set("Content-Type", "image/png")
+	req.Header.Set("Content-Type", "application/pdf")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("send fake upload: %v", err)
@@ -323,8 +323,8 @@ func TestEndToEndSupabaseStorageSignedURLs(t *testing.T) {
 	}
 
 	download := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/storage/signed-download-url", clienteToken, map[string]any{
-		"bucket":             "fotos",
-		"path":               "clientes/1/foto.png",
+		"bucket":             "documentos",
+		"path":               "clientes/1/documento-identificacao.pdf",
 		"expires_in_seconds": 900,
 	}, http.StatusOK)
 	if download["signed_url"] == "" {
@@ -332,8 +332,13 @@ func TestEndToEndSupabaseStorageSignedURLs(t *testing.T) {
 	}
 
 	doStatus(t, router, http.MethodPost, "/api/v1/storage/signed-upload-url", clienteToken, map[string]any{
+		"bucket":       "documentos",
+		"path":         "clientes/2/documento-identificacao.pdf",
+		"content_type": "application/pdf",
+	}, http.StatusForbidden)
+	doStatus(t, router, http.MethodPost, "/api/v1/storage/signed-upload-url", clienteToken, map[string]any{
 		"bucket":       "fotos",
-		"path":         "clientes/2/foto.png",
+		"path":         "clientes/1/foto.png",
 		"content_type": "image/png",
 	}, http.StatusForbidden)
 	doStatus(t, router, http.MethodPost, "/api/v1/storage/signed-upload-url", clienteToken, map[string]any{
@@ -342,9 +347,9 @@ func TestEndToEndSupabaseStorageSignedURLs(t *testing.T) {
 		"content_type": "image/png",
 	}, http.StatusUnprocessableEntity)
 	doStatus(t, router, http.MethodPost, "/api/v1/storage/signed-upload-url", clienteToken, map[string]any{
-		"bucket":       "fotos",
-		"path":         "clientes/1/foto.exe",
-		"content_type": "image/png",
+		"bucket":       "documentos",
+		"path":         "clientes/1/documento-identificacao.exe",
+		"content_type": "application/pdf",
 	}, http.StatusUnprocessableEntity)
 	doStatus(t, router, http.MethodPost, "/api/v1/storage/signed-upload-url", motoristaToken, map[string]any{
 		"bucket":       "documentos",
@@ -2078,6 +2083,13 @@ func createMotorista(t *testing.T, router http.Handler, token string, body map[s
 
 func createCliente(t *testing.T, router http.Handler, token string, body map[string]any) int64 {
 	t.Helper()
+	delete(body, "foto")
+	if _, ok := body["documento_identificacao"]; !ok {
+		body["documento_identificacao"] = "clientes/_novo/e2e/documento-identificacao.pdf"
+	}
+	if _, ok := body["comprovante_residencia"]; !ok {
+		body["comprovante_residencia"] = "clientes/_novo/e2e/comprovante-residencia.pdf"
+	}
 	resp := doJSON[map[string]any](t, router, http.MethodPost, "/api/v1/clientes/", token, body, http.StatusCreated)
 	return int64(resp["id"].(float64))
 }
@@ -2283,7 +2295,7 @@ func newFakeSupabaseStorageServer(t *testing.T) *fakeSupabaseStorageServer {
 	var baseURL string
 	fake.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/storage/v1/object/upload/sign/fotos/clientes/1/foto.png"):
+		case r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/storage/v1/object/upload/sign/documentos/clientes/1/documento-identificacao.pdf"):
 			fake.signUploadRequests++
 			if r.Header.Get("Authorization") != "Bearer service-key" {
 				t.Errorf("missing service key authorization header")
@@ -2291,16 +2303,16 @@ func newFakeSupabaseStorageServer(t *testing.T) *fakeSupabaseStorageServer {
 			w.Header().Set("Content-Type", "application/json")
 			io.WriteString(w, fmt.Sprintf(`{
 				"signedURL": %q,
-				"path": "clientes/1/foto.png",
+				"path": "clientes/1/documento-identificacao.pdf",
 				"token": "upload-token"
 			}`, baseURL+"/upload-target"))
 		case r.Method == http.MethodPut && r.URL.Path == "/upload-target":
 			fake.uploadRequests++
-			if r.Header.Get("Content-Type") != "image/png" {
+			if r.Header.Get("Content-Type") != "application/pdf" {
 				t.Errorf("unexpected upload content type: %s", r.Header.Get("Content-Type"))
 			}
 			w.WriteHeader(http.StatusOK)
-		case r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/storage/v1/object/sign/fotos/clientes/1/foto.png"):
+		case r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/storage/v1/object/sign/documentos/clientes/1/documento-identificacao.pdf"):
 			fake.signDownloadRequests++
 			w.Header().Set("Content-Type", "application/json")
 			io.WriteString(w, fmt.Sprintf(`{

@@ -129,10 +129,12 @@ func TestClienteHandler_Login(t *testing.T) {
 
 func TestClienteHandler_Create(t *testing.T) {
 	validBody := map[string]any{
-		"nome":      " Maria Souza ",
-		"cpf":       "123.456.789-09",
-		"senha":     "secret",
-		"data_nasc": "2000-01-02",
+		"nome":                    " Maria Souza ",
+		"cpf":                     "123.456.789-09",
+		"senha":                   "secret",
+		"data_nasc":               "2000-01-02",
+		"documento_identificacao": "clientes/_novo/teste/documento-identificacao.pdf",
+		"comprovante_residencia":  "clientes/_novo/teste/comprovante-residencia.pdf",
 	}
 
 	tests := []struct {
@@ -173,6 +175,30 @@ func TestClienteHandler_Create(t *testing.T) {
 			wantStatus: http.StatusBadRequest,
 		},
 		{
+			name:       "documento de identificacao obrigatorio",
+			body:       body(map[string]any{"nome": "Maria Souza", "cpf": "123.456.789-09", "senha": "secret", "data_nasc": "2000-01-02", "comprovante_residencia": "residencia.pdf"}),
+			svc:        fakeClienteService{},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "comprovante de residencia obrigatorio",
+			body:       body(map[string]any{"nome": "Maria Souza", "cpf": "123.456.789-09", "senha": "secret", "data_nasc": "2000-01-02", "documento_identificacao": "identidade.pdf"}),
+			svc:        fakeClienteService{},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "documento com extensao invalida",
+			body:       body(map[string]any{"nome": "Maria Souza", "cpf": "123.456.789-09", "senha": "secret", "data_nasc": "2000-01-02", "documento_identificacao": "documento.exe", "comprovante_residencia": "residencia.pdf"}),
+			svc:        fakeClienteService{},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "comprovante com path inseguro",
+			body:       body(map[string]any{"nome": "Maria Souza", "cpf": "123.456.789-09", "senha": "secret", "data_nasc": "2000-01-02", "documento_identificacao": "identidade.pdf", "comprovante_residencia": "clientes/1/../residencia.pdf"}),
+			svc:        fakeClienteService{},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
 			name: "internal error",
 			body: body(validBody),
 			svc: fakeClienteService{
@@ -204,37 +230,46 @@ func TestClienteHandler_Create(t *testing.T) {
 type fakeArquivoMovedor struct {
 	bucket, from, to string
 	err              error
+	calls            []movimentoArquivo
+}
+
+type movimentoArquivo struct {
+	bucket string
+	from   string
+	to     string
 }
 
 func (f *fakeArquivoMovedor) MoveObject(_ context.Context, bucket, from, to string) error {
 	f.bucket, f.from, f.to = bucket, from, to
+	f.calls = append(f.calls, movimentoArquivo{bucket: bucket, from: from, to: to})
 	return f.err
 }
 
-func TestClienteHandler_Create_OrganizaFoto(t *testing.T) {
+func TestClienteHandler_Create_OrganizaDocumentos(t *testing.T) {
 	body := body(map[string]any{
-		"nome":      " Maria Souza ",
-		"cpf":       "123.456.789-09",
-		"senha":     "secret",
-		"data_nasc": "2000-01-02",
-		"foto":      "clientes/_novo/xyz789/foto.png",
+		"nome":                    " Maria Souza ",
+		"cpf":                     "123.456.789-09",
+		"senha":                   "secret",
+		"data_nasc":               "2000-01-02",
+		"documento_identificacao": "clientes/_novo/xyz789/documento-identificacao.png",
+		"comprovante_residencia":  "clientes/_novo/xyz789/comprovante-residencia.pdf",
 	})
 
 	svc := fakeClienteService{
 		createFn: func(_ context.Context, input clientes.ClienteInput) (*clientes.Cliente, error) {
-			if input.Foto != "clientes/_novo/xyz789/foto.png" {
-				t.Fatalf("unexpected foto no create: %q", input.Foto)
+			if input.DocumentoIdentificacao != "clientes/_novo/xyz789/documento-identificacao.png" || input.ComprovanteResidencia != "clientes/_novo/xyz789/comprovante-residencia.pdf" {
+				t.Fatalf("unexpected documents on create: %+v", input)
 			}
-			return &clientes.Cliente{ID: 7, Foto: input.Foto}, nil
+			return &clientes.Cliente{ID: 7, DocumentoIdentificacao: input.DocumentoIdentificacao, ComprovanteResidencia: input.ComprovanteResidencia}, nil
 		},
 		updateFn: func(_ context.Context, clienteID int64, updateFunc func(*clientes.Cliente) (bool, error)) (*clientes.Cliente, error) {
 			if clienteID != 7 {
 				t.Fatalf("unexpected clienteID no update: %d", clienteID)
 			}
-			c := &clientes.Cliente{ID: 7, Foto: "clientes/_novo/xyz789/foto.png"}
+			c := &clientes.Cliente{ID: 7, DocumentoIdentificacao: "clientes/_novo/xyz789/documento-identificacao.png", ComprovanteResidencia: "clientes/_novo/xyz789/comprovante-residencia.pdf"}
 			changed, err := updateFunc(c)
-			if err != nil || !changed || c.Foto != "clientes/7/foto.png" {
-				t.Fatalf("update nao organizou a foto corretamente: changed=%v err=%v foto=%q", changed, err, c.Foto)
+			if err != nil || !changed || c.DocumentoIdentificacao != "clientes/7/documento-identificacao.png" || c.ComprovanteResidencia != "clientes/7/comprovante-residencia.pdf" {
+				t.Fatalf("update nao organizou os documentos corretamente: changed=%v err=%v cliente=%+v", changed, err, c)
 			}
 			return c, nil
 		},
@@ -249,30 +284,40 @@ func TestClienteHandler_Create_OrganizaFoto(t *testing.T) {
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("want 201, got %d — %s", rr.Code, rr.Body.String())
 	}
-	if mover.bucket != "fotos" || mover.from != "clientes/_novo/xyz789/foto.png" || mover.to != "clientes/7/foto.png" {
-		t.Fatalf("unexpected move: bucket=%q from=%q to=%q", mover.bucket, mover.from, mover.to)
+	if len(mover.calls) != 2 {
+		t.Fatalf("want two moves, got %+v", mover.calls)
+	}
+	wantMoves := []movimentoArquivo{
+		{bucket: "documentos", from: "clientes/_novo/xyz789/documento-identificacao.png", to: "clientes/7/documento-identificacao.png"},
+		{bucket: "documentos", from: "clientes/_novo/xyz789/comprovante-residencia.pdf", to: "clientes/7/comprovante-residencia.pdf"},
+	}
+	for i, want := range wantMoves {
+		if mover.calls[i] != want {
+			t.Fatalf("move %d: want %+v, got %+v", i, want, mover.calls[i])
+		}
 	}
 	var resp map[string]any
 	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
 		t.Fatal(err)
 	}
-	if resp["foto"] != "clientes/7/foto.png" {
-		t.Fatalf("want foto organizada na resposta, got %v", resp["foto"])
+	if resp["documento_identificacao"] != "clientes/7/documento-identificacao.png" || resp["comprovante_residencia"] != "clientes/7/comprovante-residencia.pdf" {
+		t.Fatalf("want organized documents in response, got %+v", resp)
 	}
 }
 
-func TestClienteHandler_Create_FalhaAoOrganizarFotoNaoDerrubaCriacao(t *testing.T) {
+func TestClienteHandler_Create_FalhaAoOrganizarDocumentosNaoDerrubaCriacao(t *testing.T) {
 	body := body(map[string]any{
-		"nome":      " Maria Souza ",
-		"cpf":       "123.456.789-09",
-		"senha":     "secret",
-		"data_nasc": "2000-01-02",
-		"foto":      "clientes/_novo/xyz789/foto.png",
+		"nome":                    " Maria Souza ",
+		"cpf":                     "123.456.789-09",
+		"senha":                   "secret",
+		"data_nasc":               "2000-01-02",
+		"documento_identificacao": "clientes/_novo/xyz789/documento-identificacao.png",
+		"comprovante_residencia":  "clientes/_novo/xyz789/comprovante-residencia.pdf",
 	})
 
 	svc := fakeClienteService{
 		createFn: func(_ context.Context, input clientes.ClienteInput) (*clientes.Cliente, error) {
-			return &clientes.Cliente{ID: 7, Foto: input.Foto}, nil
+			return &clientes.Cliente{ID: 7, DocumentoIdentificacao: input.DocumentoIdentificacao, ComprovanteResidencia: input.ComprovanteResidencia}, nil
 		},
 		updateFn: func(context.Context, int64, func(*clientes.Cliente) (bool, error)) (*clientes.Cliente, error) {
 			t.Fatal("update nao deveria ser chamado quando mover falha")
@@ -293,8 +338,8 @@ func TestClienteHandler_Create_FalhaAoOrganizarFotoNaoDerrubaCriacao(t *testing.
 	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
 		t.Fatal(err)
 	}
-	if resp["foto"] != "clientes/_novo/xyz789/foto.png" {
-		t.Fatalf("foto deveria continuar no caminho de espera apos falha, got %v", resp["foto"])
+	if resp["documento_identificacao"] != "clientes/_novo/xyz789/documento-identificacao.png" || resp["comprovante_residencia"] != "clientes/_novo/xyz789/comprovante-residencia.pdf" {
+		t.Fatalf("documents should remain in staging paths after failure, got %+v", resp)
 	}
 }
 
@@ -490,29 +535,29 @@ func TestClienteHandler_GetListUpdateDelete(t *testing.T) {
 		}
 	})
 
-	t.Run("foto vazia explicita limpa o campo", func(t *testing.T) {
+	t.Run("documento vazio explicito e rejeitado", func(t *testing.T) {
 		var captured *clientes.Cliente
 		h := clientes.NewClienteHandler(fakeClienteService{
 			updateFn: func(_ context.Context, _ int64, updateFunc func(*clientes.Cliente) (bool, error)) (*clientes.Cliente, error) {
 				c := sampleCliente()
-				changed, err := updateFunc(c)
-				if err != nil || !changed {
-					t.Fatalf("expected changed without error, changed=%v err=%v", changed, err)
+				_, err := updateFunc(c)
+				if err != nil {
+					return nil, err
 				}
 				captured = c
 				return c, nil
 			},
 		})
 
-		req := httptest.NewRequest(http.MethodPut, "/clientes/1", body(map[string]any{"foto": ""}))
+		req := httptest.NewRequest(http.MethodPut, "/clientes/1", body(map[string]any{"documento_identificacao": ""}))
 		rr := httptest.NewRecorder()
 		newClienteRouter(h).ServeHTTP(rr, req)
 
-		if rr.Code != http.StatusOK {
-			t.Fatalf("want %d, got %d: %s", http.StatusOK, rr.Code, rr.Body.String())
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("want %d, got %d: %s", http.StatusBadRequest, rr.Code, rr.Body.String())
 		}
-		if captured.Foto != "" {
-			t.Fatalf("want foto cleared, got %q", captured.Foto)
+		if captured != nil {
+			t.Fatalf("invalid document must not be persisted: %+v", captured)
 		}
 	})
 

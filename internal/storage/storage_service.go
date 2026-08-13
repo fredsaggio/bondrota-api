@@ -189,6 +189,9 @@ func validateBucketAccess(actor Actor, bucket, objectPath string) error {
 
 	switch actor.Role {
 	case auth.RoleCliente:
+		if bucket != BucketDocumentos {
+			return brerror.ErrForbidden
+		}
 		prefix := "clientes/" + strconv.FormatInt(actor.UserID, 10) + "/"
 		if !strings.HasPrefix(objectPath, prefix) {
 			return brerror.ErrForbidden

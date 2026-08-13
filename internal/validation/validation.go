@@ -6,6 +6,7 @@ package validation
 
 import (
 	"errors"
+	"path"
 	"regexp"
 	"strings"
 	"unicode"
@@ -15,12 +16,13 @@ import (
 // escrito em portugues e sem nome de coluna. Detalhe tecnico de falha
 // inesperada nao entra aqui: isso vai para o log do servidor, em ingles.
 var (
-	ErrNomeInvalido     = errors.New("O nome deve conter apenas letras e espaços.")
-	ErrModeloInvalido   = errors.New("O modelo deve conter apenas letras, números e espaços.")
-	ErrCursoInvalido    = errors.New("O curso deve conter apenas letras, espaços, hífen e apóstrofo.")
-	ErrCPFInvalido      = errors.New("CPF inválido. Confira os dígitos digitados.")
-	ErrTelefoneInvalido = errors.New("O telefone deve ser um celular válido: DDD + 9 dígitos.")
-	ErrPlacaInvalida    = errors.New("A placa deve seguir um dos padrões: ABC-1234 ou ABC1D23.")
+	ErrNomeInvalido             = errors.New("O nome deve conter apenas letras e espaços.")
+	ErrModeloInvalido           = errors.New("O modelo deve conter apenas letras, números e espaços.")
+	ErrCursoInvalido            = errors.New("O curso deve conter apenas letras, espaços, hífen e apóstrofo.")
+	ErrCPFInvalido              = errors.New("CPF inválido. Confira os dígitos digitados.")
+	ErrTelefoneInvalido         = errors.New("O telefone deve ser um celular válido: DDD + 9 dígitos.")
+	ErrPlacaInvalida            = errors.New("A placa deve seguir um dos padrões: ABC-1234 ou ABC1D23.")
+	ErrCaminhoDocumentoInvalido = errors.New("O documento deve ser um arquivo PDF, JPG, PNG ou WebP válido.")
 )
 
 var (
@@ -31,7 +33,27 @@ var (
 	formatoTelefoneMascara  = regexp.MustCompile(`^\([0-9]{2}\) ?[0-9]{5}-[0-9]{4}$`)
 	formatoPlaca            = regexp.MustCompile(`^[A-Z]{3}[0-9][0-9A-Z][0-9]{2}$`)
 	formatoPlacaAntigaHifen = regexp.MustCompile(`^[A-Z]{3}-[0-9]{4}$`)
+	extensoesDocumento      = map[string]struct{}{".pdf": {}, ".jpg": {}, ".jpeg": {}, ".png": {}, ".webp": {}}
 )
+
+// CaminhoDocumento valida o path privado devolvido pelo fluxo de upload
+// assinado. A extensao e a estrutura sao conferidas novamente no endpoint do
+// cadastro, pois um cliente HTTP direto pode contornar o seletor de arquivos.
+func CaminhoDocumento(value string) (string, error) {
+	limpo := strings.TrimSpace(value)
+	if limpo == "" || strings.HasPrefix(limpo, "/") || strings.Contains(limpo, "\\") {
+		return "", ErrCaminhoDocumentoInvalido
+	}
+	for _, parte := range strings.Split(limpo, "/") {
+		if parte == "" || parte == "." || parte == ".." {
+			return "", ErrCaminhoDocumentoInvalido
+		}
+	}
+	if _, ok := extensoesDocumento[strings.ToLower(path.Ext(limpo))]; !ok {
+		return "", ErrCaminhoDocumentoInvalido
+	}
+	return limpo, nil
+}
 
 // Os dois padroes em circulacao no Brasil cabem num so formato: as tres letras
 // e o quarto digito sao comuns, e o que os separa e a quinta posicao — letra no

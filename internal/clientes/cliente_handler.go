@@ -21,7 +21,7 @@ import (
 )
 
 // ArquivoMovedor move um objeto ja enviado ao Storage do caminho de espera
-// (onde a foto/comprovante entra antes do registro ter ID) para o caminho
+// (onde um documento entra antes do registro ter ID) para o caminho
 // definitivo, depois que o registro e criado. Definida aqui, e nao importada
 // de internal/storage, para este pacote nao depender de detalhes do provedor
 // de armazenamento — so precisa saber mover um arquivo de um lugar a outro.
@@ -35,9 +35,9 @@ type ClienteHandler struct {
 }
 
 // NewClienteHandler aceita o movedor de arquivos como variadico de proposito:
-// a maioria dos testes deste pacote nem chega a exercitar o campo foto, e
+// a maioria dos testes deste pacote nem chega a exercitar documentos, e
 // forcar todos eles a passar um mock so pra satisfazer a assinatura seria
-// ruido. Sem o argumento, a foto simplesmente fica no caminho que veio na
+// ruido. Sem o argumento, o documento simplesmente fica no caminho que veio na
 // requisicao — igual ao comportamento de antes desta funcionalidade existir.
 func NewClienteHandler(clienteSvc ClienteService, arquivos ...ArquivoMovedor) *ClienteHandler {
 	h := &ClienteHandler{clienteSvc: clienteSvc}
@@ -48,32 +48,33 @@ func NewClienteHandler(clienteSvc ClienteService, arquivos ...ArquivoMovedor) *C
 }
 
 type CreateClienteRequest struct {
-	Nome     string `json:"nome"`
-	CPF      string `json:"cpf"`
-	Senha    string `json:"senha"`
-	Telefone string `json:"telefone"`
-	DataNasc string `json:"data_nasc"`
-	Foto     string `json:"foto"`
+	Nome                   string `json:"nome"`
+	CPF                    string `json:"cpf"`
+	Senha                  string `json:"senha"`
+	Telefone               string `json:"telefone"`
+	DataNasc               string `json:"data_nasc"`
+	DocumentoIdentificacao string `json:"documento_identificacao"`
+	ComprovanteResidencia  string `json:"comprovante_residencia"`
 }
 
 type UpdateClienteRequest struct {
 	Nome string `json:"nome"`
-	// Telefone e Foto sao ponteiros porque sao opcionais e podem ser legitimamente
-	// limpos: chave ausente/null preserva o valor atual, string vazia explicita
-	// apaga o campo. Nome e DataNasc sao obrigatorios e nunca fazem sentido em
-	// branco, entao continuam string simples.
-	Telefone *string `json:"telefone"`
-	DataNasc string  `json:"data_nasc"`
-	Foto     *string `json:"foto"`
+	// Telefone pode ser limpo com string vazia. Documentos podem ser substituidos,
+	// mas nao apagados: uma conta administrativa cria clientes ja conferidos.
+	Telefone               *string `json:"telefone"`
+	DataNasc               string  `json:"data_nasc"`
+	DocumentoIdentificacao *string `json:"documento_identificacao"`
+	ComprovanteResidencia  *string `json:"comprovante_residencia"`
 }
 
 type ClienteResponse struct {
-	ID       int64  `json:"id"`
-	Nome     string `json:"nome"`
-	CPF      string `json:"cpf"`
-	Telefone string `json:"telefone"`
-	DataNasc string `json:"data_nasc"`
-	Foto     string `json:"foto"`
+	ID                     int64  `json:"id"`
+	Nome                   string `json:"nome"`
+	CPF                    string `json:"cpf"`
+	Telefone               string `json:"telefone"`
+	DataNasc               string `json:"data_nasc"`
+	DocumentoIdentificacao string `json:"documento_identificacao"`
+	ComprovanteResidencia  string `json:"comprovante_residencia"`
 }
 
 type ClienteListResponse struct {
@@ -87,13 +88,14 @@ type ClienteResumoResponse struct {
 }
 
 type ClienteComVinculosResponse struct {
-	ID       int64             `json:"id"`
-	Nome     string            `json:"nome"`
-	CPF      string            `json:"cpf"`
-	Telefone string            `json:"telefone"`
-	DataNasc string            `json:"data_nasc"`
-	Foto     string            `json:"foto"`
-	Vinculos []VinculoResponse `json:"vinculos"`
+	ID                     int64             `json:"id"`
+	Nome                   string            `json:"nome"`
+	CPF                    string            `json:"cpf"`
+	Telefone               string            `json:"telefone"`
+	DataNasc               string            `json:"data_nasc"`
+	DocumentoIdentificacao string            `json:"documento_identificacao"`
+	ComprovanteResidencia  string            `json:"comprovante_residencia"`
+	Vinculos               []VinculoResponse `json:"vinculos"`
 }
 
 type LoginRequest struct {
@@ -159,34 +161,50 @@ func (h *ClienteHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if input.Foto != "" {
-		cliente = h.organizarFoto(ctx, cliente, input.Foto)
-	}
+	cliente = h.organizarDocumentos(ctx, cliente, input)
 
 	httputils.Respond(w, http.StatusCreated, toClienteResponse(cliente))
 }
 
-// organizarFoto leva a foto da pasta de espera (onde o admin envia antes do
-// cliente ter ID) para o caminho definitivo "clientes/{id}/foto{ext}".
-// Best-effort: se o Storage falhar aqui, o cliente ja foi criado com sucesso —
-// falhar a resposta agora deixaria o admin sem saber se o cadastro existe, e
-// um retry esbarraria no CPF duplicado. A foto so fica no caminho de espera
-// nesse caso raro, em vez de ficar organizada.
-func (h *ClienteHandler) organizarFoto(ctx context.Context, cliente *Cliente, caminhoEnviado string) *Cliente {
+// organizarDocumentos leva os dois arquivos da pasta de espera para os paths
+// definitivos do cliente. A operacao e best-effort pelo mesmo motivo dos demais
+// uploads: o cadastro ja existe quando o Storage e chamado, e responder erro
+// incentivaria um retry que esbarraria no CPF duplicado.
+func (h *ClienteHandler) organizarDocumentos(ctx context.Context, cliente *Cliente, input ClienteInput) *Cliente {
 	if h.arquivos == nil {
 		return cliente
 	}
-	destino := fmt.Sprintf("clientes/%s/foto%s", strconv.FormatInt(cliente.ID, 10), path.Ext(caminhoEnviado))
-	if err := h.arquivos.MoveObject(ctx, "fotos", caminhoEnviado, destino); err != nil {
-		slog.Error("failed to organize cliente foto", "error", err, "clienteID", cliente.ID)
+	prefixo := "clientes/" + strconv.FormatInt(cliente.ID, 10) + "/"
+	documentoIdentificacao := input.DocumentoIdentificacao
+	comprovanteResidencia := input.ComprovanteResidencia
+	moveu := false
+
+	destinoIdentificacao := prefixo + "documento-identificacao" + path.Ext(input.DocumentoIdentificacao)
+	if err := h.arquivos.MoveObject(ctx, "documentos", input.DocumentoIdentificacao, destinoIdentificacao); err != nil {
+		slog.Error("failed to organize cliente identification document", "error", err, "clienteID", cliente.ID)
+	} else {
+		documentoIdentificacao = destinoIdentificacao
+		moveu = true
+	}
+
+	destinoResidencia := prefixo + "comprovante-residencia" + path.Ext(input.ComprovanteResidencia)
+	if err := h.arquivos.MoveObject(ctx, "documentos", input.ComprovanteResidencia, destinoResidencia); err != nil {
+		slog.Error("failed to organize cliente residence document", "error", err, "clienteID", cliente.ID)
+	} else {
+		comprovanteResidencia = destinoResidencia
+		moveu = true
+	}
+	if !moveu {
 		return cliente
 	}
 	atualizado, err := h.clienteSvc.Update(ctx, cliente.ID, func(c *Cliente) (bool, error) {
-		c.Foto = destino
-		return true, nil
+		changed := c.DocumentoIdentificacao != documentoIdentificacao || c.ComprovanteResidencia != comprovanteResidencia
+		c.DocumentoIdentificacao = documentoIdentificacao
+		c.ComprovanteResidencia = comprovanteResidencia
+		return changed, nil
 	})
 	if err != nil {
-		slog.Error("failed to persist organized cliente foto", "error", err, "clienteID", cliente.ID)
+		slog.Error("failed to persist organized cliente documents", "error", err, "clienteID", cliente.ID)
 		return cliente
 	}
 	return atualizado
@@ -347,10 +365,29 @@ func (h *ClienteHandler) Update(w http.ResponseWriter, r *http.Request) {
 				updated = true
 			}
 		}
-		if req.Foto != nil {
-			foto := strings.TrimSpace(*req.Foto)
-			if foto != c.Foto {
-				c.Foto = foto
+		if req.DocumentoIdentificacao != nil {
+			if strings.TrimSpace(*req.DocumentoIdentificacao) == "" {
+				return false, ErrDocumentoIdentificacaoObrigatorio
+			}
+			documento, err := validation.CaminhoDocumento(*req.DocumentoIdentificacao)
+			if err != nil {
+				return false, err
+			}
+			if documento != c.DocumentoIdentificacao {
+				c.DocumentoIdentificacao = documento
+				updated = true
+			}
+		}
+		if req.ComprovanteResidencia != nil {
+			if strings.TrimSpace(*req.ComprovanteResidencia) == "" {
+				return false, ErrComprovanteResidenciaObrigatorio
+			}
+			comprovante, err := validation.CaminhoDocumento(*req.ComprovanteResidencia)
+			if err != nil {
+				return false, err
+			}
+			if comprovante != c.ComprovanteResidencia {
+				c.ComprovanteResidencia = comprovante
 				updated = true
 			}
 		}
@@ -363,7 +400,10 @@ func (h *ClienteHandler) Update(w http.ResponseWriter, r *http.Request) {
 		}
 		if errors.Is(err, ErrNomeObrigatorio) ||
 			errors.Is(err, validation.ErrNomeInvalido) ||
-			errors.Is(err, validation.ErrTelefoneInvalido) {
+			errors.Is(err, validation.ErrTelefoneInvalido) ||
+			errors.Is(err, validation.ErrCaminhoDocumentoInvalido) ||
+			errors.Is(err, ErrDocumentoIdentificacaoObrigatorio) ||
+			errors.Is(err, ErrComprovanteResidenciaObrigatorio) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -439,14 +479,29 @@ func toClienteInput(req CreateClienteRequest) (ClienteInput, error) {
 	if err != nil {
 		return ClienteInput{}, err
 	}
+	if strings.TrimSpace(req.DocumentoIdentificacao) == "" {
+		return ClienteInput{}, ErrDocumentoIdentificacaoObrigatorio
+	}
+	documentoIdentificacao, err := validation.CaminhoDocumento(req.DocumentoIdentificacao)
+	if err != nil {
+		return ClienteInput{}, err
+	}
+	if strings.TrimSpace(req.ComprovanteResidencia) == "" {
+		return ClienteInput{}, ErrComprovanteResidenciaObrigatorio
+	}
+	comprovanteResidencia, err := validation.CaminhoDocumento(req.ComprovanteResidencia)
+	if err != nil {
+		return ClienteInput{}, err
+	}
 
 	return ClienteInput{
-		Nome:     nome,
-		CPF:      cpf,
-		Senha:    req.Senha,
-		Telefone: telefone,
-		DataNasc: dataNasc,
-		Foto:     strings.TrimSpace(req.Foto),
+		Nome:                   nome,
+		CPF:                    cpf,
+		Senha:                  req.Senha,
+		Telefone:               telefone,
+		DataNasc:               dataNasc,
+		DocumentoIdentificacao: documentoIdentificacao,
+		ComprovanteResidencia:  comprovanteResidencia,
 	}, nil
 }
 
@@ -456,12 +511,13 @@ func parseDate(value string) (time.Time, error) {
 
 func toClienteResponse(c *Cliente) ClienteResponse {
 	return ClienteResponse{
-		ID:       c.ID,
-		Nome:     c.Nome,
-		CPF:      c.CPF,
-		Telefone: c.Telefone,
-		DataNasc: c.DataNasc.Format("2006-01-02"),
-		Foto:     c.Foto,
+		ID:                     c.ID,
+		Nome:                   c.Nome,
+		CPF:                    c.CPF,
+		Telefone:               c.Telefone,
+		DataNasc:               c.DataNasc.Format("2006-01-02"),
+		DocumentoIdentificacao: c.DocumentoIdentificacao,
+		ComprovanteResidencia:  c.ComprovanteResidencia,
 	}
 }
 
@@ -472,12 +528,13 @@ func toClienteComVinculosResponse(c *ClienteComVinculos) ClienteComVinculosRespo
 	}
 
 	return ClienteComVinculosResponse{
-		ID:       c.ID,
-		Nome:     c.Nome,
-		CPF:      c.CPF,
-		Telefone: c.Telefone,
-		DataNasc: c.DataNasc.Format("2006-01-02"),
-		Foto:     c.Foto,
-		Vinculos: vinculos,
+		ID:                     c.ID,
+		Nome:                   c.Nome,
+		CPF:                    c.CPF,
+		Telefone:               c.Telefone,
+		DataNasc:               c.DataNasc.Format("2006-01-02"),
+		DocumentoIdentificacao: c.DocumentoIdentificacao,
+		ComprovanteResidencia:  c.ComprovanteResidencia,
+		Vinculos:               vinculos,
 	}
 }
