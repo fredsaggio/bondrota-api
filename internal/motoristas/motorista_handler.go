@@ -27,13 +27,12 @@ type CreateMotoristaRequest struct {
 	DataNasc            string `json:"data_nasc"`
 	Turno               Turno  `json:"turno"`
 	MunicipioTrabalhoID int64  `json:"municipio_trabalho_id"`
-	Residencia          string `json:"residencia"`
 	Foto                string `json:"foto"`
 }
 
 type UpdateMotoristaRequest struct {
 	Nome string `json:"nome"`
-	// Telefone, Residencia e Foto sao ponteiros porque sao opcionais e podem ser
+	// Telefone e Foto sao ponteiros porque sao opcionais e podem ser
 	// legitimamente limpos: chave ausente/null preserva o valor atual, string vazia
 	// explicita apaga o campo. Os demais campos sao obrigatorios e nunca fazem
 	// sentido em branco, entao continuam string simples.
@@ -41,7 +40,6 @@ type UpdateMotoristaRequest struct {
 	DataNasc            string  `json:"data_nasc"`
 	Turno               Turno   `json:"turno"`
 	MunicipioTrabalhoID int64   `json:"municipio_trabalho_id"`
-	Residencia          *string `json:"residencia"`
 	Foto                *string `json:"foto"`
 }
 
@@ -58,7 +56,6 @@ type MotoristaResponse struct {
 	DataNasc            string `json:"data_nasc"`
 	Turno               Turno  `json:"turno"`
 	MunicipioTrabalhoID int64  `json:"municipio_trabalho_id"`
-	Residencia          string `json:"residencia"`
 	Foto                string `json:"foto"`
 }
 
@@ -194,7 +191,6 @@ func (h *MotoristaHandler) Create(w http.ResponseWriter, r *http.Request) {
 		DataNasc:            dataNasc,
 		Turno:               req.Turno,
 		MunicipioTrabalhoID: req.MunicipioTrabalhoID,
-		Residencia:          strings.TrimSpace(req.Residencia),
 		Foto:                strings.TrimSpace(req.Foto),
 	}
 
@@ -355,13 +351,6 @@ func (h *MotoristaHandler) Update(w http.ResponseWriter, r *http.Request) {
 				updated = true
 			}
 		}
-		if req.Residencia != nil {
-			residencia := strings.TrimSpace(*req.Residencia)
-			if residencia != m.Residencia {
-				m.Residencia = residencia
-				updated = true
-			}
-		}
 		if req.Foto != nil {
 			foto := strings.TrimSpace(*req.Foto)
 			if foto != m.Foto {
@@ -431,7 +420,6 @@ func toMotoristaResponse(m *Motorista) MotoristaResponse {
 		DataNasc:            m.DataNasc.Format("2006-01-02"),
 		Turno:               m.Turno,
 		MunicipioTrabalhoID: m.MunicipioTrabalhoID,
-		Residencia:          m.Residencia,
 		Foto:                m.Foto,
 	}
 }

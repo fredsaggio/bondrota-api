@@ -11,7 +11,6 @@ CREATE TABLE motoristas (
     data_nasc DATE NOT NULL,
     turno turno_motorista NOT NULL,
     municipio_trabalho_id BIGINT NOT NULL REFERENCES municipios(codigo_ibge) ON DELETE RESTRICT,
-    residencia TEXT NOT NULL DEFAULT '',
     foto TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

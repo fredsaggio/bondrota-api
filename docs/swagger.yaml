@@ -365,7 +365,6 @@ components:
       - data_nasc
       - turno
       - municipio_trabalho_id
-      - residencia
       properties:
         nome:
           type: string
@@ -397,9 +396,6 @@ components:
           type: integer
           format: int64
           example: 2704302
-        residencia:
-          type: string
-          example: campo alegre
         foto:
           type: string
           example: https://...
@@ -436,11 +432,6 @@ components:
           type: integer
           format: int64
           example: 2704302
-        residencia:
-          type: string
-          nullable: true
-          description: Omitido/null preserva o valor atual; string vazia limpa o campo.
-          example: campo alegre
         foto:
           type: string
           nullable: true
@@ -477,9 +468,6 @@ components:
           type: integer
           format: int64
           example: 2704302
-        residencia:
-          type: string
-          example: campo alegre
         foto:
           type: string
           example: https://...

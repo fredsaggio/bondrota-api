@@ -124,7 +124,6 @@ func TestEndToEndPlanejamentoViagem(t *testing.T) {
 		"data_nasc":             "1980-05-20",
 		"turno":                 "NT",
 		"municipio_trabalho_id": e2eMunicipioID,
-		"residencia":            cidade,
 		"foto":                  "",
 	})
 	clienteID := createCliente(t, router, adminToken, map[string]any{
@@ -457,7 +456,6 @@ func TestEndToEndPlanejamentoMultiplosVeiculosPorCapacidade(t *testing.T) {
 			"data_nasc":             "1980-05-20",
 			"turno":                 "NT",
 			"municipio_trabalho_id": e2eMunicipioID,
-			"residencia":            cidade,
 			"foto":                  "",
 		})
 	}
@@ -568,7 +566,6 @@ func TestEndToEndPlanejamentoIgnoraRecursosIndisponiveis(t *testing.T) {
 		"data_nasc":             "1980-05-20",
 		"turno":                 "MT",
 		"municipio_trabalho_id": e2eMunicipioID,
-		"residencia":            cidade,
 		"foto":                  "",
 	})
 	correctMotoristaID := createMotorista(t, h.Router, h.AdminToken, map[string]any{
@@ -579,7 +576,6 @@ func TestEndToEndPlanejamentoIgnoraRecursosIndisponiveis(t *testing.T) {
 		"data_nasc":             "1980-05-20",
 		"turno":                 "NT",
 		"municipio_trabalho_id": e2eMunicipioID,
-		"residencia":            cidade,
 		"foto":                  "",
 	})
 
@@ -680,7 +676,6 @@ func TestEndToEndPlanejamentoNaoReutilizaRecursosJaAlocados(t *testing.T) {
 		"data_nasc":             "1980-05-20",
 		"turno":                 "NT",
 		"municipio_trabalho_id": e2eMunicipioID,
-		"residencia":            cidade,
 		"foto":                  "",
 	})
 
@@ -799,7 +794,6 @@ func TestEndToEndRotaDinamicaMultiplosDestinos(t *testing.T) {
 		"data_nasc":             "1980-05-20",
 		"turno":                 "NT",
 		"municipio_trabalho_id": e2eMunicipioID,
-		"residencia":            cidade,
 		"foto":                  "",
 	})
 
@@ -918,7 +912,6 @@ func TestEndToEndCancelarReservaInvalidaRotaDinamica(t *testing.T) {
 		"data_nasc":             "1980-05-20",
 		"turno":                 "NT",
 		"municipio_trabalho_id": e2eMunicipioID,
-		"residencia":            cidade,
 		"foto":                  "",
 	})
 	clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
@@ -1013,7 +1006,6 @@ func TestEndToEndReservaCanceladaAntesDoPlanejamentoNaoEntraNaViagem(t *testing.
 		"data_nasc":             "1980-05-20",
 		"turno":                 "NT",
 		"municipio_trabalho_id": e2eMunicipioID,
-		"residencia":            cidade,
 		"foto":                  "",
 	})
 
@@ -1171,7 +1163,6 @@ func TestEndToEndAutorizacaoPorDono(t *testing.T) {
 		"data_nasc":             "1980-05-20",
 		"turno":                 "NT",
 		"municipio_trabalho_id": e2eMunicipioID,
-		"residencia":            cidade,
 		"foto":                  "",
 	})
 	createMotorista(t, h.Router, h.AdminToken, map[string]any{
@@ -1182,7 +1173,6 @@ func TestEndToEndAutorizacaoPorDono(t *testing.T) {
 		"data_nasc":             "1980-05-20",
 		"turno":                 "NT",
 		"municipio_trabalho_id": e2eOtherMunicipioID,
-		"residencia":            cidade + "-fora",
 		"foto":                  "",
 	})
 	clienteID := createCliente(t, h.Router, h.AdminToken, map[string]any{
@@ -1654,7 +1644,6 @@ func setupPlanejamentoBase(t *testing.T, h *e2eHarness, options planejamentoBase
 			"data_nasc":             "1980-05-20",
 			"turno":                 "NT",
 			"municipio_trabalho_id": e2eMunicipioID,
-			"residencia":            options.CidadeDestino,
 			"foto":                  "",
 		})
 	}

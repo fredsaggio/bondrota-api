@@ -253,7 +253,6 @@ Authorization: Bearer <token>
   "data_nasc": "1990-05-15",
   "turno": "MT",
   "municipio_trabalho_id": 3550308,
-  "residencia": "Rua das Flores, 123",
   "foto": "https://example.com/foto.jpg"
 }
 ```
@@ -269,7 +268,6 @@ Authorization: Bearer <token>
   "data_nasc": "1990-05-15",
   "turno": "MT",
   "municipio_trabalho_id": 3550308,
-  "residencia": "Rua das Flores, 123",
   "foto": "https://example.com/foto.jpg"
 }
 ```
@@ -307,7 +305,6 @@ Authorization: Bearer <token>
     "data_nasc": "1990-05-15",
     "turno": "MT",
     "municipio_trabalho_id": 3550308,
-    "residencia": "Rua das Flores, 123",
     "foto": "https://example.com/foto.jpg"
   },
   {
@@ -318,7 +315,6 @@ Authorization: Bearer <token>
     "data_nasc": "1988-03-20",
     "turno": "VT",
     "municipio_trabalho_id": 3304557,
-    "residencia": "Avenida Principal, 456",
     "foto": "https://example.com/foto2.jpg"
   }
 ]
@@ -349,7 +345,6 @@ Authorization: Bearer <token>
   "data_nasc": "1990-05-15",
   "turno": "MT",
   "municipio_trabalho_id": 3550308,
-  "residencia": "Rua das Flores, 123",
   "foto": "https://example.com/foto.jpg"
 }
 ```
@@ -371,8 +366,7 @@ Authorization: Bearer <token>
 {
   "nome": "João Silva Santos",
   "telefone": "11987654321",
-  "turno": "VT",
-  "residencia": "Rua Nova, 789"
+  "turno": "VT"
 }
 ```
 
@@ -387,7 +381,6 @@ Authorization: Bearer <token>
   "data_nasc": "1990-05-15",
   "turno": "VT",
   "municipio_trabalho_id": 3550308,
-  "residencia": "Rua Nova, 789",
   "foto": "https://example.com/foto.jpg"
 }
 ```

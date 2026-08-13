@@ -524,7 +524,7 @@ clientes, entre motoristas, nem entre um cliente e um motorista. O conflito reto
 | `PUT` | `BASE_URL/motoristas/{id}` | Atualiza motorista. | `UpdateMotoristaRequest` parcial | `200 MotoristaResponse` | `400`, `401`, `403`, `404`, `409`, `500` |
 | `DELETE` | `BASE_URL/motoristas/{id}` | Remove motorista. | nenhum | `204` | `400`, `401`, `403`, `404`, `409`, `500` |
 
-`telefone`, `residencia` e `foto` sao opcionais no update: omita a chave (ou envie
+`telefone` e `foto` sao opcionais no update: omita a chave (ou envie
 `null`) para manter o valor atual, e envie `""` explicitamente para limpar o campo.
 `nome`, `data_nasc`, `turno` e `municipio_trabalho_id` continuam sendo ignorados
 quando enviados em branco, porque nao existe valor valido em branco para eles.
@@ -540,7 +540,6 @@ Create:
   "data_nasc": "1980-05-20",
   "turno": "NT",
   "municipio_trabalho_id": 2704302,
-  "residencia": "campo alegre",
   "foto": "https://..."
 }
 ```
@@ -556,7 +555,6 @@ Response:
   "data_nasc": "1980-05-20",
   "turno": "NT",
   "municipio_trabalho_id": 2704302,
-  "residencia": "campo alegre",
   "foto": "https://..."
 }
 ```
@@ -1523,7 +1521,6 @@ Para telas: veiculo fica disponivel para planejamento se estiver ativo. A catego
 - `data_nasc`
 - `turno`
 - `municipio_trabalho_id`
-- `residencia`
 - `foto`
 - `created_at`
 - `updated_at`

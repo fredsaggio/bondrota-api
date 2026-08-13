@@ -47,7 +47,6 @@ func sampleMotorista() *motoristas.Motorista {
 		DataNasc:            time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
 		Turno:               motoristas.TurnoMatutino,
 		MunicipioTrabalhoID: 2611606,
-		Residencia:          "Olinda",
 		Foto:                "",
 	}
 }
@@ -581,7 +580,7 @@ func TestMotoristaHandler_Update(t *testing.T) {
 // TestMotoristaHandler_UpdateOptionalFields captura a closure passada a
 // svc.Update e a executa contra um motorista de amostra, porque os subtestes
 // acima usam anyUpdateFunc e nunca invocam a closure de verdade — eles não
-// bastam para provar que telefone/residencia/foto distinguem "campo ausente"
+// bastam para provar que telefone/foto distinguem "campo ausente"
 // de "campo explicitamente limpo".
 func TestMotoristaHandler_UpdateOptionalFields(t *testing.T) {
 	capture := func(t *testing.T, body map[string]any) (*motoristas.Motorista, bool, error) {
@@ -647,19 +646,6 @@ func TestMotoristaHandler_UpdateOptionalFields(t *testing.T) {
 		}
 		if m.Telefone != "82988887777" {
 			t.Fatalf("want telefone updated, got %q", m.Telefone)
-		}
-	})
-
-	t.Run("residencia vazia explicita limpa o campo", func(t *testing.T) {
-		m, updated, err := capture(t, map[string]any{"residencia": ""})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if !updated {
-			t.Fatal("want updated=true when clearing a non-empty field")
-		}
-		if m.Residencia != "" {
-			t.Fatalf("want residencia cleared, got %q", m.Residencia)
 		}
 	})
 

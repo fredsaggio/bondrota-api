@@ -115,9 +115,9 @@ func seedMotorista(t *testing.T, ctx context.Context, tx pgx.Tx, cpf string, mun
 	var id int64
 	err := tx.QueryRow(ctx, `
 		INSERT INTO motoristas (
-			nome, cpf, senha, telefone, data_nasc, turno, municipio_trabalho_id, residencia, foto
-		) VALUES ('Motorista Teste', $1, 'hash', $2, '1985-05-20', $3, $4, $5, '')
-		RETURNING id`, cpf, telefone, turno, municipioTrabalhoID, testCity).Scan(&id)
+			nome, cpf, senha, telefone, data_nasc, turno, municipio_trabalho_id, foto
+		) VALUES ('Motorista Teste', $1, 'hash', $2, '1985-05-20', $3, $4, '')
+		RETURNING id`, cpf, telefone, turno, municipioTrabalhoID).Scan(&id)
 	require.NoError(t, err)
 	return id
 }

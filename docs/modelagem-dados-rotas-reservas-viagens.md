@@ -46,7 +46,6 @@ erDiagram
         date data_nasc
         turno_motorista turno
         bigint municipio_trabalho_id FK
-        text residencia
         text foto
         timestamptz created_at
         timestamptz updated_at
@@ -146,7 +145,7 @@ de residencia. A foto permanece apenas no cadastro do motorista.
 
 `municipios` e o catalogo oficial importado do IBGE. `destinos.municipio_id`, `motoristas.municipio_trabalho_id`, `horarios_turno_viagem.municipio_destino_id` e `ciclos_viagem.municipio_destino_id` apontam para `municipios.codigo_ibge`.
 
-`motoristas` tem `turno`, `municipio_trabalho_id` e `residencia`. O municipio de trabalho informa qual cidade externa o motorista atende; `residencia` e apenas um dado cadastral e nao determina a cidade base.
+`motoristas` tem `turno` e `municipio_trabalho_id`. O municipio de trabalho informa qual cidade externa o motorista atende.
 
 ## Status dos endpoints atuais
 
@@ -269,7 +268,6 @@ curl -i -X POST "$BASE/motoristas/" \
     "data_nasc":"1985-03-10",
     "turno":"NT",
     "municipio_trabalho_id":2704302,
-    "residencia":"Maceio",
     "foto":""
   }'
 ```

@@ -17,7 +17,7 @@ func TestMotoristaRepository_CRUD(t *testing.T) {
 	created, err := store.Create(ctx, motoristas.MotoristaInput{
 		Nome: "Carlos", CPF: "40000000001", Senha: "hash", Telefone: "82999990000",
 		DataNasc: time.Date(1985, 5, 20, 0, 0, 0, 0, time.UTC), Turno: motoristas.TurnoIntegral,
-		MunicipioTrabalhoID: testMunicipioID, Residencia: testCity,
+		MunicipioTrabalhoID: testMunicipioID,
 	})
 	require.NoError(t, err)
 

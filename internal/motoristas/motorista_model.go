@@ -31,7 +31,6 @@ type Motorista struct {
 	DataNasc            time.Time
 	Turno               Turno
 	MunicipioTrabalhoID int64
-	Residencia          string
 	Foto                string
 }
 
@@ -43,7 +42,6 @@ type MotoristaInput struct {
 	DataNasc            time.Time
 	Turno               Turno
 	MunicipioTrabalhoID int64
-	Residencia          string
 	Foto                string
 }
 
