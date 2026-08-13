@@ -146,7 +146,7 @@ func TestClienteHandler_Create(t *testing.T) {
 			body: body(validBody),
 			svc: fakeClienteService{
 				createFn: func(_ context.Context, input clientes.ClienteInput) (*clientes.Cliente, error) {
-					if input.Nome != "Maria Souza" || input.CPF != "12345678909" {
+					if input.Nome != "MARIA SOUZA" || input.CPF != "12345678909" {
 						t.Fatalf("unexpected input: %+v", input)
 					}
 					return sampleCliente(), nil

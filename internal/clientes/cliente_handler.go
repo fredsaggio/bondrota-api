@@ -314,11 +314,12 @@ func (h *ClienteHandler) Update(w http.ResponseWriter, r *http.Request) {
 	cliente, err := h.clienteSvc.Update(ctx, clienteID, func(c *Cliente) (bool, error) {
 		updated := false
 		if req.Nome != "" {
-			nome := strings.TrimSpace(req.Nome)
-			if nome == "" {
+			nomeBruto := strings.TrimSpace(req.Nome)
+			if nomeBruto == "" {
 				return false, ErrNomeObrigatorio
 			}
-			if err := validation.Nome(nome); err != nil {
+			nome, err := validation.Nome(nomeBruto)
+			if err != nil {
 				return false, err
 			}
 			if nome != c.Nome {
@@ -407,11 +408,12 @@ func (h *ClienteHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func toClienteInput(req CreateClienteRequest) (ClienteInput, error) {
-	nome := strings.TrimSpace(req.Nome)
-	if nome == "" {
+	nomeBruto := strings.TrimSpace(req.Nome)
+	if nomeBruto == "" {
 		return ClienteInput{}, errors.New("nome is required")
 	}
-	if err := validation.Nome(nome); err != nil {
+	nome, err := validation.Nome(nomeBruto)
+	if err != nil {
 		return ClienteInput{}, err
 	}
 	if strings.TrimSpace(req.CPF) == "" {

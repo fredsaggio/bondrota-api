@@ -130,12 +130,13 @@ func (h *MotoristaHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	nome := strings.TrimSpace(req.Nome)
-	if nome == "" {
+	nomeBruto := strings.TrimSpace(req.Nome)
+	if nomeBruto == "" {
 		http.Error(w, "nome is required", http.StatusBadRequest)
 		return
 	}
-	if err := validation.Nome(nome); err != nil {
+	nome, err := validation.Nome(nomeBruto)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -300,11 +301,12 @@ func (h *MotoristaHandler) Update(w http.ResponseWriter, r *http.Request) {
 	motorista, err := h.svc.Update(ctx, motoristaID, func(m *Motorista) (bool, error) {
 		updated := false
 		if req.Nome != "" {
-			nome := strings.TrimSpace(req.Nome)
-			if nome == "" {
+			nomeBruto := strings.TrimSpace(req.Nome)
+			if nomeBruto == "" {
 				return false, ErrNomeObrigatorio
 			}
-			if err := validation.Nome(nome); err != nil {
+			nome, err := validation.Nome(nomeBruto)
+			if err != nil {
 				return false, err
 			}
 			if nome != m.Nome {

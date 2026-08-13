@@ -11,21 +11,26 @@ func TestNome(t *testing.T) {
 	tests := []struct {
 		name    string
 		value   string
+		want    string
 		wantErr error
 	}{
-		{"nome valido", "Maria Souza", nil},
-		{"nome com acento e hifen", "José Carlos-Neto", nil},
-		{"nome com apostrofo", "Ana D'Ávila", nil},
-		{"nome com digito", "Maria 2", validation.ErrNomeInvalido},
-		{"nome so numero", "12345", validation.ErrNomeInvalido},
-		{"nome curto demais", "Jo", validation.ErrNomeInvalido},
-		{"nome com simbolo", "Maria@Souza", validation.ErrNomeInvalido},
+		{"nome valido vira maiuscula", "Maria Souza", "MARIA SOUZA", nil},
+		{"nome ja minusculo tambem vira maiuscula", "maria souza", "MARIA SOUZA", nil},
+		{"nome com acento e hifen", "José Carlos-Neto", "JOSÉ CARLOS-NETO", nil},
+		{"nome com apostrofo", "Ana D'Ávila", "ANA D'ÁVILA", nil},
+		{"nome com digito", "Maria 2", "", validation.ErrNomeInvalido},
+		{"nome so numero", "12345", "", validation.ErrNomeInvalido},
+		{"nome curto demais", "Jo", "", validation.ErrNomeInvalido},
+		{"nome com simbolo", "Maria@Souza", "", validation.ErrNomeInvalido},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			err := validation.Nome(tc.value)
+			got, err := validation.Nome(tc.value)
 			if !errors.Is(err, tc.wantErr) {
-				t.Fatalf("Nome(%q) = %v, want %v", tc.value, err, tc.wantErr)
+				t.Fatalf("Nome(%q) err = %v, want %v", tc.value, err, tc.wantErr)
+			}
+			if got != tc.want {
+				t.Fatalf("Nome(%q) = %q, want %q", tc.value, got, tc.want)
 			}
 		})
 	}

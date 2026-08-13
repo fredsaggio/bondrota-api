@@ -432,7 +432,10 @@ func toVinculoInput(clienteID int64, req VinculoRequest) (VinculoInput, error) {
 		Turno:         req.Turno,
 		DestinoID:     req.DestinoID,
 		RotaInternaID: req.RotaInternaID,
-		Curso:         strings.TrimSpace(req.Curso),
+		// Maiuscula por consistencia, como o nome — evita que "Ciência da
+		// Computação" e "ciência da computação" virem dois valores diferentes
+		// na coluna, o que atrapalharia agrupar/contar por curso depois.
+		Curso:         strings.ToUpper(strings.TrimSpace(req.Curso)),
 		Comprovante:   strings.TrimSpace(req.Comprovante),
 		Validade:      validade,
 		HorariosFixos: req.HorariosFixos,
@@ -450,7 +453,10 @@ func toVinculoUpdateInput(req VinculoRequest) (VinculoUpdateInput, error) {
 		Turno:         req.Turno,
 		DestinoID:     req.DestinoID,
 		RotaInternaID: req.RotaInternaID,
-		Curso:         strings.TrimSpace(req.Curso),
+		// Maiuscula por consistencia, como o nome — evita que "Ciência da
+		// Computação" e "ciência da computação" virem dois valores diferentes
+		// na coluna, o que atrapalharia agrupar/contar por curso depois.
+		Curso:         strings.ToUpper(strings.TrimSpace(req.Curso)),
 		Comprovante:   strings.TrimSpace(req.Comprovante),
 		Validade:      validade,
 		HorariosFixos: req.HorariosFixos,

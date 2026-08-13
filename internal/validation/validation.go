@@ -29,18 +29,21 @@ var formatoPlaca = regexp.MustCompile(`^[A-Z]{3}[0-9][0-9A-Z][0-9]{2}$`)
 
 // Nome confere que o valor (ja sem espacos nas pontas) tem letras, espacos e
 // os sinais comuns em nomes proprios (hifen, apostrofo) — sem digitos ou
-// outros simbolos, e ao menos 3 caracteres.
-func Nome(nome string) error {
+// outros simbolos, e ao menos 3 caracteres. Retorna o nome em maiusculas: e
+// consistente independente de como foi digitado, e evita o problema do title
+// case em portugues, que capitalizaria preposicoes como "Sistemas De
+// Informacao" sem uma lista de excecoes para manter minusculas.
+func Nome(nome string) (string, error) {
 	if len([]rune(nome)) < 3 {
-		return ErrNomeInvalido
+		return "", ErrNomeInvalido
 	}
 	for _, r := range nome {
 		if unicode.IsLetter(r) || r == ' ' || r == '\'' || r == '-' {
 			continue
 		}
-		return ErrNomeInvalido
+		return "", ErrNomeInvalido
 	}
-	return nil
+	return strings.ToUpper(nome), nil
 }
 
 // LimparDigitos remove tudo que nao for digito.

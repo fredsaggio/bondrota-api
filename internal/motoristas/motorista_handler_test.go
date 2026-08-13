@@ -149,7 +149,7 @@ func TestMotoristaHandler_Create(t *testing.T) {
 			body: validCreateBody(),
 			setup: func(svc *mocks.MockMotoristaService) {
 				svc.EXPECT().Create(mock.Anything, mock.MatchedBy(func(in motoristas.MotoristaInput) bool {
-					return in.Nome == "João Silva" && in.CPF == "12345678909" && in.Turno == motoristas.TurnoMatutino && in.MunicipioTrabalhoID == 2611606
+					return in.Nome == "JOÃO SILVA" && in.CPF == "12345678909" && in.Turno == motoristas.TurnoMatutino && in.MunicipioTrabalhoID == 2611606
 				})).Return(sampleMotorista(), nil)
 			},
 			wantStatus: http.StatusCreated,
