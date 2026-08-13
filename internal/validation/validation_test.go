@@ -36,6 +36,58 @@ func TestNome(t *testing.T) {
 	}
 }
 
+func TestModelo(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		want    string
+		wantErr error
+	}{
+		{"letras numeros e espacos", "Ônibus 1722 Urbano", "Ônibus 1722 Urbano", nil},
+		{"remove apenas espacos externos", "  Volare Escolar  ", "Volare Escolar", nil},
+		{"modelo com cerquilha", "Ônibus #1722", "", validation.ErrModeloInvalido},
+		{"modelo com barra", "Ônibus 1722/Urbano", "", validation.ErrModeloInvalido},
+		{"modelo vazio", "   ", "", validation.ErrModeloInvalido},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := validation.Modelo(tc.value)
+			if !errors.Is(err, tc.wantErr) {
+				t.Fatalf("Modelo(%q) err = %v, want %v", tc.value, err, tc.wantErr)
+			}
+			if got != tc.want {
+				t.Fatalf("Modelo(%q) = %q, want %q", tc.value, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestCurso(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		want    string
+		wantErr error
+	}{
+		{"curso vira maiuscula", "Ciência da Computação", "CIÊNCIA DA COMPUTAÇÃO", nil},
+		{"hifen e apostrofo", "Língua d'Água-Portuguesa", "LÍNGUA D'ÁGUA-PORTUGUESA", nil},
+		{"curso com numero", "Técnico em TI 2", "", validation.ErrCursoInvalido},
+		{"curso com simbolo", "Computação@", "", validation.ErrCursoInvalido},
+		{"vazio fica para regra do vinculo", "   ", "", nil},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := validation.Curso(tc.value)
+			if !errors.Is(err, tc.wantErr) {
+				t.Fatalf("Curso(%q) err = %v, want %v", tc.value, err, tc.wantErr)
+			}
+			if got != tc.want {
+				t.Fatalf("Curso(%q) = %q, want %q", tc.value, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestCPF(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -48,6 +100,8 @@ func TestCPF(t *testing.T) {
 		// Exemplo canonico usado em tutoriais e ferramentas de teste — nao
 		// pertence a ninguem, mas passa no calculo do digito verificador.
 		{"outro cpf valido", "111.444.777-35", "11144477735", nil},
+		{"cpf com letra misturada", "123a45678909", "", validation.ErrCPFInvalido},
+		{"cpf com mascara fora de posicao", "12.3456.789-09", "", validation.ErrCPFInvalido},
 		{"cpf curto", "123.456.789", "", validation.ErrCPFInvalido},
 		{"cpf longo demais", "123456789012", "", validation.ErrCPFInvalido},
 		{"cpf com todos os digitos iguais", "000.000.000-00", "", validation.ErrCPFInvalido},
@@ -77,6 +131,10 @@ func TestTelefone(t *testing.T) {
 		wantErr error
 	}{
 		{"celular formatado", "(82) 98888-7777", "82988887777", nil},
+		{"celular formatado sem espaco", "(82)98888-7777", "82988887777", nil},
+		{"celular so digitos", "82988887777", "82988887777", nil},
+		{"celular com letra misturada", "82abc988887777", "", validation.ErrTelefoneInvalido},
+		{"celular com pontuacao fora de posicao", "82-98888-7777", "", validation.ErrTelefoneInvalido},
 		{"fixo nao e aceito", "(82) 3333-4444", "", validation.ErrTelefoneInvalido},
 		{"vazio e opcional", "", "", nil},
 		{"so espacos e opcional", "   ", "", nil},
@@ -110,9 +168,9 @@ func TestPlaca(t *testing.T) {
 		{"antiga minuscula", "abc-1234", "ABC1234", nil},
 		{"mercosul", "ABC1D23", "ABC1D23", nil},
 		{"mercosul minuscula com espacos", " abc1d23 ", "ABC1D23", nil},
-		// O hifen nao faz parte do padrao Mercosul, mas se alguem digitar ele
-		// sai na limpeza como qualquer outra pontuacao.
-		{"mercosul com hifen sobra", "ABC-1D23", "ABC1D23", nil},
+		{"mercosul com hifen", "ABC-1D23", "", validation.ErrPlacaInvalida},
+		{"placa com simbolos misturados", "A@B#C1D23", "", validation.ErrPlacaInvalida},
+		{"placa antiga com espaco interno", "ABC 1234", "", validation.ErrPlacaInvalida},
 		{"obrigatoria", "", "", validation.ErrPlacaInvalida},
 		{"curta demais", "ABC123", "", validation.ErrPlacaInvalida},
 		{"longa demais", "ABC12345", "", validation.ErrPlacaInvalida},

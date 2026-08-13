@@ -1,7 +1,7 @@
 // Package validation reune as regras de formato para campos de cadastro
-// (nome, cpf, telefone) compartilhadas entre clientes e motoristas. A mascara
-// (pontos, tracos, parenteses) e responsabilidade da apresentacao — aqui so
-// entra e sai digito puro.
+// compartilhadas entre dominios. Mascaras de campos como CPF, telefone e placa
+// sao responsabilidade da apresentacao; a API normaliza e valida novamente os
+// valores recebidos antes de persistir.
 package validation
 
 import (
@@ -16,20 +16,26 @@ import (
 // inesperada nao entra aqui: isso vai para o log do servidor, em ingles.
 var (
 	ErrNomeInvalido     = errors.New("O nome deve conter apenas letras e espaços.")
+	ErrModeloInvalido   = errors.New("O modelo deve conter apenas letras, números e espaços.")
+	ErrCursoInvalido    = errors.New("O curso deve conter apenas letras, espaços, hífen e apóstrofo.")
 	ErrCPFInvalido      = errors.New("CPF inválido. Confira os dígitos digitados.")
 	ErrTelefoneInvalido = errors.New("O telefone deve ser um celular válido: DDD + 9 dígitos.")
 	ErrPlacaInvalida    = errors.New("A placa deve seguir um dos padrões: ABC-1234 ou ABC1D23.")
 )
 
-var naoDigito = regexp.MustCompile(`\D`)
-
-var naoAlfanumerico = regexp.MustCompile(`[^A-Z0-9]`)
+var (
+	naoDigito               = regexp.MustCompile(`\D`)
+	formatoCPFLimpo         = regexp.MustCompile(`^[0-9]{11}$`)
+	formatoCPFMascarado     = regexp.MustCompile(`^[0-9]{3}\.[0-9]{3}\.[0-9]{3}-[0-9]{2}$`)
+	formatoTelefoneLimpo    = regexp.MustCompile(`^[0-9]{11}$`)
+	formatoTelefoneMascara  = regexp.MustCompile(`^\([0-9]{2}\) ?[0-9]{5}-[0-9]{4}$`)
+	formatoPlaca            = regexp.MustCompile(`^[A-Z]{3}[0-9][0-9A-Z][0-9]{2}$`)
+	formatoPlacaAntigaHifen = regexp.MustCompile(`^[A-Z]{3}-[0-9]{4}$`)
+)
 
 // Os dois padroes em circulacao no Brasil cabem num so formato: as tres letras
 // e o quarto digito sao comuns, e o que os separa e a quinta posicao — letra no
 // Mercosul (ABC1D23), digito no modelo antigo (ABC1234).
-var formatoPlaca = regexp.MustCompile(`^[A-Z]{3}[0-9][0-9A-Z][0-9]{2}$`)
-
 // Nome confere que o valor (ja sem espacos nas pontas) tem letras, espacos e
 // os sinais comuns em nomes proprios (hifen, apostrofo) — sem digitos ou
 // outros simbolos, e ao menos 3 caracteres. Retorna o nome em maiusculas: e
@@ -49,12 +55,44 @@ func Nome(nome string) (string, error) {
 	return strings.ToUpper(nome), nil
 }
 
+// Modelo aceita os nomes comerciais usuais de veiculos, inclusive acentos e
+// numeros de serie, mas rejeita pontuacao e simbolos. A validacao fica na API
+// para que clientes diretos nao consigam contornar a restricao da interface.
+func Modelo(modelo string) (string, error) {
+	limpo := strings.TrimSpace(modelo)
+	if limpo == "" {
+		return "", ErrModeloInvalido
+	}
+	for _, r := range limpo {
+		if unicode.IsLetter(r) || unicode.IsNumber(r) || r == ' ' {
+			continue
+		}
+		return "", ErrModeloInvalido
+	}
+	return limpo, nil
+}
+
+// Curso segue o mesmo conjunto de caracteres exibido pelo painel e retorna o
+// valor normalizado em maiusculas. Vazio continua permitido aqui porque a
+// obrigatoriedade depende do tipo de vinculo e e validada pelo seu dominio.
+func Curso(curso string) (string, error) {
+	limpo := strings.TrimSpace(curso)
+	for _, r := range limpo {
+		if unicode.IsLetter(r) || r == ' ' || r == '\'' || r == '-' {
+			continue
+		}
+		return "", ErrCursoInvalido
+	}
+	return strings.ToUpper(limpo), nil
+}
+
 // LimparDigitos remove tudo que nao for digito.
 func LimparDigitos(value string) string {
 	return naoDigito.ReplaceAllString(value, "")
 }
 
-// CPF limpa a pontuacao, confere 11 digitos e valida os dois digitos
+// CPF aceita apenas os 11 digitos ou a mascara canonica, confere o formato e
+// valida os dois digitos
 // verificadores pelo calculo oficial (modulo 11) — sem isso qualquer
 // sequencia de 11 numeros passava, e um CPF digitado errado só seria
 // percebido quando alguem tentasse usá-lo de verdade. Sequencias com todos os
@@ -62,7 +100,11 @@ func LimparDigitos(value string) string {
 // calculo por coincidencia matematica mas nunca foram emitidas, entao seguem
 // rejeitadas à parte. Retorna o CPF ja limpo para gravar.
 func CPF(cpf string) (string, error) {
-	digits := LimparDigitos(cpf)
+	value := strings.TrimSpace(cpf)
+	if !formatoCPFLimpo.MatchString(value) && !formatoCPFMascarado.MatchString(value) {
+		return "", ErrCPFInvalido
+	}
+	digits := LimparDigitos(value)
 	if len(digits) != 11 || todosIguais(digits) || !cpfDigitosVerificadoresValidos(digits) {
 		return "", ErrCPFInvalido
 	}
@@ -92,28 +134,38 @@ func cpfDigitoVerificador(base string) byte {
 	return byte('0' + (11 - resto))
 }
 
-// Telefone limpa a pontuacao e confere 11 digitos de celular: DDD valido
+// Telefone aceita apenas os 11 digitos ou a mascara brasileira canonica e
+// confere os 11 digitos de celular: DDD valido
 // seguido do 9 que todo celular brasileiro tem desde a expansao do nono
 // digito. Fixo nao e aceito aqui — so cadastramos celular. O campo e
-// opcional: string vazia (ou so pontuacao/espacos) retorna vazio sem erro.
+// opcional: string vazia ou so espacos retorna vazio sem erro.
 // Retorna o telefone ja limpo.
 func Telefone(telefone string) (string, error) {
-	digits := LimparDigitos(telefone)
-	if digits == "" {
+	value := strings.TrimSpace(telefone)
+	if value == "" {
 		return "", nil
 	}
+	if !formatoTelefoneLimpo.MatchString(value) && !formatoTelefoneMascara.MatchString(value) {
+		return "", ErrTelefoneInvalido
+	}
+	digits := LimparDigitos(value)
 	if len(digits) != 11 || digits[0] == '0' || digits[2] != '9' {
 		return "", ErrTelefoneInvalido
 	}
 	return digits, nil
 }
 
-// Placa remove hifen e espacos, normaliza para maiuscula e confere os dois
-// padroes brasileiros. Retorna a placa limpa, que e a unica forma que vai para
+// Placa aceita a forma limpa dos dois padroes brasileiros e, para o padrao
+// antigo, a mascara canonica com hifen. Normaliza para maiuscula e retorna a
+// placa limpa, que e a unica forma que vai para
 // o banco: a coluna tem UNIQUE, e guardar "ABC-1234" e "ABC1234" lado a lado
 // criaria dois veiculos para a mesma placa sem o indice reclamar.
 func Placa(placa string) (string, error) {
-	limpa := naoAlfanumerico.ReplaceAllString(strings.ToUpper(strings.TrimSpace(placa)), "")
+	value := strings.ToUpper(strings.TrimSpace(placa))
+	if !formatoPlaca.MatchString(value) && !formatoPlacaAntigaHifen.MatchString(value) {
+		return "", ErrPlacaInvalida
+	}
+	limpa := strings.ReplaceAll(value, "-", "")
 	if !formatoPlaca.MatchString(limpa) {
 		return "", ErrPlacaInvalida
 	}

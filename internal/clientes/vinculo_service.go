@@ -3,6 +3,8 @@ package clientes
 import (
 	"context"
 	"strings"
+
+	"github.com/fredsaggio/bondrota-api/internal/validation"
 )
 
 type vinculoService struct {
@@ -58,6 +60,9 @@ func validateVinculo(tipo TipoConta, turno TurnoCliente, curso string, dias []Di
 
 	if tipo == TipoEstudante && strings.TrimSpace(curso) == "" {
 		return ErrCursoObrigatorio
+	}
+	if _, err := validation.Curso(curso); err != nil {
+		return err
 	}
 
 	seen := map[DiaSemana]struct{}{}

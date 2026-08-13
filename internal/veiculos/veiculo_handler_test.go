@@ -1,10 +1,12 @@
 package veiculos_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -17,8 +19,68 @@ import (
 
 func newVeiculoRouter(h *veiculos.VeiculoHandler) http.Handler {
 	r := chi.NewRouter()
+	r.Post("/veiculos/", h.Create)
+	r.Put("/veiculos/{veiculoID}", h.Update)
 	r.Delete("/veiculos/{veiculoID}", h.Delete)
 	return r
+}
+
+func TestVeiculoHandler_RejeitaModeloComCaracterEspecial(t *testing.T) {
+	t.Run("create", func(t *testing.T) {
+		st := mocks.NewMockVeiculoStore(t)
+		h := veiculos.NewVeiculoHandler(st)
+		req := httptest.NewRequest(http.MethodPost, "/veiculos/", strings.NewReader(`{
+			"placa":"ABC1D23","modelo":"Ônibus #1722","categoria":"escolar",
+			"capacidade":24,"status":"ativo"
+		}`))
+		rr := httptest.NewRecorder()
+
+		newVeiculoRouter(h).ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("want 400, got %d: %s", rr.Code, rr.Body.String())
+		}
+	})
+
+	t.Run("update", func(t *testing.T) {
+		st := mocks.NewMockVeiculoStore(t)
+		st.EXPECT().Update(mock.Anything, int64(1), mock.Anything).RunAndReturn(
+			func(_ context.Context, _ int64, update func(*veiculos.Veiculo) (bool, error)) (*veiculos.Veiculo, error) {
+				current := &veiculos.Veiculo{
+					ID: 1, Placa: "ABC1D23", Modelo: "Ônibus 1722",
+					Categoria: veiculos.CategoriaEscolar, Capacidade: veiculos.CapacidadeEscolar,
+					Status: veiculos.StatusAtivo,
+				}
+				_, err := update(current)
+				return nil, err
+			},
+		)
+		h := veiculos.NewVeiculoHandler(st)
+		req := httptest.NewRequest(http.MethodPut, "/veiculos/1", strings.NewReader(`{"modelo":"Ônibus/1722"}`))
+		rr := httptest.NewRecorder()
+
+		newVeiculoRouter(h).ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("want 400, got %d: %s", rr.Code, rr.Body.String())
+		}
+	})
+}
+
+func TestVeiculoHandler_RejeitaPlacaComSimbolosMisturados(t *testing.T) {
+	st := mocks.NewMockVeiculoStore(t)
+	h := veiculos.NewVeiculoHandler(st)
+	req := httptest.NewRequest(http.MethodPost, "/veiculos/", strings.NewReader(`{
+		"placa":"A@B#C1D23","modelo":"Ônibus 1722","categoria":"escolar",
+		"capacidade":24,"status":"ativo"
+	}`))
+	rr := httptest.NewRecorder()
+
+	newVeiculoRouter(h).ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("want 400, got %d: %s", rr.Code, rr.Body.String())
+	}
 }
 
 func TestVeiculoHandler_Delete(t *testing.T) {

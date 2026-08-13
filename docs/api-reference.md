@@ -292,6 +292,11 @@ Categorias e capacidades validas:
 
 Status validos: `ativo`, `inativo`, `manutencao`.
 
+`placa` aceita a forma limpa (`ABC1234` ou `ABC1D23`) e a mascara canonica do
+padrao antigo (`ABC-1234`). Pontuacao fora de posicao e outros simbolos sao
+rejeitados. `modelo` aceita apenas letras, numeros e espacos. A API rejeita outros
+caracteres com `400 Bad Request`, tanto na criacao quanto na atualizacao.
+
 | Metodo | Path completo | Descricao | Body | Sucesso | Erros |
 | --- | --- | --- | --- | --- | --- |
 | `POST` | `BASE_URL/veiculos/` | Cria veiculo. | `VeiculoCreateRequest` | `201 { "id": number }` | `400`, `401`, `403`, `422`, `500` |
@@ -502,6 +507,10 @@ Permissao: `admin`, exceto login publico.
 
 Turnos validos: `MT`, `VT`, `NT`, `IN`.
 
+Nos cadastros de motoristas e clientes, `cpf` aceita 11 digitos ou a mascara
+`000.000.000-00`; `telefone` aceita 11 digitos ou a mascara `(00) 00000-0000`.
+Letras, simbolos extras e pontuacao fora dessas posicoes retornam `400 Bad Request`.
+
 | Metodo | Path completo | Descricao | Body | Sucesso | Erros |
 | --- | --- | --- | --- | --- | --- |
 | `POST` | `BASE_URL/motoristas/` | Cria motorista. | `CreateMotoristaRequest` | `201 MotoristaResponse` | `400`, `401`, `403`, `409`, `500` |
@@ -663,6 +672,9 @@ Tipos validos: `estudante`, `estagio`.
 Turnos validos: `MT`, `VT`, `NT`, `IN`.
 
 Dias da semana em `horarios_fixos`: `1` a `5`, onde a API apenas valida o intervalo; use a convencao do produto para mapear segunda a sexta.
+
+`curso` aceita letras, espacos, hifen e apostrofo, e e normalizado para
+maiusculas. Numeros e outros simbolos retornam `400 Bad Request`.
 
 | Metodo | Path completo | Descricao | Body | Sucesso | Erros |
 | --- | --- | --- | --- | --- | --- |

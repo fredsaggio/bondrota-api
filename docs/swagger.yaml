@@ -148,9 +148,11 @@ components:
       properties:
         placa:
           type: string
+          description: Aceita ABC1234, ABC-1234 ou ABC1D23; outros simbolos sao rejeitados.
           example: ABC1D23
         modelo:
           type: string
+          description: Aceita apenas letras, numeros e espacos.
           example: Volare Escolar
         categoria:
           type: string
@@ -189,9 +191,11 @@ components:
       properties:
         placa:
           type: string
+          description: Aceita ABC1234, ABC-1234 ou ABC1D23; outros simbolos sao rejeitados.
           example: ABC1D23
         modelo:
           type: string
+          description: Aceita apenas letras, numeros e espacos.
           example: Volare Escolar
         categoria:
           type: string
@@ -368,12 +372,14 @@ components:
           example: Joao Motorista
         cpf:
           type: string
+          description: Aceita 11 digitos ou a mascara 000.000.000-00.
           example: '00000000000'
         senha:
           type: string
           example: senha123
         telefone:
           type: string
+          description: Aceita 11 digitos ou a mascara (00) 00000-0000.
           example: '82999990000'
         data_nasc:
           type: string
@@ -412,7 +418,7 @@ components:
         telefone:
           type: string
           nullable: true
-          description: Omitido/null preserva o valor atual; string vazia limpa o campo.
+          description: Aceita 11 digitos ou a mascara (00) 00000-0000. Omitido/null preserva o valor atual; string vazia limpa o campo.
           example: '82999990000'
         data_nasc:
           type: string
@@ -490,12 +496,14 @@ components:
           example: Maria Cliente
         cpf:
           type: string
+          description: Aceita 11 digitos ou a mascara 000.000.000-00.
           example: '11111111111'
         senha:
           type: string
           example: senha123
         telefone:
           type: string
+          description: Aceita 11 digitos ou a mascara (00) 00000-0000.
           example: '82999991111'
         data_nasc:
           type: string
@@ -519,7 +527,7 @@ components:
         telefone:
           type: string
           nullable: true
-          description: Omitido/null preserva o valor atual; string vazia limpa o campo.
+          description: Aceita 11 digitos ou a mascara (00) 00000-0000. Omitido/null preserva o valor atual; string vazia limpa o campo.
           example: '82999991111'
         data_nasc:
           type: string
@@ -603,6 +611,7 @@ components:
           example: 1
         curso:
           type: string
+          description: Aceita letras, espacos, hifen e apostrofo; numeros e outros simbolos sao rejeitados.
           example: Sistemas de Informacao
         comprovante:
           type: string

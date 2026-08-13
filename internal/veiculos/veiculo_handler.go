@@ -83,10 +83,15 @@ func (h *VeiculoHandler) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	modelo, err := validation.Modelo(req.Modelo)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	veiculo, err := h.store.Create(ctx, VeiculoInput{
 		Placa:          placa,
-		Modelo:         req.Modelo,
+		Modelo:         modelo,
 		Categoria:      req.Categoria,
 		Capacidade:     req.Capacidade,
 		Status:         req.Status,
@@ -171,9 +176,15 @@ func (h *VeiculoHandler) Update(w http.ResponseWriter, r *http.Request) {
 				changed = true
 			}
 		}
-		if req.Modelo != "" && req.Modelo != v.Modelo {
-			v.Modelo = req.Modelo
-			changed = true
+		if req.Modelo != "" {
+			modelo, err := validation.Modelo(req.Modelo)
+			if err != nil {
+				return false, err
+			}
+			if modelo != v.Modelo {
+				v.Modelo = modelo
+				changed = true
+			}
 		}
 		if req.Categoria != "" && req.Categoria != v.Categoria {
 			v.Categoria = req.Categoria
@@ -217,7 +228,7 @@ func (h *VeiculoHandler) Update(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Veículo não encontrado.", http.StatusNotFound)
 			return
 		}
-		if errors.Is(err, validation.ErrPlacaInvalida) {
+		if errors.Is(err, validation.ErrPlacaInvalida) || errors.Is(err, validation.ErrModeloInvalido) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}

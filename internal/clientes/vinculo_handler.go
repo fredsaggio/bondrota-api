@@ -16,6 +16,7 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/conv"
 	"github.com/fredsaggio/bondrota-api/internal/db"
 	"github.com/fredsaggio/bondrota-api/internal/httputils"
+	"github.com/fredsaggio/bondrota-api/internal/validation"
 )
 
 type VinculoHandler struct {
@@ -400,7 +401,8 @@ func (h *VinculoHandler) handleError(w http.ResponseWriter, err error, msg strin
 		errors.Is(err, ErrTurnoInvalido) ||
 		errors.Is(err, ErrDiaInvalido) ||
 		errors.Is(err, ErrDiaDuplicado) ||
-		errors.Is(err, ErrCursoObrigatorio) {
+		errors.Is(err, ErrCursoObrigatorio) ||
+		errors.Is(err, validation.ErrCursoInvalido) {
 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
@@ -425,6 +427,10 @@ func toVinculoInput(clienteID int64, req VinculoRequest) (VinculoInput, error) {
 	if err != nil {
 		return VinculoInput{}, err
 	}
+	curso, err := validation.Curso(req.Curso)
+	if err != nil {
+		return VinculoInput{}, err
+	}
 
 	return VinculoInput{
 		ClienteID:     clienteID,
@@ -432,10 +438,7 @@ func toVinculoInput(clienteID int64, req VinculoRequest) (VinculoInput, error) {
 		Turno:         req.Turno,
 		DestinoID:     req.DestinoID,
 		RotaInternaID: req.RotaInternaID,
-		// Maiuscula por consistencia, como o nome — evita que "Ciência da
-		// Computação" e "ciência da computação" virem dois valores diferentes
-		// na coluna, o que atrapalharia agrupar/contar por curso depois.
-		Curso:         strings.ToUpper(strings.TrimSpace(req.Curso)),
+		Curso:         curso,
 		Comprovante:   strings.TrimSpace(req.Comprovante),
 		Validade:      validade,
 		HorariosFixos: req.HorariosFixos,
@@ -447,16 +450,17 @@ func toVinculoUpdateInput(req VinculoRequest) (VinculoUpdateInput, error) {
 	if err != nil {
 		return VinculoUpdateInput{}, err
 	}
+	curso, err := validation.Curso(req.Curso)
+	if err != nil {
+		return VinculoUpdateInput{}, err
+	}
 
 	return VinculoUpdateInput{
 		Tipo:          req.Tipo,
 		Turno:         req.Turno,
 		DestinoID:     req.DestinoID,
 		RotaInternaID: req.RotaInternaID,
-		// Maiuscula por consistencia, como o nome — evita que "Ciência da
-		// Computação" e "ciência da computação" virem dois valores diferentes
-		// na coluna, o que atrapalharia agrupar/contar por curso depois.
-		Curso:         strings.ToUpper(strings.TrimSpace(req.Curso)),
+		Curso:         curso,
 		Comprovante:   strings.TrimSpace(req.Comprovante),
 		Validade:      validade,
 		HorariosFixos: req.HorariosFixos,

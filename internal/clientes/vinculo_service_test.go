@@ -9,6 +9,7 @@ import (
 
 	"github.com/fredsaggio/bondrota-api/internal/clientes"
 	"github.com/fredsaggio/bondrota-api/internal/mocks"
+	"github.com/fredsaggio/bondrota-api/internal/validation"
 )
 
 func TestVinculoService_CreateValidation(t *testing.T) {
@@ -44,6 +45,16 @@ func TestVinculoService_CreateValidation(t *testing.T) {
 			}(),
 			setup:   func(_ *mocks.MockVinculoStore) {},
 			wantErr: clientes.ErrCursoObrigatorio,
+		},
+		{
+			name: "curso rejects numbers",
+			input: func() clientes.VinculoInput {
+				in := validInput
+				in.Curso = "Computacao 2"
+				return in
+			}(),
+			setup:   func(_ *mocks.MockVinculoStore) {},
+			wantErr: validation.ErrCursoInvalido,
 		},
 		{
 			name: "invalid turno",

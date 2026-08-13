@@ -179,6 +179,18 @@ func TestMotoristaHandler_Create(t *testing.T) {
 			wantStatus: http.StatusBadRequest,
 		},
 		{
+			name:       "cpf com letra misturada → 400",
+			body:       jsonBuf(map[string]any{"nome": "João Silva", "cpf": "123a45678909", "senha": "pw", "turno": "MT", "data_nasc": "1990-01-01", "municipio_trabalho_id": int64(2611606)}),
+			setup:      func(_ *mocks.MockMotoristaService) {},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "telefone com letra misturada → 400",
+			body:       jsonBuf(map[string]any{"nome": "João Silva", "cpf": "12345678909", "senha": "pw", "telefone": "82abc988887777", "turno": "MT", "data_nasc": "1990-01-01", "municipio_trabalho_id": int64(2611606)}),
+			setup:      func(_ *mocks.MockMotoristaService) {},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
 			name:       "cpf vazio → 400",
 			body:       jsonBuf(map[string]any{"nome": "João", "senha": "pw", "turno": "MT", "data_nasc": "1990-01-01"}),
 			setup:      func(_ *mocks.MockMotoristaService) {},

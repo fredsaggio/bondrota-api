@@ -109,6 +109,17 @@ func TestVinculoHandler_Create(t *testing.T) {
 			wantStatus: http.StatusBadRequest,
 		},
 		{
+			name: "curso with number",
+			path: "/clientes/1/vinculos",
+			body: func() map[string]any {
+				body := validVinculoBody()
+				body["curso"] = "Computacao 2"
+				return body
+			}(),
+			svc:        fakeVinculoService{},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
 			name: "domain validation error",
 			path: "/clientes/1/vinculos",
 			body: validVinculoBody(),
