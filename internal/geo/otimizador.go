@@ -284,7 +284,7 @@ func validateCustos(custos []float64) error {
 
 func validateCoordenada(coordenada Coordenada) error {
 	if coordenada.Latitude == 0 && coordenada.Longitude == 0 {
-		return errors.New("coordinates are required")
+		return errors.New("Marque a localização no mapa.")
 	}
 	if coordenada.Latitude < -90 || coordenada.Latitude > 90 {
 		return errors.New("latitude must be between -90 and 90")

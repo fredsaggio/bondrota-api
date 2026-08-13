@@ -27,13 +27,13 @@ func ProtectCookieRequests(allowedOrigins []string, cookieName string) func(http
 					next.ServeHTTP(w, r)
 					return
 				}
-				http.Error(w, "forbidden origin", http.StatusForbidden)
+				http.Error(w, "Origem não autorizada.", http.StatusForbidden)
 				return
 			}
 
 			_, cookieErr := r.Cookie(cookieName)
 			if cookieErr == nil && r.Header.Get("Authorization") == "" {
-				http.Error(w, "origin header required", http.StatusForbidden)
+				http.Error(w, "Origem não autorizada.", http.StatusForbidden)
 				return
 			}
 

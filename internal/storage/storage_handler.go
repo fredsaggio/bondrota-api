@@ -35,13 +35,13 @@ type SignedDownloadURLRequest struct {
 func (h *Handler) CreateSignedUploadURL(w http.ResponseWriter, r *http.Request) {
 	actor, err := actorFromRequest(r)
 	if err != nil {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		http.Error(w, "Sua sessão expirou. Entre novamente.", http.StatusUnauthorized)
 		return
 	}
 
 	var req SignedUploadURLRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		http.Error(w, "Não foi possível processar os dados enviados.", http.StatusBadRequest)
 		return
 	}
 
@@ -62,13 +62,13 @@ func (h *Handler) CreateSignedUploadURL(w http.ResponseWriter, r *http.Request) 
 func (h *Handler) CreateSignedDownloadURL(w http.ResponseWriter, r *http.Request) {
 	actor, err := actorFromRequest(r)
 	if err != nil {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		http.Error(w, "Sua sessão expirou. Entre novamente.", http.StatusUnauthorized)
 		return
 	}
 
 	var req SignedDownloadURLRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		http.Error(w, "Não foi possível processar os dados enviados.", http.StatusBadRequest)
 		return
 	}
 
@@ -87,20 +87,20 @@ func (h *Handler) CreateSignedDownloadURL(w http.ResponseWriter, r *http.Request
 
 func (h *Handler) handleError(w http.ResponseWriter, err error, msg string) {
 	if errors.Is(err, brerror.ErrUnauthenticated) {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		http.Error(w, "Sua sessão expirou. Entre novamente.", http.StatusUnauthorized)
 		return
 	}
 	if errors.Is(err, brerror.ErrForbidden) {
-		http.Error(w, "forbidden", http.StatusForbidden)
+		http.Error(w, "Você não tem permissão para executar esta ação.", http.StatusForbidden)
 		return
 	}
 	if errors.Is(err, brerror.ErrInvalidInput) {
-		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		http.Error(w, brerror.MensagemUsuario(err), http.StatusUnprocessableEntity)
 		return
 	}
 
 	slog.Error(msg, "error", err)
-	http.Error(w, "internal server error", http.StatusInternalServerError)
+	http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 }
 
 func actorFromRequest(r *http.Request) (Actor, error) {

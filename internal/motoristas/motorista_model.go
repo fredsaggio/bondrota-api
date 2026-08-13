@@ -7,8 +7,8 @@ import (
 )
 
 var (
-	ErrNotFound         = errors.New("motorista not found")
-	ErrNomeObrigatorio  = errors.New("nome is required")
+	ErrNotFound         = errors.New("Motorista não encontrado.")
+	ErrNomeObrigatorio  = errors.New("Informe o nome.")
 	ErrTurnoInvalido    = errors.New("turno must be MT, VT, NT or IN")
 	ErrDataNascInvalida = errors.New("data_nasc must be in format YYYY-MM-DD")
 )

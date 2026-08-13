@@ -32,7 +32,7 @@ func (s *AuthService) AuthenticateWithCookie(cookieName string) func(http.Handle
 			var tokenStr string
 			if authHeader != "" {
 				if !strings.HasPrefix(authHeader, "Bearer ") {
-					http.Error(w, "unauthorized", http.StatusUnauthorized)
+					http.Error(w, "Sua sessão expirou. Entre novamente.", http.StatusUnauthorized)
 					return
 				}
 				tokenStr = strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
@@ -44,13 +44,13 @@ func (s *AuthService) AuthenticateWithCookie(cookieName string) func(http.Handle
 			}
 
 			if tokenStr == "" {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				http.Error(w, "Sua sessão expirou. Entre novamente.", http.StatusUnauthorized)
 				return
 			}
 
 			claims, err := s.ValidateToken(tokenStr)
 			if err != nil {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				http.Error(w, "Sua sessão expirou. Entre novamente.", http.StatusUnauthorized)
 				return
 			}
 
@@ -65,7 +65,7 @@ func (s *AuthService) RequireRole(roles ...string) func(http.Handler) http.Handl
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			claims, ok := r.Context().Value(ClaimsKey).(*Claims)
 			if !ok || !hasAllowedRole(claims.Role, roles) {
-				http.Error(w, "forbidden", http.StatusForbidden)
+				http.Error(w, "Você não tem permissão para executar esta ação.", http.StatusForbidden)
 				return
 			}
 			next.ServeHTTP(w, r)
@@ -78,7 +78,7 @@ func RequireUserIDOrRole(idParam, ownerRole string, bypassRoles ...string) func(
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			claims, ok := r.Context().Value(ClaimsKey).(*Claims)
 			if !ok || claims.UserID <= 0 {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				http.Error(w, "Sua sessão expirou. Entre novamente.", http.StatusUnauthorized)
 				return
 			}
 
@@ -87,17 +87,17 @@ func RequireUserIDOrRole(idParam, ownerRole string, bypassRoles ...string) func(
 				return
 			}
 			if claims.Role != ownerRole {
-				http.Error(w, "forbidden", http.StatusForbidden)
+				http.Error(w, "Você não tem permissão para executar esta ação.", http.StatusForbidden)
 				return
 			}
 
 			resourceID, err := strconv.ParseInt(chi.URLParam(r, idParam), 10, 64)
 			if err != nil || resourceID <= 0 {
-				http.Error(w, "invalid id", http.StatusBadRequest)
+				http.Error(w, "Registro não encontrado.", http.StatusBadRequest)
 				return
 			}
 			if resourceID != claims.UserID {
-				http.Error(w, "forbidden", http.StatusForbidden)
+				http.Error(w, "Você não tem permissão para executar esta ação.", http.StatusForbidden)
 				return
 			}
 

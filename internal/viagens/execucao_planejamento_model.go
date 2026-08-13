@@ -7,10 +7,10 @@ import (
 )
 
 var (
-	ErrExecucaoNaoProcessando   = errors.New("execucao planejamento is not processing")
-	ErrResultadoInvalido        = errors.New("resultado execucao planejamento must be concluido or sem_demanda")
-	ErrUltimoErroObrigatorio    = errors.New("ultimo erro is required")
-	ErrProximaTentativaInvalida = errors.New("proxima tentativa must be after failure time")
+	ErrExecucaoNaoProcessando   = errors.New("Este planejamento não está em processamento.")
+	ErrResultadoInvalido        = errors.New("Resultado de planejamento inválido.")
+	ErrUltimoErroObrigatorio    = errors.New("Informe o motivo da falha.")
+	ErrProximaTentativaInvalida = errors.New("A próxima tentativa deve ser posterior à falha.")
 )
 
 type StatusExecucaoPlanejamento string

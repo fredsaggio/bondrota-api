@@ -44,7 +44,7 @@ func (s *viagemService) Resumo(ctx context.Context) (ViagemResumo, error) {
 
 func (s *viagemService) ListHorariosByViagem(ctx context.Context, viagemID int64) ([]ViagemHorario, error) {
 	if viagemID <= 0 {
-		return nil, errors.New("viagem_id is required")
+		return nil, errors.New("Selecione a viagem.")
 	}
 
 	return s.store.ListHorariosByViagem(ctx, viagemID)
@@ -52,7 +52,7 @@ func (s *viagemService) ListHorariosByViagem(ctx context.Context, viagemID int64
 
 func (s *viagemService) Iniciar(ctx context.Context, viagemID int64) (*Viagem, error) {
 	if viagemID <= 0 {
-		return nil, errors.New("viagem_id is required")
+		return nil, errors.New("Selecione a viagem.")
 	}
 
 	return s.store.AtualizarStatusERegistrarHorarioViagem(
@@ -67,7 +67,7 @@ func (s *viagemService) Iniciar(ctx context.Context, viagemID int64) (*Viagem, e
 
 func (s *viagemService) Concluir(ctx context.Context, viagemID int64) (*Viagem, error) {
 	if viagemID <= 0 {
-		return nil, errors.New("viagem_id is required")
+		return nil, errors.New("Selecione a viagem.")
 	}
 
 	return s.store.AtualizarStatusERegistrarHorarioViagem(
@@ -82,7 +82,7 @@ func (s *viagemService) Concluir(ctx context.Context, viagemID int64) (*Viagem, 
 
 func (s *viagemService) Cancelar(ctx context.Context, viagemID int64) (*Viagem, error) {
 	if viagemID <= 0 {
-		return nil, errors.New("viagem_id is required")
+		return nil, errors.New("Selecione a viagem.")
 	}
 
 	return s.store.UpdateViagem(ctx, viagemID, func(v *Viagem) (bool, error) {
@@ -90,7 +90,7 @@ func (s *viagemService) Cancelar(ctx context.Context, viagemID int64) (*Viagem, 
 		case StatusViagemCancelada:
 			return false, nil
 		case StatusViagemConcluida:
-			return false, errors.New("viagem concluida nao pode ser cancelada")
+			return false, errors.New("Uma viagem já concluída não pode ser cancelada.")
 		}
 
 		v.Status = StatusViagemCancelada

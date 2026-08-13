@@ -40,7 +40,7 @@ func (h *ViagemHandler) RequireAssignedMotoristaOrAdmin(next http.Handler) http.
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		actor, err := actorFromRequest(r)
 		if err != nil {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			http.Error(w, "Sua sessão expirou. Entre novamente.", http.StatusUnauthorized)
 			return
 		}
 		if actor.Role == auth.RoleAdmin {
@@ -48,13 +48,13 @@ func (h *ViagemHandler) RequireAssignedMotoristaOrAdmin(next http.Handler) http.
 			return
 		}
 		if actor.Role != auth.RoleMotorista {
-			http.Error(w, "forbidden", http.StatusForbidden)
+			http.Error(w, "Você não tem permissão para executar esta ação.", http.StatusForbidden)
 			return
 		}
 
 		viagemID, err := conv.ParseInt(r, "viagemID")
 		if err != nil {
-			http.Error(w, "invalid viagem id", http.StatusBadRequest)
+			http.Error(w, "Viagem não encontrada.", http.StatusBadRequest)
 			return
 		}
 		viagem, err := h.viagemSvc.GetByID(r.Context(), viagemID)
@@ -63,7 +63,7 @@ func (h *ViagemHandler) RequireAssignedMotoristaOrAdmin(next http.Handler) http.
 			return
 		}
 		if viagem.Ciclo.MotoristaID != actor.UserID {
-			http.Error(w, "forbidden", http.StatusForbidden)
+			http.Error(w, "Você não tem permissão para executar esta ação.", http.StatusForbidden)
 			return
 		}
 
@@ -191,7 +191,7 @@ func (h *ViagemHandler) List(w http.ResponseWriter, r *http.Request) {
 	result, err := h.viagemSvc.List(r.Context(), params)
 	if err != nil {
 		slog.Error("failed to list viagens", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -202,7 +202,7 @@ func (h *ViagemHandler) Resumo(w http.ResponseWriter, r *http.Request) {
 	resumo, err := h.viagemSvc.Resumo(r.Context())
 	if err != nil {
 		slog.Error("failed to summarize viagens", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -231,7 +231,7 @@ func parseViagemListParams(r *http.Request) (ViagemListParams, error) {
 	if raw := query.Get("limit"); raw != "" {
 		limit, err := strconv.Atoi(raw)
 		if err != nil || limit <= 0 {
-			return ViagemListParams{}, errors.New("invalid limit")
+			return ViagemListParams{}, errors.New("Parâmetro de listagem inválido.")
 		}
 		params.Limit = limit
 	}
@@ -239,7 +239,7 @@ func parseViagemListParams(r *http.Request) (ViagemListParams, error) {
 	if raw := query.Get("cursor"); raw != "" {
 		cursor, err := decodeViagemCursor(raw)
 		if err != nil {
-			return ViagemListParams{}, errors.New("invalid cursor")
+			return ViagemListParams{}, errors.New("Parâmetro de listagem inválido.")
 		}
 		params.Cursor = cursor
 	}
@@ -247,7 +247,7 @@ func parseViagemListParams(r *http.Request) (ViagemListParams, error) {
 	if raw := query.Get("data_inicio"); raw != "" {
 		data, err := time.Parse("2006-01-02", raw)
 		if err != nil {
-			return ViagemListParams{}, errors.New("invalid data_inicio")
+			return ViagemListParams{}, errors.New("Data inicial inválida.")
 		}
 		params.DataInicio = &data
 	}
@@ -255,7 +255,7 @@ func parseViagemListParams(r *http.Request) (ViagemListParams, error) {
 	if raw := query.Get("data_fim"); raw != "" {
 		data, err := time.Parse("2006-01-02", raw)
 		if err != nil {
-			return ViagemListParams{}, errors.New("invalid data_fim")
+			return ViagemListParams{}, errors.New("Data final inválida.")
 		}
 		params.DataFim = &data
 	}
@@ -263,7 +263,7 @@ func parseViagemListParams(r *http.Request) (ViagemListParams, error) {
 	for _, raw := range query["status"] {
 		status := StatusViagem(raw)
 		if !isStatusViagemValido(status) {
-			return ViagemListParams{}, errors.New("invalid status")
+			return ViagemListParams{}, errors.New("Situação inválida.")
 		}
 		params.Status = append(params.Status, status)
 	}
@@ -275,7 +275,7 @@ func parseViagemListParams(r *http.Request) (ViagemListParams, error) {
 		case "desc":
 			params.Ascendente = false
 		default:
-			return ViagemListParams{}, errors.New("invalid ordem: use asc or desc")
+			return ViagemListParams{}, errors.New("Ordenação inválida.")
 		}
 	}
 
@@ -305,7 +305,7 @@ func decodeViagemCursor(value string) (*ViagemCursor, error) {
 	}
 	parts := strings.SplitN(string(raw), "|", 2)
 	if len(parts) != 2 {
-		return nil, errors.New("malformed cursor")
+		return nil, errors.New("Parâmetro de listagem inválido.")
 	}
 	data, err := time.Parse("2006-01-02", parts[0])
 	if err != nil {
@@ -321,7 +321,7 @@ func decodeViagemCursor(value string) (*ViagemCursor, error) {
 func (h *ViagemHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	viagemID, err := conv.ParseInt(r, "viagemID")
 	if err != nil {
-		http.Error(w, "invalid viagem id", http.StatusBadRequest)
+		http.Error(w, "Viagem não encontrada.", http.StatusBadRequest)
 		return
 	}
 
@@ -337,7 +337,7 @@ func (h *ViagemHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 func (h *ViagemHandler) Iniciar(w http.ResponseWriter, r *http.Request) {
 	viagemID, err := conv.ParseInt(r, "viagemID")
 	if err != nil {
-		http.Error(w, "invalid viagem id", http.StatusBadRequest)
+		http.Error(w, "Viagem não encontrada.", http.StatusBadRequest)
 		return
 	}
 
@@ -353,7 +353,7 @@ func (h *ViagemHandler) Iniciar(w http.ResponseWriter, r *http.Request) {
 func (h *ViagemHandler) Concluir(w http.ResponseWriter, r *http.Request) {
 	viagemID, err := conv.ParseInt(r, "viagemID")
 	if err != nil {
-		http.Error(w, "invalid viagem id", http.StatusBadRequest)
+		http.Error(w, "Viagem não encontrada.", http.StatusBadRequest)
 		return
 	}
 
@@ -369,7 +369,7 @@ func (h *ViagemHandler) Concluir(w http.ResponseWriter, r *http.Request) {
 func (h *ViagemHandler) Cancelar(w http.ResponseWriter, r *http.Request) {
 	viagemID, err := conv.ParseInt(r, "viagemID")
 	if err != nil {
-		http.Error(w, "invalid viagem id", http.StatusBadRequest)
+		http.Error(w, "Viagem não encontrada.", http.StatusBadRequest)
 		return
 	}
 
@@ -385,7 +385,7 @@ func (h *ViagemHandler) Cancelar(w http.ResponseWriter, r *http.Request) {
 func (h *ViagemHandler) ListHorarios(w http.ResponseWriter, r *http.Request) {
 	viagemID, err := conv.ParseInt(r, "viagemID")
 	if err != nil {
-		http.Error(w, "invalid viagem id", http.StatusBadRequest)
+		http.Error(w, "Viagem não encontrada.", http.StatusBadRequest)
 		return
 	}
 
@@ -401,7 +401,7 @@ func (h *ViagemHandler) ListHorarios(w http.ResponseWriter, r *http.Request) {
 func (h *ViagemHandler) ListReservas(w http.ResponseWriter, r *http.Request) {
 	viagemID, err := conv.ParseInt(r, "viagemID")
 	if err != nil {
-		http.Error(w, "invalid viagem id", http.StatusBadRequest)
+		http.Error(w, "Viagem não encontrada.", http.StatusBadRequest)
 		return
 	}
 
@@ -417,13 +417,13 @@ func (h *ViagemHandler) ListReservas(w http.ResponseWriter, r *http.Request) {
 func (h *ViagemHandler) AtualizarPresenca(w http.ResponseWriter, r *http.Request) {
 	viagemID, reservaID, err := parseViagemReservaIDs(r)
 	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+		http.Error(w, "Registro não encontrado.", http.StatusBadRequest)
 		return
 	}
 
 	var req AtualizarPresencaRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		http.Error(w, "Não foi possível processar os dados enviados.", http.StatusBadRequest)
 		return
 	}
 
@@ -438,25 +438,25 @@ func (h *ViagemHandler) AtualizarPresenca(w http.ResponseWriter, r *http.Request
 
 func (h *ViagemHandler) AtualizarLocalizacao(w http.ResponseWriter, r *http.Request) {
 	if h.localizacaoSvc == nil {
-		http.Error(w, "localizacao service not configured", http.StatusInternalServerError)
+		http.Error(w, "O rastreamento de localização não está disponível.", http.StatusInternalServerError)
 		return
 	}
 
 	viagemID, err := conv.ParseInt(r, "viagemID")
 	if err != nil {
-		http.Error(w, "invalid viagem id", http.StatusBadRequest)
+		http.Error(w, "Viagem não encontrada.", http.StatusBadRequest)
 		return
 	}
 
 	actor, err := actorFromRequest(r)
 	if err != nil {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		http.Error(w, "Sua sessão expirou. Entre novamente.", http.StatusUnauthorized)
 		return
 	}
 
 	var req AtualizarLocalizacaoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		http.Error(w, "Não foi possível processar os dados enviados.", http.StatusBadRequest)
 		return
 	}
 
@@ -479,19 +479,19 @@ func (h *ViagemHandler) AtualizarLocalizacao(w http.ResponseWriter, r *http.Requ
 
 func (h *ViagemHandler) GetLocalizacao(w http.ResponseWriter, r *http.Request) {
 	if h.localizacaoSvc == nil {
-		http.Error(w, "localizacao service not configured", http.StatusInternalServerError)
+		http.Error(w, "O rastreamento de localização não está disponível.", http.StatusInternalServerError)
 		return
 	}
 
 	viagemID, err := conv.ParseInt(r, "viagemID")
 	if err != nil {
-		http.Error(w, "invalid viagem id", http.StatusBadRequest)
+		http.Error(w, "Viagem não encontrada.", http.StatusBadRequest)
 		return
 	}
 
 	actor, err := actorFromRequest(r)
 	if err != nil {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		http.Error(w, "Sua sessão expirou. Entre novamente.", http.StatusUnauthorized)
 		return
 	}
 
@@ -506,28 +506,28 @@ func (h *ViagemHandler) GetLocalizacao(w http.ResponseWriter, r *http.Request) {
 
 func (h *ViagemHandler) handleError(w http.ResponseWriter, err error, msg string) {
 	if errors.Is(err, brerror.ErrUnauthenticated) {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		http.Error(w, "Sua sessão expirou. Entre novamente.", http.StatusUnauthorized)
 		return
 	}
 	if errors.Is(err, brerror.ErrForbidden) {
-		http.Error(w, "forbidden", http.StatusForbidden)
+		http.Error(w, "Você não tem permissão para executar esta ação.", http.StatusForbidden)
 		return
 	}
 	if errors.Is(err, brerror.ErrInvalidInput) {
-		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		http.Error(w, brerror.MensagemUsuario(err), http.StatusUnprocessableEntity)
 		return
 	}
 	if errors.Is(err, brerror.ErrNotFound) {
-		http.Error(w, "resource not found", http.StatusNotFound)
+		http.Error(w, "Registro não encontrado.", http.StatusNotFound)
 		return
 	}
 	if errors.Is(err, brerror.ErrAlreadyExists) {
-		http.Error(w, "resource already exists", http.StatusConflict)
+		http.Error(w, "Já existe um registro com esses dados.", http.StatusConflict)
 		return
 	}
 
 	slog.Error(msg, "error", err)
-	http.Error(w, "internal server error", http.StatusInternalServerError)
+	http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 }
 
 func parseViagemReservaIDs(r *http.Request) (int64, int64, error) {

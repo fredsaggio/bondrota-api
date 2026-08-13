@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-var ErrNotFound = errors.New("admin not found")
+var ErrNotFound = errors.New("Administrador não encontrado.")
 
 // MinPasswordLen vale para todo caminho que define senha de administrador: o painel
 // e o cmd/admin. Mantendo a regra aqui, nenhum dos dois fica mais permissivo que o

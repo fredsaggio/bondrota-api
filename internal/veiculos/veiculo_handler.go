@@ -70,11 +70,11 @@ func (h *VeiculoHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	var req CreateVeiculoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		http.Error(w, "Não foi possível processar os dados enviados.", http.StatusBadRequest)
 		return
 	}
 	if err := ValidateCategoriaCapacidade(req.Categoria, req.Capacidade); err != nil {
-		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		http.Error(w, brerror.MensagemUsuario(err), http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -98,7 +98,7 @@ func (h *VeiculoHandler) Create(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		slog.Error("failed to create veiculo", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -109,18 +109,18 @@ func (h *VeiculoHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	vehicleID, err := conv.ParseInt(r, "veiculoID")
 	if err != nil {
-		http.Error(w, "invalid veiculo id", http.StatusBadRequest)
+		http.Error(w, "Veículo não encontrado.", http.StatusBadRequest)
 		return
 	}
 
 	veiculo, err := h.store.GetByID(ctx, vehicleID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			http.Error(w, "veiculo not found", http.StatusNotFound)
+			http.Error(w, "Veículo não encontrado.", http.StatusNotFound)
 			return
 		}
 		slog.Error("failed to get veiculo", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -133,7 +133,7 @@ func (h *VeiculoHandler) List(w http.ResponseWriter, r *http.Request) {
 	veiculos, err := h.store.List(ctx)
 	if err != nil {
 		slog.Error("failed to list veiculos", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -149,13 +149,13 @@ func (h *VeiculoHandler) Update(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	vehicleID, err := conv.ParseInt(r, "veiculoID")
 	if err != nil {
-		http.Error(w, "invalid veiculo id", http.StatusBadRequest)
+		http.Error(w, "Veículo não encontrado.", http.StatusBadRequest)
 		return
 	}
 
 	var req UpdateVeiculoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		http.Error(w, "Não foi possível processar os dados enviados.", http.StatusBadRequest)
 		return
 	}
 
@@ -214,7 +214,7 @@ func (h *VeiculoHandler) Update(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			http.Error(w, "veiculo not found", http.StatusNotFound)
+			http.Error(w, "Veículo não encontrado.", http.StatusNotFound)
 			return
 		}
 		if errors.Is(err, validation.ErrPlacaInvalida) {
@@ -222,11 +222,11 @@ func (h *VeiculoHandler) Update(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.Is(err, brerror.ErrInvalidInput) {
-			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			http.Error(w, brerror.MensagemUsuario(err), http.StatusUnprocessableEntity)
 			return
 		}
 		slog.Error("failed to update veiculo", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -238,22 +238,22 @@ func (h *VeiculoHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	vehicleID, err := conv.ParseInt(r, "veiculoID")
 
 	if err != nil {
-		http.Error(w, "invalid veiculo id", http.StatusBadRequest)
+		http.Error(w, "Veículo não encontrado.", http.StatusBadRequest)
 		return
 	}
 
 	err = h.store.Delete(ctx, vehicleID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			http.Error(w, "veiculo not found", http.StatusNotFound)
+			http.Error(w, "Veículo não encontrado.", http.StatusNotFound)
 			return
 		}
 		if db.IsAnyForeignKeyViolation(err) {
-			http.Error(w, "veículo alocado em ciclos de viagem e não pode ser excluído", http.StatusConflict)
+			http.Error(w, "Este veículo está alocado em viagens e não pode ser removido.", http.StatusConflict)
 			return
 		}
 		slog.Error("failed to delete veiculo", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 

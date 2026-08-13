@@ -56,7 +56,7 @@ func (h *HorarioTurnoViagemHandler) Create(w http.ResponseWriter, r *http.Reques
 func (h *HorarioTurnoViagemHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	id, err := conv.ParseInt(r, "horarioTurnoID")
 	if err != nil {
-		http.Error(w, "invalid horario turno id", http.StatusBadRequest)
+		http.Error(w, "Horário não encontrado.", http.StatusBadRequest)
 		return
 	}
 
@@ -87,13 +87,13 @@ func (h *HorarioTurnoViagemHandler) List(w http.ResponseWriter, r *http.Request)
 func (h *HorarioTurnoViagemHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id, err := conv.ParseInt(r, "horarioTurnoID")
 	if err != nil {
-		http.Error(w, "invalid horario turno id", http.StatusBadRequest)
+		http.Error(w, "Horário não encontrado.", http.StatusBadRequest)
 		return
 	}
 
 	var req HorarioTurnoViagemRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		http.Error(w, "Não foi possível processar os dados enviados.", http.StatusBadRequest)
 		return
 	}
 
@@ -142,7 +142,7 @@ func (h *HorarioTurnoViagemHandler) Update(w http.ResponseWriter, r *http.Reques
 func (h *HorarioTurnoViagemHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := conv.ParseInt(r, "horarioTurnoID")
 	if err != nil {
-		http.Error(w, "invalid horario turno id", http.StatusBadRequest)
+		http.Error(w, "Horário não encontrado.", http.StatusBadRequest)
 		return
 	}
 
@@ -156,20 +156,20 @@ func (h *HorarioTurnoViagemHandler) Delete(w http.ResponseWriter, r *http.Reques
 
 func (h *HorarioTurnoViagemHandler) handleError(w http.ResponseWriter, err error, msg string) {
 	if errors.Is(err, brerror.ErrInvalidInput) {
-		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		http.Error(w, brerror.MensagemUsuario(err), http.StatusUnprocessableEntity)
 		return
 	}
 	if errors.Is(err, brerror.ErrAlreadyExists) {
-		http.Error(w, "resource already exists", http.StatusConflict)
+		http.Error(w, "Já existe um registro com esses dados.", http.StatusConflict)
 		return
 	}
 	if errors.Is(err, brerror.ErrNotFound) {
-		http.Error(w, "resource not found", http.StatusNotFound)
+		http.Error(w, "Registro não encontrado.", http.StatusNotFound)
 		return
 	}
 
 	slog.Error(msg, "error", err)
-	http.Error(w, "internal server error", http.StatusInternalServerError)
+	http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 }
 
 func decodeHorarioTurnoInput(r *http.Request) (HorarioTurnoViagemInput, error) {

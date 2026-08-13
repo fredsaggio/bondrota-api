@@ -31,7 +31,7 @@ func (h *ProcessadorPlanejamentoHandler) Processar(w http.ResponseWriter, r *htt
 	resumo, err := h.processador.Processar(r.Context())
 	if err != nil {
 		logResumoProcessamentoPlanejamento(r.Context(), slog.LevelError, resumo, time.Since(inicio), err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 	if resumo.Devidos > 0 {

@@ -27,7 +27,7 @@ func (s *horarioTurnoViagemService) Create(ctx context.Context, input HorarioTur
 
 func (s *horarioTurnoViagemService) GetByID(ctx context.Context, id int64) (*HorarioTurnoViagem, error) {
 	if id <= 0 {
-		return nil, fmt.Errorf("%w: id is required", brerror.ErrInvalidInput)
+		return nil, fmt.Errorf("%w: Registro não encontrado.", brerror.ErrInvalidInput)
 	}
 	return s.store.GetByID(ctx, id)
 }
@@ -38,7 +38,7 @@ func (s *horarioTurnoViagemService) List(ctx context.Context) ([]HorarioTurnoVia
 
 func (s *horarioTurnoViagemService) Update(ctx context.Context, id int64, updateFunc func(*HorarioTurnoViagem) (bool, error)) (*HorarioTurnoViagem, error) {
 	if id <= 0 {
-		return nil, fmt.Errorf("%w: id is required", brerror.ErrInvalidInput)
+		return nil, fmt.Errorf("%w: Registro não encontrado.", brerror.ErrInvalidInput)
 	}
 
 	return s.store.Update(ctx, id, func(horario *HorarioTurnoViagem) (bool, error) {
@@ -72,7 +72,7 @@ func (s *horarioTurnoViagemService) Update(ctx context.Context, id int64, update
 
 func (s *horarioTurnoViagemService) Delete(ctx context.Context, id int64) error {
 	if id <= 0 {
-		return fmt.Errorf("%w: id is required", brerror.ErrInvalidInput)
+		return fmt.Errorf("%w: Registro não encontrado.", brerror.ErrInvalidInput)
 	}
 	return s.store.Delete(ctx, id)
 }
@@ -83,19 +83,19 @@ func normalizeHorarioTurnoInput(input HorarioTurnoViagemInput) HorarioTurnoViage
 
 func validateHorarioTurnoInput(input HorarioTurnoViagemInput) error {
 	if input.MunicipioDestinoID <= 0 {
-		return fmt.Errorf("%w: municipio_destino_id is required", brerror.ErrInvalidInput)
+		return fmt.Errorf("%w: Selecione o município de destino.", brerror.ErrInvalidInput)
 	}
 	if !isOperationalTurnoViagem(input.Turno) {
-		return fmt.Errorf("%w: turno must be MT, VT or NT", brerror.ErrInvalidInput)
+		return fmt.Errorf("%w: Selecione um turno válido: matutino, vespertino ou noturno.", brerror.ErrInvalidInput)
 	}
 	if input.HorarioIda < 0 || input.HorarioIda >= 24*time.Hour {
-		return fmt.Errorf("%w: horario_ida must be between 00:00 and 23:59", brerror.ErrInvalidInput)
+		return fmt.Errorf("%w: Horário de ida inválido.", brerror.ErrInvalidInput)
 	}
 	if input.HorarioVolta < 0 || input.HorarioVolta >= 24*time.Hour {
-		return fmt.Errorf("%w: horario_volta must be between 00:00 and 23:59", brerror.ErrInvalidInput)
+		return fmt.Errorf("%w: Horário de volta inválido.", brerror.ErrInvalidInput)
 	}
 	if input.HorarioVolta <= input.HorarioIda {
-		return fmt.Errorf("%w: horario_volta must be after horario_ida", brerror.ErrInvalidInput)
+		return fmt.Errorf("%w: O horário de volta deve ser depois do de ida.", brerror.ErrInvalidInput)
 	}
 	return nil
 }

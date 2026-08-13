@@ -30,7 +30,7 @@ func (h *ReservaHandler) RequireOwnerOrAdmin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		claims, ok := r.Context().Value(auth.ClaimsKey).(*auth.Claims)
 		if !ok || claims.UserID <= 0 {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			http.Error(w, "Sua sessão expirou. Entre novamente.", http.StatusUnauthorized)
 			return
 		}
 		if claims.Role == auth.RoleAdmin {
@@ -38,13 +38,13 @@ func (h *ReservaHandler) RequireOwnerOrAdmin(next http.Handler) http.Handler {
 			return
 		}
 		if claims.Role != auth.RoleCliente {
-			http.Error(w, "forbidden", http.StatusForbidden)
+			http.Error(w, "Você não tem permissão para executar esta ação.", http.StatusForbidden)
 			return
 		}
 
 		reservaID, err := conv.ParseInt(r, "reservaID")
 		if err != nil {
-			http.Error(w, "invalid reserva id", http.StatusBadRequest)
+			http.Error(w, "Reserva não encontrada.", http.StatusBadRequest)
 			return
 		}
 		reserva, err := h.svc.GetByID(r.Context(), reservaID)
@@ -53,7 +53,7 @@ func (h *ReservaHandler) RequireOwnerOrAdmin(next http.Handler) http.Handler {
 			return
 		}
 		if reserva.ClienteID != claims.UserID {
-			http.Error(w, "forbidden", http.StatusForbidden)
+			http.Error(w, "Você não tem permissão para executar esta ação.", http.StatusForbidden)
 			return
 		}
 
@@ -120,13 +120,13 @@ func (h *ReservaHandler) CreateByVinculo(w http.ResponseWriter, r *http.Request)
 
 	clienteID, vinculoID, err := parseNestedVinculoIDs(r)
 	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+		http.Error(w, "Registro não encontrado.", http.StatusBadRequest)
 		return
 	}
 
 	var req CreateReservaRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		http.Error(w, "Não foi possível processar os dados enviados.", http.StatusBadRequest)
 		return
 	}
 
@@ -148,7 +148,7 @@ func (h *ReservaHandler) CreateByVinculo(w http.ResponseWriter, r *http.Request)
 func (h *ReservaHandler) ConsultarDisponibilidade(w http.ResponseWriter, r *http.Request) {
 	clienteID, vinculoID, err := parseNestedVinculoIDs(r)
 	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+		http.Error(w, "Registro não encontrado.", http.StatusBadRequest)
 		return
 	}
 
@@ -178,7 +178,7 @@ func (h *ReservaHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 	reservaID, err := conv.ParseInt(r, "reservaID")
 	if err != nil {
-		http.Error(w, "invalid reserva id", http.StatusBadRequest)
+		http.Error(w, "Reserva não encontrada.", http.StatusBadRequest)
 		return
 	}
 
@@ -203,7 +203,7 @@ func (h *ReservaHandler) List(w http.ResponseWriter, r *http.Request) {
 	result, err := h.svc.List(ctx, params)
 	if err != nil {
 		slog.Error("failed to list reservas", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -214,7 +214,7 @@ func (h *ReservaHandler) Resumo(w http.ResponseWriter, r *http.Request) {
 	resumo, err := h.svc.Resumo(r.Context())
 	if err != nil {
 		slog.Error("failed to summarize reservas", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -236,7 +236,7 @@ func parseReservaListParams(r *http.Request) (ReservaListParams, error) {
 	if raw := query.Get("limit"); raw != "" {
 		limit, err := strconv.Atoi(raw)
 		if err != nil || limit <= 0 {
-			return ReservaListParams{}, errors.New("invalid limit")
+			return ReservaListParams{}, errors.New("Parâmetro de listagem inválido.")
 		}
 		params.Limit = limit
 	}
@@ -244,7 +244,7 @@ func parseReservaListParams(r *http.Request) (ReservaListParams, error) {
 	if raw := query.Get("cursor"); raw != "" {
 		cursor, err := decodeReservaCursor(raw)
 		if err != nil {
-			return ReservaListParams{}, errors.New("invalid cursor")
+			return ReservaListParams{}, errors.New("Parâmetro de listagem inválido.")
 		}
 		params.Cursor = cursor
 	}
@@ -252,7 +252,7 @@ func parseReservaListParams(r *http.Request) (ReservaListParams, error) {
 	if raw := query.Get("data_inicio"); raw != "" {
 		data, err := parseReservaDate(raw)
 		if err != nil {
-			return ReservaListParams{}, errors.New("invalid data_inicio")
+			return ReservaListParams{}, errors.New("Data inicial inválida.")
 		}
 		params.DataInicio = &data
 	}
@@ -260,7 +260,7 @@ func parseReservaListParams(r *http.Request) (ReservaListParams, error) {
 	if raw := query.Get("data_fim"); raw != "" {
 		data, err := parseReservaDate(raw)
 		if err != nil {
-			return ReservaListParams{}, errors.New("invalid data_fim")
+			return ReservaListParams{}, errors.New("Data final inválida.")
 		}
 		params.DataFim = &data
 	}
@@ -283,7 +283,7 @@ func decodeReservaCursor(value string) (*ReservaCursor, error) {
 	}
 	parts := strings.SplitN(string(raw), "|", 2)
 	if len(parts) != 2 {
-		return nil, errors.New("malformed cursor")
+		return nil, errors.New("Parâmetro de listagem inválido.")
 	}
 	data, err := time.Parse("2006-01-02", parts[0])
 	if err != nil {
@@ -301,14 +301,14 @@ func (h *ReservaHandler) ListByCliente(w http.ResponseWriter, r *http.Request) {
 
 	clienteID, err := conv.ParseInt(r, "clienteID")
 	if err != nil {
-		http.Error(w, "invalid cliente id", http.StatusBadRequest)
+		http.Error(w, "Cliente não encontrado.", http.StatusBadRequest)
 		return
 	}
 
 	reservas, err := h.svc.ListByCliente(ctx, clienteID)
 	if err != nil {
 		slog.Error("failed to list reservas by cliente", "error", err, "clienteID", clienteID)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -320,18 +320,18 @@ func (h *ReservaHandler) ListByVinculo(w http.ResponseWriter, r *http.Request) {
 
 	clienteID, vinculoID, err := parseNestedVinculoIDs(r)
 	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+		http.Error(w, "Registro não encontrado.", http.StatusBadRequest)
 		return
 	}
 
 	reservas, err := h.svc.ListByVinculo(ctx, clienteID, vinculoID)
 	if err != nil {
 		if errors.Is(err, ErrVinculoNotFound) {
-			http.Error(w, "vinculo not found", http.StatusNotFound)
+			http.Error(w, "Vínculo não encontrado.", http.StatusNotFound)
 			return
 		}
 		slog.Error("failed to list reservas by vinculo", "error", err, "clienteID", clienteID, "vinculoID", vinculoID)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -343,13 +343,13 @@ func (h *ReservaHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	reservaID, err := conv.ParseInt(r, "reservaID")
 	if err != nil {
-		http.Error(w, "invalid reserva id", http.StatusBadRequest)
+		http.Error(w, "Reserva não encontrada.", http.StatusBadRequest)
 		return
 	}
 
 	var req UpdateReservaRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		http.Error(w, "Não foi possível processar os dados enviados.", http.StatusBadRequest)
 		return
 	}
 
@@ -369,7 +369,7 @@ func (h *ReservaHandler) Cancel(w http.ResponseWriter, r *http.Request) {
 
 	reservaID, err := conv.ParseInt(r, "reservaID")
 	if err != nil {
-		http.Error(w, "invalid reserva id", http.StatusBadRequest)
+		http.Error(w, "Reserva não encontrada.", http.StatusBadRequest)
 		return
 	}
 
@@ -389,7 +389,7 @@ func (h *ReservaHandler) Cancel(w http.ResponseWriter, r *http.Request) {
 func (h *ReservaHandler) canCancelReserva(ctx context.Context, reservaID int64, w http.ResponseWriter) bool {
 	claims, ok := ctx.Value(auth.ClaimsKey).(*auth.Claims)
 	if !ok || claims.UserID <= 0 {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		http.Error(w, "Sua sessão expirou. Entre novamente.", http.StatusUnauthorized)
 		return false
 	}
 	if claims.Role != auth.RoleCliente {
@@ -402,7 +402,7 @@ func (h *ReservaHandler) canCancelReserva(ctx context.Context, reservaID int64, 
 		return false
 	}
 	if reserva.ClienteID != claims.UserID {
-		http.Error(w, "forbidden", http.StatusForbidden)
+		http.Error(w, "Você não tem permissão para executar esta ação.", http.StatusForbidden)
 		return false
 	}
 	return true
@@ -413,7 +413,7 @@ func (h *ReservaHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	reservaID, err := conv.ParseInt(r, "reservaID")
 	if err != nil {
-		http.Error(w, "invalid reserva id", http.StatusBadRequest)
+		http.Error(w, "Reserva não encontrada.", http.StatusBadRequest)
 		return
 	}
 
@@ -427,15 +427,15 @@ func (h *ReservaHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 func (h *ReservaHandler) handleError(w http.ResponseWriter, err error, msg string) {
 	if errors.Is(err, ErrReservaNotFound) {
-		http.Error(w, "reserva not found", http.StatusNotFound)
+		http.Error(w, "Reserva não encontrada.", http.StatusNotFound)
 		return
 	}
 	if errors.Is(err, ErrVinculoNotFound) {
-		http.Error(w, "vinculo not found", http.StatusNotFound)
+		http.Error(w, "Vínculo não encontrado.", http.StatusNotFound)
 		return
 	}
 	if db.IsUniqueViolation(err, "uq_reservas_ativas_vinculo_data_turno_sentido") {
-		http.Error(w, "active reserva already exists for this vinculo, date, turno and sentido", http.StatusConflict)
+		http.Error(w, "Já existe uma reserva ativa para este vínculo nesta data, turno e sentido.", http.StatusConflict)
 		return
 	}
 	if errors.Is(err, ErrPrazoReservaEncerrado) {
@@ -455,7 +455,7 @@ func (h *ReservaHandler) handleError(w http.ResponseWriter, err error, msg strin
 		return
 	}
 	slog.Error(msg, "error", err)
-	http.Error(w, "internal server error", http.StatusInternalServerError)
+	http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 }
 
 func parseNestedVinculoIDs(r *http.Request) (int64, int64, error) {

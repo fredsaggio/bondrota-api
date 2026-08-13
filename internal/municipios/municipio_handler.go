@@ -28,14 +28,14 @@ func NewHandler(store Store) *Handler {
 func (h *Handler) ListByUF(w http.ResponseWriter, r *http.Request) {
 	uf := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("uf")))
 	if !validUF(uf) {
-		http.Error(w, "uf must contain exactly two letters", http.StatusBadRequest)
+		http.Error(w, "Selecione um estado válido.", http.StatusBadRequest)
 		return
 	}
 
 	items, err := h.store.ListByUF(r.Context(), uf)
 	if err != nil {
 		slog.Error("failed to list municipios", "error", err, "uf", uf)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -60,11 +60,11 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 	municipio, err := h.store.GetByID(r.Context(), codigoIBGE)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			http.Error(w, "municipio not found", http.StatusNotFound)
+			http.Error(w, "Município não encontrado.", http.StatusNotFound)
 			return
 		}
 		slog.Error("failed to get municipio", "error", err, "codigo_ibge", codigoIBGE)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 

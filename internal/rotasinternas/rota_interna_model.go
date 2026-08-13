@@ -5,10 +5,10 @@ import (
 	"errors"
 )
 
-var ErrNotFound = errors.New("rota interna not found")
-var ErrOrdemDuplicada = errors.New("ordens das paradas devem ser únicas")
-var ErrSemParadas = errors.New("rota deve ter ao menos uma parada") // Adicionar
-var ErrParadaInvalida = errors.New("parada_id e ordem devem ser maiores que zero")
+var ErrNotFound = errors.New("Rota interna não encontrada.")
+var ErrOrdemDuplicada = errors.New("Cada parada precisa de uma posição diferente na rota.")
+var ErrSemParadas = errors.New("Adicione ao menos uma parada à rota.") // Adicionar
+var ErrParadaInvalida = errors.New("Revise as paradas escolhidas para a rota.")
 
 type RotaInterna struct {
 	ID      int64

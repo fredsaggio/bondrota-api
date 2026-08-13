@@ -55,7 +55,7 @@ func NewService(client SupabaseClient) Service {
 
 func (s *service) CreateSignedUploadURL(ctx context.Context, actor Actor, input SignedUploadURLInput) (*SignedUploadURL, error) {
 	if s.client == nil {
-		return nil, fmt.Errorf("%w: storage client is not configured", brerror.ErrInvalidInput)
+		return nil, fmt.Errorf("%w: O armazenamento de arquivos não está disponível.", brerror.ErrInvalidInput)
 	}
 	if err := validateActor(actor); err != nil {
 		return nil, err
@@ -69,14 +69,14 @@ func (s *service) CreateSignedUploadURL(ctx context.Context, actor Actor, input 
 
 func (s *service) MoveObject(ctx context.Context, bucket, from, to string) error {
 	if s.client == nil {
-		return fmt.Errorf("%w: storage client is not configured", brerror.ErrInvalidInput)
+		return fmt.Errorf("%w: O armazenamento de arquivos não está disponível.", brerror.ErrInvalidInput)
 	}
 	return s.client.MoveObject(ctx, bucket, from, to)
 }
 
 func (s *service) CreateSignedDownloadURL(ctx context.Context, actor Actor, input SignedDownloadURLInput) (*SignedDownloadURL, error) {
 	if s.client == nil {
-		return nil, fmt.Errorf("%w: storage client is not configured", brerror.ErrInvalidInput)
+		return nil, fmt.Errorf("%w: O armazenamento de arquivos não está disponível.", brerror.ErrInvalidInput)
 	}
 	if err := validateActor(actor); err != nil {
 		return nil, err
@@ -143,7 +143,7 @@ func validateDownloadInput(actor Actor, input SignedDownloadURLInput) error {
 		return err
 	}
 	if input.ExpiresInSeconds < minDownloadExpirationSeconds || input.ExpiresInSeconds > maxDownloadExpirationSeconds {
-		return fmt.Errorf("%w: expires_in_seconds must be between %d and %d", brerror.ErrInvalidInput, minDownloadExpirationSeconds, maxDownloadExpirationSeconds)
+		return fmt.Errorf("%w: Prazo de acesso ao arquivo inválido.", brerror.ErrInvalidInput)
 	}
 	return nil
 }
@@ -153,7 +153,7 @@ func validateBucket(bucket string) error {
 	case BucketFotos, BucketDocumentos:
 		return nil
 	default:
-		return fmt.Errorf("%w: bucket must be fotos or documentos", brerror.ErrInvalidInput)
+		return fmt.Errorf("%w: Tipo de arquivo não permitido.", brerror.ErrInvalidInput)
 	}
 }
 
@@ -165,19 +165,19 @@ func normalizeObjectPath(value string) string {
 
 func validateObjectPath(value string) error {
 	if value == "" || value == "." {
-		return fmt.Errorf("%w: path is required", brerror.ErrInvalidInput)
+		return fmt.Errorf("%w: Não foi possível identificar o arquivo.", brerror.ErrInvalidInput)
 	}
 	if strings.HasPrefix(value, "/") {
-		return fmt.Errorf("%w: path must be relative", brerror.ErrInvalidInput)
+		return fmt.Errorf("%w: Não foi possível identificar o arquivo.", brerror.ErrInvalidInput)
 	}
 	parts := strings.Split(value, "/")
 	for _, part := range parts {
 		if part == "" || part == "." || part == ".." {
-			return fmt.Errorf("%w: path is invalid", brerror.ErrInvalidInput)
+			return fmt.Errorf("%w: Não foi possível identificar o arquivo.", brerror.ErrInvalidInput)
 		}
 	}
 	if strings.Contains(value, "\\") {
-		return fmt.Errorf("%w: path is invalid", brerror.ErrInvalidInput)
+		return fmt.Errorf("%w: Não foi possível identificar o arquivo.", brerror.ErrInvalidInput)
 	}
 	return nil
 }
@@ -210,7 +210,7 @@ func validateBucketAccess(actor Actor, bucket, objectPath string) error {
 
 func validateContentType(bucket, contentType string) error {
 	if contentType == "" {
-		return fmt.Errorf("%w: content_type is required", brerror.ErrInvalidInput)
+		return fmt.Errorf("%w: Não foi possível identificar o tipo do arquivo.", brerror.ErrInvalidInput)
 	}
 	var allowed map[string]struct{}
 	switch bucket {
@@ -222,7 +222,7 @@ func validateContentType(bucket, contentType string) error {
 		return errors.New("unreachable bucket")
 	}
 	if _, ok := allowed[contentType]; !ok {
-		return fmt.Errorf("%w: content_type is not allowed for this bucket", brerror.ErrInvalidInput)
+		return fmt.Errorf("%w: Este tipo de arquivo não é aceito aqui.", brerror.ErrInvalidInput)
 	}
 	return nil
 }
@@ -239,7 +239,7 @@ func validateExtension(bucket, objectPath string) error {
 		return errors.New("unreachable bucket")
 	}
 	if _, ok := allowed[ext]; !ok {
-		return fmt.Errorf("%w: file extension is not allowed for this bucket", brerror.ErrInvalidInput)
+		return fmt.Errorf("%w: Esta extensão de arquivo não é aceita aqui.", brerror.ErrInvalidInput)
 	}
 	return nil
 }

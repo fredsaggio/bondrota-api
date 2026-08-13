@@ -16,7 +16,7 @@ func requireBearerSecret(secret string) func(http.Handler) http.Handler {
 			providedHash := sha256.Sum256([]byte(provided))
 			if secret == "" || !found || provided == "" || subtle.ConstantTimeCompare(providedHash[:], expectedHash[:]) != 1 {
 				w.Header().Set("WWW-Authenticate", "Bearer")
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				http.Error(w, "Sua sessão expirou. Entre novamente.", http.StatusUnauthorized)
 				return
 			}
 

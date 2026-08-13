@@ -30,7 +30,7 @@ func (s *AlocacaoService) Alocar(ctx context.Context, input AlocarMotoristasInpu
 		return nil, err
 	}
 	if len(motoristas) < input.Quantidade {
-		return nil, fmt.Errorf("%w: motoristas disponiveis insuficientes", brerror.ErrNotFound)
+		return nil, fmt.Errorf("%w: Não há motoristas suficientes disponíveis.", brerror.ErrNotFound)
 	}
 
 	return motoristas, nil
@@ -38,16 +38,16 @@ func (s *AlocacaoService) Alocar(ctx context.Context, input AlocarMotoristasInpu
 
 func validateAlocarMotoristasInput(input AlocarMotoristasInput) error {
 	if input.MunicipioTrabalhoID <= 0 {
-		return fmt.Errorf("%w: municipio_trabalho_id is required", brerror.ErrInvalidInput)
+		return fmt.Errorf("%w: Selecione a cidade de trabalho.", brerror.ErrInvalidInput)
 	}
 	if input.DataViagem.IsZero() {
-		return fmt.Errorf("%w: data_viagem is required", brerror.ErrInvalidInput)
+		return fmt.Errorf("%w: Informe a data da viagem.", brerror.ErrInvalidInput)
 	}
 	if !isTurnoOperacional(input.Turno) {
-		return fmt.Errorf("%w: turno must be MT, VT or NT", brerror.ErrInvalidInput)
+		return fmt.Errorf("%w: Selecione um turno válido: matutino, vespertino ou noturno.", brerror.ErrInvalidInput)
 	}
 	if input.Quantidade <= 0 {
-		return fmt.Errorf("%w: quantidade must be greater than zero", brerror.ErrInvalidInput)
+		return fmt.Errorf("%w: A quantidade deve ser maior que zero.", brerror.ErrInvalidInput)
 	}
 	return nil
 }

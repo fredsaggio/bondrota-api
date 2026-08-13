@@ -106,27 +106,27 @@ func (h *ClienteHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		http.Error(w, "Não foi possível processar os dados enviados.", http.StatusBadRequest)
 		return
 	}
 
 	if strings.TrimSpace(req.CPF) == "" {
-		http.Error(w, "cpf is required", http.StatusBadRequest)
+		http.Error(w, "Informe o CPF.", http.StatusBadRequest)
 		return
 	}
 	if strings.TrimSpace(req.Senha) == "" {
-		http.Error(w, "senha is required", http.StatusBadRequest)
+		http.Error(w, "Informe a senha.", http.StatusBadRequest)
 		return
 	}
 
 	token, err := h.clienteSvc.Login(ctx, strings.TrimSpace(req.CPF), req.Senha)
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidCredentials) || errors.Is(err, ErrNotFound) {
-			http.Error(w, "invalid credentials", http.StatusUnauthorized)
+			http.Error(w, "Credenciais inválidas.", http.StatusUnauthorized)
 			return
 		}
 		slog.Error("failed to login cliente", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -138,7 +138,7 @@ func (h *ClienteHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	var req CreateClienteRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		http.Error(w, "Não foi possível processar os dados enviados.", http.StatusBadRequest)
 		return
 	}
 
@@ -151,11 +151,11 @@ func (h *ClienteHandler) Create(w http.ResponseWriter, r *http.Request) {
 	cliente, err := h.clienteSvc.Create(ctx, input)
 	if err != nil {
 		if db.IsUniqueViolation(err, "clientes_cpf_key") {
-			http.Error(w, "cpf already exists", http.StatusConflict)
+			http.Error(w, "Já existe um cadastro com este CPF.", http.StatusConflict)
 			return
 		}
 		slog.Error("failed to create cliente", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -197,18 +197,18 @@ func (h *ClienteHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 	clienteID, err := conv.ParseInt(r, "clienteID")
 	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+		http.Error(w, "Registro não encontrado.", http.StatusBadRequest)
 		return
 	}
 
 	cliente, err := h.clienteSvc.GetByID(ctx, clienteID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			http.Error(w, "cliente not found", http.StatusNotFound)
+			http.Error(w, "Cliente não encontrado.", http.StatusNotFound)
 			return
 		}
 		slog.Error("failed to get cliente", "error", err, "clienteID", clienteID)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -227,7 +227,7 @@ func (h *ClienteHandler) List(w http.ResponseWriter, r *http.Request) {
 	result, err := h.clienteSvc.List(ctx, params)
 	if err != nil {
 		slog.Error("failed to list clientes", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -248,7 +248,7 @@ func (h *ClienteHandler) Resumo(w http.ResponseWriter, r *http.Request) {
 	resumo, err := h.clienteSvc.Resumo(r.Context())
 	if err != nil {
 		slog.Error("failed to summarize clientes", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -262,7 +262,7 @@ func parseClienteListParams(r *http.Request) (ClienteListParams, error) {
 	if raw := query.Get("limit"); raw != "" {
 		limit, err := strconv.Atoi(raw)
 		if err != nil || limit <= 0 {
-			return ClienteListParams{}, errors.New("invalid limit")
+			return ClienteListParams{}, errors.New("Parâmetro de listagem inválido.")
 		}
 		params.Limit = limit
 	}
@@ -270,7 +270,7 @@ func parseClienteListParams(r *http.Request) (ClienteListParams, error) {
 	if raw := query.Get("cursor"); raw != "" {
 		cursorID, err := decodeClienteCursor(raw)
 		if err != nil {
-			return ClienteListParams{}, errors.New("invalid cursor")
+			return ClienteListParams{}, errors.New("Parâmetro de listagem inválido.")
 		}
 		params.CursorID = cursorID
 	}
@@ -291,7 +291,7 @@ func decodeClienteCursor(value string) (int64, error) {
 	}
 	id, err := strconv.ParseInt(string(raw), 10, 64)
 	if err != nil || id <= 0 {
-		return 0, errors.New("malformed cursor")
+		return 0, errors.New("Parâmetro de listagem inválido.")
 	}
 	return id, nil
 }
@@ -301,13 +301,13 @@ func (h *ClienteHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	clienteID, err := conv.ParseInt(r, "clienteID")
 	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+		http.Error(w, "Registro não encontrado.", http.StatusBadRequest)
 		return
 	}
 
 	var req UpdateClienteRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		http.Error(w, "Não foi possível processar os dados enviados.", http.StatusBadRequest)
 		return
 	}
 
@@ -358,7 +358,7 @@ func (h *ClienteHandler) Update(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			http.Error(w, "cliente not found", http.StatusNotFound)
+			http.Error(w, "Cliente não encontrado.", http.StatusNotFound)
 			return
 		}
 		if errors.Is(err, ErrNomeObrigatorio) ||
@@ -372,7 +372,7 @@ func (h *ClienteHandler) Update(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		slog.Error("failed to update cliente", "error", err, "clienteID", clienteID)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -384,23 +384,23 @@ func (h *ClienteHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	clienteID, err := conv.ParseInt(r, "clienteID")
 	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+		http.Error(w, "Registro não encontrado.", http.StatusBadRequest)
 		return
 	}
 
 	if err := h.clienteSvc.Delete(ctx, clienteID); err != nil {
 		if errors.Is(err, ErrNotFound) {
-			http.Error(w, "cliente not found", http.StatusNotFound)
+			http.Error(w, "Cliente não encontrado.", http.StatusNotFound)
 			return
 		}
 		// Vinculos e reservas do cliente somem em cascata, mas uma reserva ja alocada
 		// a uma viagem e protegida por RESTRICT em viagem_reservas.
 		if db.IsAnyForeignKeyViolation(err) {
-			http.Error(w, "cliente possui reservas alocadas a viagens e não pode ser excluído", http.StatusConflict)
+			http.Error(w, "Este cliente tem reservas em viagens e não pode ser removido.", http.StatusConflict)
 			return
 		}
 		slog.Error("failed to delete cliente", "error", err, "clienteID", clienteID)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -410,24 +410,24 @@ func (h *ClienteHandler) Delete(w http.ResponseWriter, r *http.Request) {
 func toClienteInput(req CreateClienteRequest) (ClienteInput, error) {
 	nomeBruto := strings.TrimSpace(req.Nome)
 	if nomeBruto == "" {
-		return ClienteInput{}, errors.New("nome is required")
+		return ClienteInput{}, errors.New("Informe o nome.")
 	}
 	nome, err := validation.Nome(nomeBruto)
 	if err != nil {
 		return ClienteInput{}, err
 	}
 	if strings.TrimSpace(req.CPF) == "" {
-		return ClienteInput{}, errors.New("cpf is required")
+		return ClienteInput{}, errors.New("Informe o CPF.")
 	}
 	cpf, err := validation.CPF(req.CPF)
 	if err != nil {
 		return ClienteInput{}, err
 	}
 	if strings.TrimSpace(req.Senha) == "" {
-		return ClienteInput{}, errors.New("senha is required")
+		return ClienteInput{}, errors.New("Informe a senha.")
 	}
 	if req.DataNasc == "" {
-		return ClienteInput{}, errors.New("data_nasc is required")
+		return ClienteInput{}, errors.New("Informe a data de nascimento.")
 	}
 
 	dataNasc, err := parseDate(req.DataNasc)

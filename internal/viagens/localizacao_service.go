@@ -28,7 +28,7 @@ func (s *viagemLocalizacaoService) Atualizar(ctx context.Context, actor ViagemLo
 	switch actor.Role {
 	case auth.RoleAdmin:
 		if input.MotoristaID <= 0 {
-			return nil, fmt.Errorf("%w: motorista_id is required", brerror.ErrInvalidInput)
+			return nil, fmt.Errorf("%w: Motorista não encontrado.", brerror.ErrInvalidInput)
 		}
 	case auth.RoleMotorista:
 		allowed, err := s.store.CanMotoristaAccessViagem(ctx, input.ViagemID, actor.UserID, true)
@@ -52,7 +52,7 @@ func (s *viagemLocalizacaoService) Atualizar(ctx context.Context, actor ViagemLo
 
 func (s *viagemLocalizacaoService) GetByViagem(ctx context.Context, actor ViagemLocalizacaoActor, viagemID int64) (*ViagemLocalizacao, error) {
 	if viagemID <= 0 {
-		return nil, fmt.Errorf("%w: viagem_id is required", brerror.ErrInvalidInput)
+		return nil, fmt.Errorf("%w: Viagem não encontrada.", brerror.ErrInvalidInput)
 	}
 	if actor.UserID <= 0 {
 		return nil, brerror.ErrUnauthenticated
@@ -85,22 +85,22 @@ func (s *viagemLocalizacaoService) GetByViagem(ctx context.Context, actor Viagem
 
 func validateViagemLocalizacaoInput(input ViagemLocalizacaoInput) error {
 	if input.ViagemID <= 0 {
-		return fmt.Errorf("%w: viagem_id is required", brerror.ErrInvalidInput)
+		return fmt.Errorf("%w: Viagem não encontrada.", brerror.ErrInvalidInput)
 	}
 	if input.Latitude < -90 || input.Latitude > 90 {
-		return fmt.Errorf("%w: latitude must be between -90 and 90", brerror.ErrInvalidInput)
+		return fmt.Errorf("%w: Localização inválida.", brerror.ErrInvalidInput)
 	}
 	if input.Longitude < -180 || input.Longitude > 180 {
-		return fmt.Errorf("%w: longitude must be between -180 and 180", brerror.ErrInvalidInput)
+		return fmt.Errorf("%w: Localização inválida.", brerror.ErrInvalidInput)
 	}
 	if input.VelocidadeKmh < 0 {
-		return fmt.Errorf("%w: velocidade_kmh must be greater than or equal to zero", brerror.ErrInvalidInput)
+		return fmt.Errorf("%w: Velocidade inválida.", brerror.ErrInvalidInput)
 	}
 	if input.DirecaoGraus < 0 || input.DirecaoGraus > 360 {
-		return fmt.Errorf("%w: direcao_graus must be between 0 and 360", brerror.ErrInvalidInput)
+		return fmt.Errorf("%w: Direção inválida.", brerror.ErrInvalidInput)
 	}
 	if input.PrecisaoMetros < 0 {
-		return fmt.Errorf("%w: precisao_metros must be greater than or equal to zero", brerror.ErrInvalidInput)
+		return fmt.Errorf("%w: Precisão de localização inválida.", brerror.ErrInvalidInput)
 	}
 	return nil
 }

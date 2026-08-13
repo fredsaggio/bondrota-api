@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-var ErrSemDemandaPlanejamento = errors.New("no demand for planejamento")
+var ErrSemDemandaPlanejamento = errors.New("Não há reservas suficientes para planejar esta viagem.")
 
 type CandidatoPlanejamento struct {
 	Chave          ChaveExecucaoPlanejamento

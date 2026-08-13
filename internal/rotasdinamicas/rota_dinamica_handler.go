@@ -81,13 +81,13 @@ type RotaDinamicaComDestinosResponse struct {
 func (h *RotaDinamicaHandler) Create(w http.ResponseWriter, r *http.Request) {
 	viagemID, err := conv.ParseInt(r, "viagemID")
 	if err != nil {
-		http.Error(w, "invalid viagem id", http.StatusBadRequest)
+		http.Error(w, "Viagem não encontrada.", http.StatusBadRequest)
 		return
 	}
 
 	var req RotaDinamicaRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		http.Error(w, "Não foi possível processar os dados enviados.", http.StatusBadRequest)
 		return
 	}
 
@@ -109,7 +109,7 @@ func (h *RotaDinamicaHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *RotaDinamicaHandler) GetByViagem(w http.ResponseWriter, r *http.Request) {
 	viagemID, err := conv.ParseInt(r, "viagemID")
 	if err != nil {
-		http.Error(w, "invalid viagem id", http.StatusBadRequest)
+		http.Error(w, "Viagem não encontrada.", http.StatusBadRequest)
 		return
 	}
 
@@ -125,11 +125,11 @@ func (h *RotaDinamicaHandler) GetByViagem(w http.ResponseWriter, r *http.Request
 func (h *RotaDinamicaHandler) Calcular(w http.ResponseWriter, r *http.Request) {
 	viagemID, err := conv.ParseInt(r, "viagemID")
 	if err != nil {
-		http.Error(w, "invalid viagem id", http.StatusBadRequest)
+		http.Error(w, "Viagem não encontrada.", http.StatusBadRequest)
 		return
 	}
 	if h.calculadorSvc == nil {
-		http.Error(w, "calculation service unavailable", http.StatusInternalServerError)
+		http.Error(w, "O serviço de rotas está indisponível. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -145,7 +145,7 @@ func (h *RotaDinamicaHandler) Calcular(w http.ResponseWriter, r *http.Request) {
 func (h *RotaDinamicaHandler) DeleteByViagem(w http.ResponseWriter, r *http.Request) {
 	viagemID, err := conv.ParseInt(r, "viagemID")
 	if err != nil {
-		http.Error(w, "invalid viagem id", http.StatusBadRequest)
+		http.Error(w, "Viagem não encontrada.", http.StatusBadRequest)
 		return
 	}
 
@@ -159,20 +159,20 @@ func (h *RotaDinamicaHandler) DeleteByViagem(w http.ResponseWriter, r *http.Requ
 
 func (h *RotaDinamicaHandler) handleError(w http.ResponseWriter, err error, msg string) {
 	if errors.Is(err, brerror.ErrNotFound) {
-		http.Error(w, "resource not found", http.StatusNotFound)
+		http.Error(w, "Registro não encontrado.", http.StatusNotFound)
 		return
 	}
 	if errors.Is(err, brerror.ErrAlreadyExists) {
-		http.Error(w, "resource already exists", http.StatusConflict)
+		http.Error(w, "Já existe um registro com esses dados.", http.StatusConflict)
 		return
 	}
 	if errors.Is(err, brerror.ErrInvalidInput) {
-		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+		http.Error(w, brerror.MensagemUsuario(err), http.StatusUnprocessableEntity)
 		return
 	}
 
 	slog.Error(msg, "error", err)
-	http.Error(w, "internal server error", http.StatusInternalServerError)
+	http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 }
 
 func toRotaDinamicaInput(viagemID int64, req RotaDinamicaRequest) (RotaDinamicaInput, error) {

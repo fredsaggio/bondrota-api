@@ -39,7 +39,7 @@ func (s *rotaDinamicaService) Create(ctx context.Context, input RotaDinamicaInpu
 
 func (s *rotaDinamicaService) GetByViagem(ctx context.Context, viagemID int64) (*RotaDinamicaComDestinos, error) {
 	if viagemID <= 0 {
-		return nil, invalidInput("viagem_id is required")
+		return nil, invalidInput("Selecione a viagem.")
 	}
 
 	return s.store.GetByViagem(ctx, viagemID)
@@ -47,7 +47,7 @@ func (s *rotaDinamicaService) GetByViagem(ctx context.Context, viagemID int64) (
 
 func (s *rotaDinamicaService) DeleteByViagem(ctx context.Context, viagemID int64) error {
 	if viagemID <= 0 {
-		return invalidInput("viagem_id is required")
+		return invalidInput("Selecione a viagem.")
 	}
 
 	return s.store.DeleteByViagem(ctx, viagemID)
@@ -70,10 +70,10 @@ func normalizeRotaDinamicaInput(input RotaDinamicaInput) (RotaDinamicaInput, err
 	seenDestino := make(map[int64]struct{}, len(input.Destinos))
 	for i, destino := range input.Destinos {
 		if destino.DestinoID <= 0 {
-			return RotaDinamicaInput{}, invalidInput("destino_id is required")
+			return RotaDinamicaInput{}, invalidInput("Selecione o destino.")
 		}
 		if _, ok := seenDestino[destino.DestinoID]; ok {
-			return RotaDinamicaInput{}, invalidInput("destino_id duplicated")
+			return RotaDinamicaInput{}, invalidInput("O mesmo destino foi informado mais de uma vez.")
 		}
 		seenDestino[destino.DestinoID] = struct{}{}
 
@@ -89,7 +89,7 @@ func normalizeRotaDinamicaInput(input RotaDinamicaInput) (RotaDinamicaInput, err
 
 func validateRotaDinamicaInput(input RotaDinamicaInput) error {
 	if input.ViagemID <= 0 {
-		return errors.New("viagem_id is required")
+		return errors.New("Selecione a viagem.")
 	}
 	if input.Provider == "" {
 		return errors.New("provider is required")
@@ -113,7 +113,7 @@ func validateRotaDinamicaInput(input RotaDinamicaInput) error {
 		return errors.New("expires_at is required")
 	}
 	if len(input.Destinos) == 0 {
-		return errors.New("destinos is required")
+		return errors.New("Selecione ao menos um destino.")
 	}
 
 	return nil

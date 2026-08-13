@@ -44,24 +44,24 @@ func (h *DestinoHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	var req DestinoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		http.Error(w, "Não foi possível processar os dados enviados.", http.StatusBadRequest)
 		return
 	}
 
 	if req.Nome == "" {
-		http.Error(w, "name is required", http.StatusBadRequest)
+		http.Error(w, "Informe o nome.", http.StatusBadRequest)
 		return
 	}
 	if req.Rua == "" {
-		http.Error(w, "street is required", http.StatusBadRequest)
+		http.Error(w, "Informe a rua.", http.StatusBadRequest)
 		return
 	}
 	if req.MunicipioID <= 0 {
-		http.Error(w, "municipio_id is required", http.StatusBadRequest)
+		http.Error(w, "Selecione o município.", http.StatusBadRequest)
 		return
 	}
 	if req.Latitude == 0 || req.Longitude == 0 {
-		http.Error(w, "latitude and longitude are required", http.StatusBadRequest)
+		http.Error(w, "Marque a localização no mapa.", http.StatusBadRequest)
 		return
 	}
 
@@ -76,7 +76,7 @@ func (h *DestinoHandler) Create(w http.ResponseWriter, r *http.Request) {
 	destino, err := h.store.Create(ctx, input)
 	if err != nil {
 		slog.Error("failed to create destino", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -88,18 +88,18 @@ func (h *DestinoHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	destinoID, err := conv.ParseInt(r, "id")
 
 	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+		http.Error(w, "Registro não encontrado.", http.StatusBadRequest)
 		return
 	}
 
 	destino, err := h.store.GetByID(ctx, destinoID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			http.Error(w, "destino not found", http.StatusNotFound)
+			http.Error(w, "Destino não encontrado.", http.StatusNotFound)
 			return
 		}
 		slog.Error("failed to get destino", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -111,7 +111,7 @@ func (h *DestinoHandler) List(w http.ResponseWriter, r *http.Request) {
 	destinos, err := h.store.List(ctx)
 	if err != nil {
 		slog.Error("failed to list destinos", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -126,14 +126,14 @@ func (h *DestinoHandler) ListByMunicipio(w http.ResponseWriter, r *http.Request)
 	ctx := r.Context()
 	municipioID, err := conv.ParseInt(r, "municipioID")
 	if err != nil {
-		http.Error(w, "invalid municipio id", http.StatusBadRequest)
+		http.Error(w, "Município não encontrado.", http.StatusBadRequest)
 		return
 	}
 
 	destinos, err := h.store.ListByMunicipio(ctx, municipioID)
 	if err != nil {
 		slog.Error("failed to list destinos by city", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -149,13 +149,13 @@ func (h *DestinoHandler) Update(w http.ResponseWriter, r *http.Request) {
 	destinoID, err := conv.ParseInt(r, "id")
 
 	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+		http.Error(w, "Registro não encontrado.", http.StatusBadRequest)
 		return
 	}
 
 	var req DestinoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		http.Error(w, "Não foi possível processar os dados enviados.", http.StatusBadRequest)
 		return
 	}
 
@@ -186,11 +186,11 @@ func (h *DestinoHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			http.Error(w, "destino not found", http.StatusNotFound)
+			http.Error(w, "Destino não encontrado.", http.StatusNotFound)
 			return
 		}
 		slog.Error("failed to update destino", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -201,22 +201,22 @@ func (h *DestinoHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	id, err := conv.ParseInt(r, "id")
 	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+		http.Error(w, "Registro não encontrado.", http.StatusBadRequest)
 		return
 	}
 
 	err = h.store.Delete(ctx, id)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			http.Error(w, "destino not found", http.StatusNotFound)
+			http.Error(w, "Destino não encontrado.", http.StatusNotFound)
 			return
 		}
 		if db.IsAnyForeignKeyViolation(err) {
-			http.Error(w, "destino em uso por vínculos, reservas ou rotas e não pode ser excluído", http.StatusConflict)
+			http.Error(w, "Este destino está em uso e não pode ser removido.", http.StatusConflict)
 			return
 		}
 		slog.Error("failed to delete destino", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 

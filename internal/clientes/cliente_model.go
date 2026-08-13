@@ -7,14 +7,14 @@ import (
 )
 
 var (
-	ErrNotFound         = errors.New("cliente not found")
-	ErrVinculoNotFound  = errors.New("vinculo not found")
-	ErrNomeObrigatorio  = errors.New("nome is required")
-	ErrCursoObrigatorio = errors.New("curso is required for estudante")
-	ErrTipoInvalido     = errors.New("tipo must be estudante or estagio")
+	ErrNotFound         = errors.New("Cliente não encontrado.")
+	ErrVinculoNotFound  = errors.New("Vínculo não encontrado.")
+	ErrNomeObrigatorio  = errors.New("Informe o nome.")
+	ErrCursoObrigatorio = errors.New("Informe o curso para vínculo de estudante.")
+	ErrTipoInvalido     = errors.New("Selecione um tipo válido: estudante ou estágio.")
 	ErrTurnoInvalido    = errors.New("turno must be MT, VT, NT or IN")
 	ErrDiaInvalido      = errors.New("dia_semana must be between 1 and 5")
-	ErrDiaDuplicado     = errors.New("dia_semana must not be duplicated")
+	ErrDiaDuplicado     = errors.New("Não repita o mesmo dia da semana.")
 	ErrDataInvalida     = errors.New("date must be in format YYYY-MM-DD")
 )
 

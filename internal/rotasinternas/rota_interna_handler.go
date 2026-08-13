@@ -49,7 +49,7 @@ func (h *RotaInternaHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	var req CreateRotaInternaRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		http.Error(w, "Não foi possível processar os dados enviados.", http.StatusBadRequest)
 		return
 	}
 
@@ -63,7 +63,7 @@ func (h *RotaInternaHandler) Create(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -75,17 +75,17 @@ func (h *RotaInternaHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 	rotaInternaID, err := conv.ParseInt(r, "id")
 	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+		http.Error(w, "Registro não encontrado.", http.StatusBadRequest)
 		return
 	}
 
 	rota, err := h.svc.GetByID(ctx, rotaInternaID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			http.Error(w, "rota interna not found", http.StatusNotFound)
+			http.Error(w, "Rota interna não encontrada.", http.StatusNotFound)
 			return
 		}
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -97,7 +97,7 @@ func (h *RotaInternaHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	rotas, err := h.svc.List(ctx)
 	if err != nil {
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -114,13 +114,13 @@ func (h *RotaInternaHandler) UpdateParadas(w http.ResponseWriter, r *http.Reques
 	rotaInternaID, err := conv.ParseInt(r, "id")
 
 	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+		http.Error(w, "Registro não encontrado.", http.StatusBadRequest)
 		return
 	}
 
 	var req UpdateParadasRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		http.Error(w, "Não foi possível processar os dados enviados.", http.StatusBadRequest)
 		return
 	}
 
@@ -131,14 +131,14 @@ func (h *RotaInternaHandler) UpdateParadas(w http.ResponseWriter, r *http.Reques
 	rota, err := h.svc.UpdateParadas(ctx, rotaInternaID, input)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			http.Error(w, "rota interna not found", http.StatusNotFound)
+			http.Error(w, "Rota interna não encontrada.", http.StatusNotFound)
 			return
 		}
 		if errors.Is(err, ErrOrdemDuplicada) || errors.Is(err, ErrSemParadas) || errors.Is(err, ErrParadaInvalida) {
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -150,20 +150,20 @@ func (h *RotaInternaHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	rotaInternaID, err := conv.ParseInt(r, "id")
 	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+		http.Error(w, "Registro não encontrado.", http.StatusBadRequest)
 		return
 	}
 
 	if err := h.svc.Delete(ctx, rotaInternaID); err != nil {
 		if errors.Is(err, ErrNotFound) {
-			http.Error(w, "rota interna not found", http.StatusNotFound)
+			http.Error(w, "Rota interna não encontrada.", http.StatusNotFound)
 			return
 		}
 		if db.IsAnyForeignKeyViolation(err) {
-			http.Error(w, "rota interna em uso por vínculos, reservas ou viagens e não pode ser excluída", http.StatusConflict)
+			http.Error(w, "Esta rota está em uso e não pode ser removida.", http.StatusConflict)
 			return
 		}
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 

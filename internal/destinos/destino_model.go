@@ -5,7 +5,7 @@ import (
 	"errors"
 )
 
-var ErrNotFound = errors.New("destino not found")
+var ErrNotFound = errors.New("Destino não encontrado.")
 
 type Destino struct {
 	ID          int64

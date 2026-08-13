@@ -7,18 +7,18 @@ import (
 )
 
 var (
-	ErrReservaNotFound       = errors.New("reserva not found")
-	ErrVinculoNotFound       = errors.New("vinculo not found")
-	ErrDataObrigatoria       = errors.New("data_viagem is required")
+	ErrReservaNotFound       = errors.New("Reserva não encontrada.")
+	ErrVinculoNotFound       = errors.New("Vínculo não encontrado.")
+	ErrDataObrigatoria       = errors.New("Informe a data da viagem.")
 	ErrDataInvalida          = errors.New("data_viagem must be in format YYYY-MM-DD")
-	ErrSentidoInvalido       = errors.New("sentido must be ida or volta")
-	ErrStatusInvalido        = errors.New("status must be confirmada or cancelada")
+	ErrSentidoInvalido       = errors.New("Selecione o sentido: ida ou volta.")
+	ErrStatusInvalido        = errors.New("Selecione uma situação válida para a reserva.")
 	ErrTurnoInvalido         = errors.New("turno must be MT, VT or NT")
-	ErrTurnoObrigatorio      = errors.New("turno is required for vinculo integral")
-	ErrTurnoIncompativel     = errors.New("turno is incompatible with vinculo")
-	ErrVinculoIDObrigatorio  = errors.New("vinculo_id is required")
-	ErrHorarioNaoConfigurado = errors.New("trip schedule is not configured for this destination and turno")
-	ErrPrazoReservaEncerrado = errors.New("reservation deadline has passed")
+	ErrTurnoObrigatorio      = errors.New("Selecione o turno para vínculo integral.")
+	ErrTurnoIncompativel     = errors.New("O turno escolhido não combina com o vínculo do cliente.")
+	ErrVinculoIDObrigatorio  = errors.New("Selecione o vínculo.")
+	ErrHorarioNaoConfigurado = errors.New("Não há horário configurado para este destino e turno.")
+	ErrPrazoReservaEncerrado = errors.New("O prazo para esta reserva já foi encerrado.")
 )
 
 type TurnoReserva string

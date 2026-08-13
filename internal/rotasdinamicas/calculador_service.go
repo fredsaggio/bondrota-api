@@ -40,7 +40,7 @@ func NewCalculadorRotaDinamicaService(
 
 func (s *calculadorRotaDinamicaService) Calcular(ctx context.Context, viagemID int64) (*RotaDinamicaComDestinos, error) {
 	if viagemID <= 0 {
-		return nil, invalidInput("viagem_id is required")
+		return nil, invalidInput("Selecione a viagem.")
 	}
 	if s.roteador == nil {
 		return nil, fmt.Errorf("%w: roteador is required", brerror.ErrInvalidInput)
@@ -78,7 +78,7 @@ func (s *calculadorRotaDinamicaService) montarInputRota(ctx context.Context, dad
 	case sentidoVolta:
 		return s.montarInputVolta(ctx, dados)
 	default:
-		return RotaDinamicaInput{}, nil, invalidInput("sentido da viagem invalido")
+		return RotaDinamicaInput{}, nil, invalidInput("Selecione o sentido: ida ou volta.")
 	}
 }
 
@@ -166,19 +166,19 @@ func (s *calculadorRotaDinamicaService) montarInputVolta(ctx context.Context, da
 
 func validateDadosCalculo(dados *DadosCalculoRota) error {
 	if dados == nil {
-		return invalidInput("dados de calculo is required")
+		return invalidInput("Não foi possível calcular a rota agora. Tente novamente.")
 	}
 	if dados.ViagemID <= 0 {
-		return invalidInput("viagem_id is required")
+		return invalidInput("Selecione a viagem.")
 	}
 	if dados.ExpiresAt.IsZero() {
 		return invalidInput("expires_at is required")
 	}
 	if len(dados.Paradas) == 0 {
-		return invalidInput("rota interna precisa ter paradas")
+		return invalidInput("A rota interna precisa ter paradas.")
 	}
 	if len(dados.Destinos) == 0 {
-		return invalidInput("viagem precisa ter reservas com destinos")
+		return invalidInput("Esta viagem não tem reservas com destino para calcular a rota.")
 	}
 	return nil
 }

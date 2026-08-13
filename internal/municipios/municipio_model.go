@@ -5,7 +5,7 @@ import (
 	"errors"
 )
 
-var ErrNotFound = errors.New("municipio not found")
+var ErrNotFound = errors.New("Município não encontrado.")
 
 type Municipio struct {
 	CodigoIBGE int64

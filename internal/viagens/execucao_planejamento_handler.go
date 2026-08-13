@@ -48,7 +48,7 @@ func (h *ExecucaoPlanejamentoHandler) ListFalhas(w http.ResponseWriter, r *http.
 	execucoes, err := h.store.ListFalhas(r.Context(), limit)
 	if err != nil {
 		slog.Error("failed to list planejamento failures", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 

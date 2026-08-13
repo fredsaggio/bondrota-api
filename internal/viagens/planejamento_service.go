@@ -137,7 +137,7 @@ func (s *planejamentoService) planejarVolta(ctx context.Context, input Planejame
 
 func validatePlanejamentoInput(input PlanejamentoViagensInput) error {
 	if input.DataViagem.IsZero() {
-		return errors.New("data_viagem is required")
+		return errors.New("Informe a data da viagem.")
 	}
 	if !isOperationalTurnoViagem(input.Turno) {
 		return errors.New("turno must be MT, VT or NT")
@@ -146,10 +146,10 @@ func validatePlanejamentoInput(input PlanejamentoViagensInput) error {
 		return errors.New("municipio_destino_id is required")
 	}
 	if input.RotaInternaID <= 0 {
-		return errors.New("rota_interna_id is required")
+		return errors.New("Selecione a rota interna.")
 	}
 	if input.Sentido != SentidoIda && input.Sentido != SentidoVolta {
-		return errors.New("sentido must be ida or volta")
+		return errors.New("Selecione o sentido: ida ou volta.")
 	}
 
 	return nil
@@ -223,7 +223,7 @@ func montarCiclosVoltaComReservasInput(ciclos []CicloPlanejamentoVolta, reservas
 		})
 	}
 	if quantidadeAlocada != len(reservas) {
-		return nil, 0, fmt.Errorf("%w: return reservations exceed outbound vehicle capacity", brerror.ErrInvalidInput)
+		return nil, 0, fmt.Errorf("%w: As reservas de volta excedem a capacidade dos veículos da ida.", brerror.ErrInvalidInput)
 	}
 
 	return inputs, capacidadeTotal, nil

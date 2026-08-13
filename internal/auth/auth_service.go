@@ -10,8 +10,8 @@ import (
 )
 
 var (
-	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrUserNotFound       = errors.New("user not found")
+	ErrInvalidCredentials = errors.New("Credenciais inválidas.")
+	ErrUserNotFound       = errors.New("Usuário não encontrado.")
 )
 
 const TokenTTL = 24 * time.Hour

@@ -5,7 +5,7 @@ import (
 	"errors"
 )
 
-var ErrNotFound = errors.New("parada not found")
+var ErrNotFound = errors.New("Parada não encontrada.")
 
 type Parada struct {
 	ID        int64

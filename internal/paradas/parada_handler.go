@@ -38,12 +38,12 @@ func (h *ParadaHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	var req ParadaRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		http.Error(w, "Não foi possível processar os dados enviados.", http.StatusBadRequest)
 		return
 	}
 
 	if req.Nome == "" {
-		http.Error(w, "nome is required", http.StatusBadRequest)
+		http.Error(w, "Informe o nome.", http.StatusBadRequest)
 		return
 	}
 	input := ParadaInput{
@@ -55,7 +55,7 @@ func (h *ParadaHandler) Create(w http.ResponseWriter, r *http.Request) {
 	parada, err := h.store.Create(ctx, input)
 	if err != nil {
 		slog.Error("failed to create parada", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -67,18 +67,18 @@ func (h *ParadaHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 	paradaID, err := conv.ParseInt(r, "id")
 	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+		http.Error(w, "Registro não encontrado.", http.StatusBadRequest)
 		return
 	}
 
 	parada, err := h.store.GetByID(ctx, paradaID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			http.Error(w, "parada not found", http.StatusNotFound)
+			http.Error(w, "Parada não encontrada.", http.StatusNotFound)
 			return
 		}
 		slog.Error("failed to get parada", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -91,7 +91,7 @@ func (h *ParadaHandler) List(w http.ResponseWriter, r *http.Request) {
 	paradas, err := h.store.List(ctx)
 	if err != nil {
 		slog.Error("failed to list paradas", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -108,13 +108,13 @@ func (h *ParadaHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	paradaID, err := conv.ParseInt(r, "id")
 	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+		http.Error(w, "Registro não encontrado.", http.StatusBadRequest)
 		return
 	}
 
 	var req ParadaRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		http.Error(w, "Não foi possível processar os dados enviados.", http.StatusBadRequest)
 		return
 	}
 
@@ -136,11 +136,11 @@ func (h *ParadaHandler) Update(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			http.Error(w, "parada not found", http.StatusNotFound)
+			http.Error(w, "Parada não encontrada.", http.StatusNotFound)
 			return
 		}
 		slog.Error("failed to update parada", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -152,21 +152,21 @@ func (h *ParadaHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	paradaID, err := conv.ParseInt(r, "id")
 	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+		http.Error(w, "Registro não encontrado.", http.StatusBadRequest)
 		return
 	}
 
 	if err := h.store.Delete(ctx, paradaID); err != nil {
 		if errors.Is(err, ErrNotFound) {
-			http.Error(w, "parada not found", http.StatusNotFound)
+			http.Error(w, "Parada não encontrada.", http.StatusNotFound)
 			return
 		}
 		if db.IsAnyForeignKeyViolation(err) {
-			http.Error(w, "parada em uso por uma rota interna e não pode ser excluída", http.StatusConflict)
+			http.Error(w, "Esta parada está em uso por uma rota e não pode ser removida.", http.StatusConflict)
 			return
 		}
 		slog.Error("failed to delete parada", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 

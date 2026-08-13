@@ -11,11 +11,14 @@ import (
 	"unicode"
 )
 
+// O texto destes erros vai direto para a tela de quem usa o painel, entao e
+// escrito em portugues e sem nome de coluna. Detalhe tecnico de falha
+// inesperada nao entra aqui: isso vai para o log do servidor, em ingles.
 var (
-	ErrNomeInvalido     = errors.New("nome must contain only letters and spaces")
-	ErrCPFInvalido      = errors.New("cpf is not a valid CPF number")
-	ErrTelefoneInvalido = errors.New("telefone must be a valid cellphone number: ddd + 9 digits starting with 9")
-	ErrPlacaInvalida    = errors.New("placa must have 7 characters: LLLNNNN (old) or LLLNLNN (mercosul)")
+	ErrNomeInvalido     = errors.New("O nome deve conter apenas letras e espaços.")
+	ErrCPFInvalido      = errors.New("CPF inválido. Confira os dígitos digitados.")
+	ErrTelefoneInvalido = errors.New("O telefone deve ser um celular válido: DDD + 9 dígitos.")
+	ErrPlacaInvalida    = errors.New("A placa deve seguir um dos padrões: ABC-1234 ou ABC1D23.")
 )
 
 var naoDigito = regexp.MustCompile(`\D`)

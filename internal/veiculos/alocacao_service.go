@@ -49,13 +49,13 @@ func (s *AlocacaoService) Alocar(ctx context.Context, input AlocarVeiculosInput)
 
 func validateAlocarVeiculosInput(input AlocarVeiculosInput) error {
 	if input.DataViagem.IsZero() {
-		return fmt.Errorf("%w: data_viagem is required", brerror.ErrInvalidInput)
+		return fmt.Errorf("%w: Informe a data da viagem.", brerror.ErrInvalidInput)
 	}
 	if !isTurnoOperacional(input.Turno) {
-		return fmt.Errorf("%w: turno must be MT, VT or NT", brerror.ErrInvalidInput)
+		return fmt.Errorf("%w: Selecione um turno válido: matutino, vespertino ou noturno.", brerror.ErrInvalidInput)
 	}
 	if input.QuantidadeAlunos <= 0 {
-		return fmt.Errorf("%w: quantidade_alunos must be greater than zero", brerror.ErrInvalidInput)
+		return fmt.Errorf("%w: A quantidade de alunos deve ser maior que zero.", brerror.ErrInvalidInput)
 	}
 	return nil
 }
@@ -110,7 +110,9 @@ func selecionarVeiculosDoPlano(plano []PlanoCategoriaVeiculo, disponiveis []Veic
 		}
 
 		if quantidadeSelecionada < item.Quantidade {
-			return nil, fmt.Errorf("%w: veiculos disponiveis insuficientes para categoria %s", brerror.ErrNotFound, item.Categoria)
+			// A categoria fica so no log: para quem usa o painel, o que importa
+			// e que faltou veiculo, nao o nome interno da categoria.
+			return nil, fmt.Errorf("%w: Não há veículos suficientes disponíveis.", brerror.ErrNotFound)
 		}
 	}
 

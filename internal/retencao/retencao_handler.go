@@ -38,7 +38,7 @@ func (h *Handler) Limpar(w http.ResponseWriter, r *http.Request) {
 			"execucoes_removidas", resumo.ExecucoesRemovidas,
 			"duracao_ms", duracao.Milliseconds(),
 		)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 

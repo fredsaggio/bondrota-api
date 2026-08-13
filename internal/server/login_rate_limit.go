@@ -220,5 +220,5 @@ func respondRateLimited(w http.ResponseWriter, retryAfter time.Duration) {
 		seconds = 1
 	}
 	w.Header().Set("Retry-After", strconv.Itoa(seconds))
-	http.Error(w, "too many login attempts", http.StatusTooManyRequests)
+	http.Error(w, "Muitas tentativas de acesso. Aguarde um minuto e tente novamente.", http.StatusTooManyRequests)
 }

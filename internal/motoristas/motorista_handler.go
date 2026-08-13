@@ -94,27 +94,27 @@ func (h *MotoristaHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		http.Error(w, "Não foi possível processar os dados enviados.", http.StatusBadRequest)
 		return
 	}
 
 	if strings.TrimSpace(req.CPF) == "" {
-		http.Error(w, "cpf is required", http.StatusBadRequest)
+		http.Error(w, "Informe o CPF.", http.StatusBadRequest)
 		return
 	}
 	if strings.TrimSpace(req.Senha) == "" {
-		http.Error(w, "senha is required", http.StatusBadRequest)
+		http.Error(w, "Informe a senha.", http.StatusBadRequest)
 		return
 	}
 
 	token, err := h.svc.Login(ctx, strings.TrimSpace(req.CPF), req.Senha)
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidCredentials) {
-			http.Error(w, "invalid credentials", http.StatusUnauthorized)
+			http.Error(w, "Credenciais inválidas.", http.StatusUnauthorized)
 			return
 		}
 		slog.Error("failed to login motorista", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -126,13 +126,13 @@ func (h *MotoristaHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	var req CreateMotoristaRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		http.Error(w, "Não foi possível processar os dados enviados.", http.StatusBadRequest)
 		return
 	}
 
 	nomeBruto := strings.TrimSpace(req.Nome)
 	if nomeBruto == "" {
-		http.Error(w, "nome is required", http.StatusBadRequest)
+		http.Error(w, "Informe o nome.", http.StatusBadRequest)
 		return
 	}
 	nome, err := validation.Nome(nomeBruto)
@@ -141,7 +141,7 @@ func (h *MotoristaHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if strings.TrimSpace(req.CPF) == "" {
-		http.Error(w, "cpf is required", http.StatusBadRequest)
+		http.Error(w, "Informe o CPF.", http.StatusBadRequest)
 		return
 	}
 	cpf, err := validation.CPF(req.CPF)
@@ -150,19 +150,19 @@ func (h *MotoristaHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if strings.TrimSpace(req.Senha) == "" {
-		http.Error(w, "senha is required", http.StatusBadRequest)
+		http.Error(w, "Informe a senha.", http.StatusBadRequest)
 		return
 	}
 	if req.Turno == "" {
-		http.Error(w, "turno is required", http.StatusBadRequest)
+		http.Error(w, "Selecione o turno.", http.StatusBadRequest)
 		return
 	}
 	if req.DataNasc == "" {
-		http.Error(w, "data_nasc is required", http.StatusBadRequest)
+		http.Error(w, "Informe a data de nascimento.", http.StatusBadRequest)
 		return
 	}
 	if req.MunicipioTrabalhoID <= 0 {
-		http.Error(w, "municipio_trabalho_id is required", http.StatusBadRequest)
+		http.Error(w, "Selecione a cidade de trabalho.", http.StatusBadRequest)
 		return
 	}
 
@@ -201,11 +201,11 @@ func (h *MotoristaHandler) Create(w http.ResponseWriter, r *http.Request) {
 	motorista, err := h.svc.Create(ctx, input)
 	if err != nil {
 		if db.IsUniqueViolation(err, "motoristas_cpf_key") {
-			http.Error(w, "cpf already exists", http.StatusConflict)
+			http.Error(w, "Já existe um cadastro com este CPF.", http.StatusConflict)
 			return
 		}
 		slog.Error("failed to create motorista", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -247,18 +247,18 @@ func (h *MotoristaHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 	motoristaID, err := conv.ParseInt(r, "id")
 	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+		http.Error(w, "Registro não encontrado.", http.StatusBadRequest)
 		return
 	}
 
 	motorista, err := h.svc.GetByID(ctx, motoristaID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			http.Error(w, "motorista not found", http.StatusNotFound)
+			http.Error(w, "Motorista não encontrado.", http.StatusNotFound)
 			return
 		}
 		slog.Error("failed to get motorista", "error", err, "motoristaID", motoristaID)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -271,7 +271,7 @@ func (h *MotoristaHandler) List(w http.ResponseWriter, r *http.Request) {
 	motoristas, err := h.svc.List(ctx)
 	if err != nil {
 		slog.Error("failed to list motoristas", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -288,13 +288,13 @@ func (h *MotoristaHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	motoristaID, err := conv.ParseInt(r, "id")
 	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+		http.Error(w, "Registro não encontrado.", http.StatusBadRequest)
 		return
 	}
 
 	var req UpdateMotoristaRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		http.Error(w, "Não foi possível processar os dados enviados.", http.StatusBadRequest)
 		return
 	}
 
@@ -369,7 +369,7 @@ func (h *MotoristaHandler) Update(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			http.Error(w, "motorista not found", http.StatusNotFound)
+			http.Error(w, "Motorista não encontrado.", http.StatusNotFound)
 			return
 		}
 		if errors.Is(err, ErrNomeObrigatorio) ||
@@ -381,7 +381,7 @@ func (h *MotoristaHandler) Update(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		slog.Error("failed to update motorista", "error", err, "motoristaID", motoristaID)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -393,21 +393,21 @@ func (h *MotoristaHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	motoristaID, err := conv.ParseInt(r, "id")
 	if err != nil {
-		http.Error(w, "invalid id", http.StatusBadRequest)
+		http.Error(w, "Registro não encontrado.", http.StatusBadRequest)
 		return
 	}
 
 	if err := h.svc.Delete(ctx, motoristaID); err != nil {
 		if errors.Is(err, ErrNotFound) {
-			http.Error(w, "motorista not found", http.StatusNotFound)
+			http.Error(w, "Motorista não encontrado.", http.StatusNotFound)
 			return
 		}
 		if db.IsAnyForeignKeyViolation(err) {
-			http.Error(w, "motorista alocado em ciclos de viagem e não pode ser excluído", http.StatusConflict)
+			http.Error(w, "Este motorista está alocado em viagens e não pode ser removido.", http.StatusConflict)
 			return
 		}
 		slog.Error("failed to delete motorista", "error", err, "motoristaID", motoristaID)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "Erro inesperado no servidor. Tente novamente em instantes.", http.StatusInternalServerError)
 		return
 	}
 

@@ -9,7 +9,7 @@ import (
 	"github.com/fredsaggio/bondrota-api/internal/brerror"
 )
 
-var ErrNotFound = errors.New("vehicle not found")
+var ErrNotFound = errors.New("Veículo não encontrado.")
 
 type StatusVeiculo string
 type CategoriaVeiculo string
@@ -101,10 +101,10 @@ func CapacidadeDaCategoria(categoria CategoriaVeiculo) (int16, bool) {
 func ValidateCategoriaCapacidade(categoria CategoriaVeiculo, capacidade int16) error {
 	expected, ok := CapacidadeDaCategoria(categoria)
 	if !ok {
-		return fmt.Errorf("%w: categoria must be executivo, escolar or carro_7_lugares", brerror.ErrInvalidInput)
+		return fmt.Errorf("%w: Selecione uma categoria válida.", brerror.ErrInvalidInput)
 	}
 	if capacidade != expected {
-		return fmt.Errorf("%w: capacidade for categoria %s must be %d", brerror.ErrInvalidInput, categoria, expected)
+		return fmt.Errorf("%w: A capacidade deve ser de %d lugares para esta categoria.", brerror.ErrInvalidInput, expected)
 	}
 	return nil
 }

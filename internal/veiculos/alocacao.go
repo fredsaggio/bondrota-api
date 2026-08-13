@@ -15,7 +15,7 @@ type PlanoCategoriaVeiculo struct {
 
 func PlanejarCategoriasPorQuantidade(qtdAlunos int) ([]PlanoCategoriaVeiculo, error) {
 	if qtdAlunos <= 0 {
-		return nil, fmt.Errorf("%w: quantidade de alunos must be greater than zero", brerror.ErrInvalidInput)
+		return nil, fmt.Errorf("%w: A quantidade de alunos deve ser maior que zero.", brerror.ErrInvalidInput)
 	}
 
 	categorias := []struct {

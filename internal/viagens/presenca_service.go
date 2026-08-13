@@ -15,7 +15,7 @@ func NewPresencaService(store ViagemReservaStore) PresencaService {
 
 func (s *presencaService) ListReservasByViagem(ctx context.Context, viagemID int64) ([]ViagemReservaComReserva, error) {
 	if viagemID <= 0 {
-		return nil, errors.New("viagem_id is required")
+		return nil, errors.New("Selecione a viagem.")
 	}
 
 	return s.store.ListReservasByViagem(ctx, viagemID)
@@ -23,13 +23,13 @@ func (s *presencaService) ListReservasByViagem(ctx context.Context, viagemID int
 
 func (s *presencaService) AtualizarPresenca(ctx context.Context, viagemID, reservaID int64, status StatusPresencaViagem) (*ViagemReserva, error) {
 	if viagemID <= 0 {
-		return nil, errors.New("viagem_id is required")
+		return nil, errors.New("Selecione a viagem.")
 	}
 	if reservaID <= 0 {
-		return nil, errors.New("reserva_id is required")
+		return nil, errors.New("Selecione a reserva.")
 	}
 	if !isValidStatusPresencaUpdate(status) {
-		return nil, errors.New("status_presenca must be embarcou, faltou or cancelado")
+		return nil, errors.New("Selecione uma situação de presença válida.")
 	}
 
 	return s.store.UpdatePresenca(ctx, viagemID, reservaID, func(vr *ViagemReserva) (bool, error) {
@@ -37,7 +37,7 @@ func (s *presencaService) AtualizarPresenca(ctx context.Context, viagemID, reser
 			return false, nil
 		}
 		if vr.StatusPresenca == StatusPresencaCancelado {
-			return false, errors.New("presenca cancelada nao pode ser alterada")
+			return false, errors.New("Uma presença cancelada não pode ser alterada.")
 		}
 
 		vr.StatusPresenca = status
